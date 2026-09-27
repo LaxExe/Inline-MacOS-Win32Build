@@ -71,6 +71,11 @@ void MacKeyboardHook::setKeyCallback(std::function<void(const RawKeyEvent&)> cb)
     callback_ = std::move(cb);
 }
 
+void MacKeyboardHook::clearQueue() {
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    eventQueue_.clear();
+}
+
 CGEventRef MacKeyboardHook::eventTapCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void* userInfo) {
     auto* self = static_cast<MacKeyboardHook*>(userInfo);
     if (!self) return event;

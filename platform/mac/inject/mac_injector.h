@@ -18,6 +18,7 @@ public:
     void stop() override;
     void enqueue(const InjectionOp& op) override;
     void setValidToken(InjectionOp::Source source, int token) override;
+    void clearQueue();
 
     void postTaggedKeyEvent(CGKeyCode key, bool keyDown);
     void postTaggedUnicodeEvent(wchar_t ch);

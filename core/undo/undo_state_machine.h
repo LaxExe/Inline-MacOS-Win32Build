@@ -24,6 +24,7 @@ public:
     CorrectResult onWordCorrected(const std::wstring& original, const std::wstring& corrected);
     UndoActionResult onBackspace();
     void onOtherKey();
+    void reset();
 
 private:
     enum class State {

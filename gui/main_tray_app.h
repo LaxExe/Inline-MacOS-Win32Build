@@ -30,6 +30,7 @@ public slots:
     void toggleMasterEnabled();
     void toggleSentenceCorrection();
     void openPreferences();
+    void clearAllBuffers();
     void quitApp();
 
 private:
@@ -38,6 +39,7 @@ private:
     QAction* statusAction_ = nullptr;
     QAction* pauseAction_ = nullptr;
     QAction* sentenceToggleAction_ = nullptr;
+    QAction* clearAction_ = nullptr;
     QAction* prefsAction_ = nullptr;
     QAction* quitAction_ = nullptr;
 
@@ -62,6 +64,7 @@ private:
     std::atomic<bool> hasGhostActive_{false};
     bool isSentenceStart_ = true;
     QTimer* pauseTimer_ = nullptr;
+    QTimer* idleClearTimer_ = nullptr;
 
     void setupTray();
     void onRawKeyEvent(const RawKeyEvent& ev);
@@ -70,4 +73,6 @@ private:
     void handleBackspace();
     void handleTabAccept();
     void onTypingPause();
+    void onIdleTimeout();
+    void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
 };

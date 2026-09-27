@@ -42,14 +42,49 @@ MainTrayApp::MainTrayApp(QObject* parent) : QObject(parent) {
     pauseTimer_ = new QTimer(this);
     pauseTimer_->setSingleShot(true);
     connect(pauseTimer_, &QTimer::timeout, this, &MainTrayApp::onTypingPause);
+
+    idleClearTimer_ = new QTimer(this);
+    idleClearTimer_->setSingleShot(true);
+    idleClearTimer_->setInterval(30000); // 30 seconds
+    connect(idleClearTimer_, &QTimer::timeout, this, &MainTrayApp::onIdleTimeout);
+
     setupTray();
 }
 
 MainTrayApp::~MainTrayApp() {
+    clearAllBuffers();
     hook_.stop();
     injector_.stop();
+}
+
+void MainTrayApp::clearAllBuffers() {
     currentWord_.chars.clear();
     contextWindow_.words.clear();
+    sentenceBuffer_.words.clear();
+    undoSM_.reset();
+    overlayWindow_.hide();
+    currentGhostText_.clear();
+    hasGhostActive_.store(false, std::memory_order_release);
+    hook_.clearQueue();
+    injector_.clearQueue();
+
+    if (settingsDialog_ && settingsDialog_->isVisible()) {
+        QString msg = QString("🧹 [BUFFER CLEARED] All keystrokes, word buffers, and queues purged.");
+        QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
+    }
+}
+
+void MainTrayApp::onIdleTimeout() {
+    clearAllBuffers();
+    if (settingsDialog_ && settingsDialog_->isVisible()) {
+        QString msg = QString("⏳ [IDLE AUTO-CLEAR] Inactivity for >30s detected. Buffer automatically purged.");
+        QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
+    }
+}
+
+void MainTrayApp::onTrayActivated(QSystemTrayIcon::ActivationReason reason) {
+    (void)reason;
+    clearAllBuffers();
 }
 
 void MainTrayApp::setupTray() {
@@ -63,6 +98,7 @@ void MainTrayApp::setupTray() {
 
     pauseAction_ = trayMenu_->addAction(tr("Pause Corrections"), this, &MainTrayApp::toggleMasterEnabled);
     sentenceToggleAction_ = trayMenu_->addAction(tr("Sentence Correction: On"), this, &MainTrayApp::toggleSentenceCorrection);
+    clearAction_ = trayMenu_->addAction(tr("🧹 Clear Keystroke Buffer"), this, &MainTrayApp::clearAllBuffers);
 
     trayMenu_->addSeparator();
 
@@ -70,6 +106,9 @@ void MainTrayApp::setupTray() {
     quitAction_ = trayMenu_->addAction(tr("Quit"), this, &MainTrayApp::quitApp);
 
     trayIcon_->setContextMenu(trayMenu_);
+    connect(trayIcon_, &QSystemTrayIcon::activated, this, &MainTrayApp::onTrayActivated);
+    connect(trayMenu_, &QMenu::aboutToShow, this, &MainTrayApp::clearAllBuffers);
+
     updateTrayIcon();
     trayIcon_->show();
 }
@@ -125,6 +164,9 @@ void MainTrayApp::openPreferences() {
 }
 
 void MainTrayApp::quitApp() {
+    clearAllBuffers();
+    hook_.stop();
+    injector_.stop();
     QApplication::quit();
 }
 
@@ -227,6 +269,10 @@ static wchar_t keyCodeToChar(int64_t keycode, uint64_t flags) {
 
 void MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev) {
     if (ev.type != kCGEventKeyDown) return;
+
+    if (idleClearTimer_) {
+        idleClearTimer_->start(30000);
+    }
 
     bool enabled = false;
     {

@@ -18,6 +18,7 @@ public:
     bool isRunning() const override;
     void setKeyCallback(std::function<void(const RawKeyEvent&)> cb) override;
     void setShouldInterceptTab(std::function<bool()> fn) { shouldInterceptTab_ = std::move(fn); }
+    void clearQueue();
 
     static CGEventRef eventTapCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void* userInfo);
 

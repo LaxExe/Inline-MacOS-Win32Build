@@ -46,6 +46,11 @@ void MacInjector::enqueue(const InjectionOp& op) {
     cv_.notify_one();
 }
 
+void MacInjector::clearQueue() {
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    queue_.clear();
+}
+
 void MacInjector::setValidToken(InjectionOp::Source source, int token) {
     std::lock_guard<std::mutex> lock(tokenMutex_);
     validTokens_[static_cast<int>(source)] = token;

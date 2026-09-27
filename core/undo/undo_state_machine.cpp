@@ -36,3 +36,10 @@ void UndoStateMachine::onOtherKey() {
     state_ = State::Idle;
     suppressedWord_.clear();
 }
+
+void UndoStateMachine::reset() {
+    state_ = State::Idle;
+    lastOriginal_.clear();
+    lastCorrected_.clear();
+    suppressedWord_.clear();
+}
