@@ -8,10 +8,6 @@ add_library(core_lib STATIC
     injection/priority_queue.cpp
     tier1/symspell_dict.cpp
     tier1/corrector.cpp
-    tier2/diff_safety.cpp
-    tier2/supervisor_policy.cpp
-    ghosttext/dismissal.cpp
-    ghosttext/predictor.cpp
     undo/undo_state_machine.cpp
     reliability/circuit_breaker.cpp
     reliability/engine_mode.cpp

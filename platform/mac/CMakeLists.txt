@@ -14,10 +14,7 @@ add_library(mac_platform_lib STATIC
     hook/tap_recovery.cpp
     hook/mac_keyboard_hook.mm
     caret/secure_field_classifier.cpp
-    caret/overlay_position.cpp
-    caret/mac_caret_tracker.mm
     inject/mac_injector.mm
-    overlay/ghost_overlay_window.mm
     login/login_item.mm
     hotkey/global_hotkey.mm
 )

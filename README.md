@@ -1,17 +1,18 @@
 # Inline (macOS)
 
-A high-performance, native macOS menu bar typing assistant built in C++17 and Objective-C++. **Inline** provides real-time, low-latency autocorrection, run-together word splitting, smart typo recovery, and optional predictive ghost text directly within macOS applications.
+A high-performance, ultra-lightweight native macOS menu bar autocorrect engine built in C++17 and Objective-C++. **Inline** provides instant, sub-millisecond typo correction, run-together word splitting, and smart single-key undo recovery directly across all macOS applications with minimal CPU and memory footprint (<5 MB RAM, ~0.0% idle CPU).
 
 ---
 
 ## Features
 
-- ⚡ **Sub-Millisecond Autocorrection (Tier 1)**: Instant dictionary lookups and frequency-weighted SymSpell candidate ranking for common typos, transpositions, and dropped characters.
-- 🧩 **Run-Together Word Splitting**: Automatically detects and splits concatenated words (e.g. `theclass` → `the class`, `ofevening` → `of evening`).
-- 🔄 **Character-Accurate Stream & Single-Key Undo**: Maintains exact synchronization with your screen buffer. Pressing Backspace immediately reverts any auto-correction back to your exact typed input.
-- 🛡️ **Zero Event Dump on App Teardown**: Uses a persistent, reusable session event source (`kCGEventSourceStateCombinedSessionState`) posting to `kCGSessionEventTap` to guarantee no queued characters or Mach port leaks when closing the app.
-- 🔒 **Privacy & Secure Field Suppression**: Automatically detects password and credential fields via macOS Accessibility (`AXUIElement`) and suppresses all hooking and buffer collection.
-- 🎛️ **Native Cocoa Menu Bar App**: Sits discreetly in the macOS menu bar with real-time status indication, preferences dialog, engine mode toggles, and hotkey controls.
+- ⚡ **Ultra-Lightweight & Sub-Millisecond Autocorrection**: Instant unigram dictionary lookups and frequency-weighted SymSpell candidate ranking with zero background overhead.
+- 🧩 **Run-Together Word Splitting**: Automatically detects and splits concatenated words (e.g. `theclass` → `the class`, `ofevening` → `of evening`, `timerighte` → `time right`).
+- 🔄 **Single-Key Revert on Backspace**: If a word is autocorrected and you press Backspace, Inline seamlessly reverts the word back to your exact typed input.
+- 🧹 **Automatic & Manual Buffer Purging**: Automatically clears all keystroke buffers after 30 seconds of inactivity, on menu bar interaction, via manual menu action, and on application quit.
+- 🛡️ **Zero Keystroke Dumps on Teardown**: Ensures clean event queue draining and immediate `CGEventTap` disabling on quit, preventing any buffered keystrokes from dumping to active apps.
+- 🔒 **Privacy & Secure Field Protection**: Password and credential fields are automatically excluded from logging, buffering, and corrections.
+- 🎛️ **Native macOS Menu Bar App**: Sits discreetly in the macOS menu bar with real-time status indication, live test playground, and hotkey controls (⌘⌥⇧K).
 - 🧪 **100% Test Coverage**: Complete GoogleTest unit and integration test suite covering hooks, injectors, buffers, priority queues, and undo state machines.
 
 ---
@@ -25,40 +26,35 @@ A high-performance, native macOS menu bar typing assistant built in C++17 and Ob
                                   +-----------+-----------+
                                               |
                                               v
-+-------------------------+       +-----------+-----------+
-|  Accessibility Caret    |       |   Synthetic Filter    |  (Rejects injected loopbacks)
-|  & Secure Classifier    |<------+-----------------------+
-+------------+------------+                   |
-             |                                v
-             |                    +-----------+-----------+
-             |                    |   Text Stream Buffer  |  (Accurate char-level history)
-             |                    +-----------+-----------+
-             |                                |
-             |                                v
-             |                    +-----------+-----------+
-             |                    |    Tier 1 Corrector   |  (SymSpell 82K + Expansions)
-             |                    +-----------+-----------+
-             |                                |
-             |                                v
-             |                    +-----------+-----------+
-             |                    |    Injection Queue    |  (Atomic REPLACE_TEXT)
-             |                    +-----------+-----------+
-             |                                |
-             |                                v
-             |                    +-----------+-----------+
-             +------------------->|     Ghost Overlay     |  (Optional inline predictions)
-                                  +-----------------------+
+                                  +-----------+-----------+
+                                  |   Synthetic Filter    |  (Rejects injected loopbacks)
+                                  +-----------+-----------+
+                                              |
+                                              v
+                                  +-----------+-----------+
+                                  | Ephemeral Word Buffer |  (Single-word, 30s auto-purge)
+                                  +-----------+-----------+
+                                              |
+                                              v
+                                  +-----------+-----------+
+                                  |   Tier 1 Corrector    |  (SymSpell 82K + Expansions)
+                                  +-----------+-----------+
+                                              |
+                                              v
+                                  +-----------+-----------+
+                                  |    Injection Queue    |  (Atomic REPLACE_TEXT)
+                                  +-----------+-----------+
 ```
 
 ### Key Modules
 
 - **`core/tier1`**: Damerau-Levenshtein distance calculation, 82,000+ word unigram frequency dictionary, common English contraction expansions, and run-together compound splitter.
-- **`core/buffers`**: Continuous character history stream, word boundary segmentation, and trailing-word extraction.
+- **`core/buffers`**: Ephemeral single-word buffering, delimiter detection, and boundary segmentation.
 - **`core/injection`**: Priority queue for injection tokens, atomic text replacement engine, and event pacing.
 - **`core/undo`**: Deterministic state machine tracking replacement history for single-keystroke undo operations.
 - **`core/reliability`**: Circuit breaker monitoring injection latency, error rates, and automatic fallback modes.
-- **`platform/mac`**: Native macOS hooks (`CGEventTapCreate`), event synthesis (`CGEventPost`), AX caret geometry tracking (`AXUIElementCopyAttributeValue`), and overlay windows.
-- **`gui`**: Native macOS status bar tray item (`NSStatusBar`), settings panel, and login item manager.
+- **`platform/mac`**: Native macOS hooks (`CGEventTapCreate`), event synthesis (`CGEventPost`), and permissions management.
+- **`gui`**: Native macOS status bar tray item (`QSystemTrayIcon`), settings panel, live test playground, and login item manager.
 
 ---
 
@@ -100,24 +96,6 @@ open build_release/gui/TypingAssistant.app
 ```
 
 On first launch, macOS will prompt for **Accessibility** and **Input Monitoring** permissions in *System Settings → Privacy & Security*.
-
----
-
-## Configuration
-
-Settings are saved to `~/Library/Application Support/TypingAssistant/config.json`:
-
-```json
-{
-  "engineMode": 0,
-  "maxDictionaryEditDistance": 2,
-  "sentenceCorrectionEnabled": false,
-  "ghostTextEnabled": false,
-  "ghostTextDelayMs": 250,
-  "maxBufferTokens": 100,
-  "ignoreWords": []
-}
-```
 
 ---
 

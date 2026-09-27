@@ -1,51 +1,31 @@
 #include "core/tier1/symspell_dict.h"
+#include <iostream>
 #include <fstream>
-#include <filesystem>
+#include <sstream>
 #include <algorithm>
 #include <cmath>
+#include <cwctype>
+#include <filesystem>
+
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
 
-static inline std::wstring utf8ToWstringFast(const char* str, size_t len) {
-    std::wstring result;
-    result.reserve(len);
-    size_t i = 0;
-    while (i < len) {
-        unsigned char c = static_cast<unsigned char>(str[i]);
-        if (c < 0x80) {
-            result.push_back(static_cast<wchar_t>(c));
-            i += 1;
-        } else if ((c & 0xE0) == 0xC0) {
-            if (i + 1 < len) {
-                wchar_t wc = ((c & 0x1F) << 6) | (static_cast<unsigned char>(str[i + 1]) & 0x3F);
-                result.push_back(wc);
-            }
-            i += 2;
-        } else if ((c & 0xF0) == 0xE0) {
-            if (i + 2 < len) {
-                wchar_t wc = ((c & 0x0F) << 12) | ((static_cast<unsigned char>(str[i + 1]) & 0x3F) << 6) | (static_cast<unsigned char>(str[i + 2]) & 0x3F);
-                result.push_back(wc);
-            }
-            i += 3;
-        } else {
-            i += 1;
-        }
-    }
-    return result;
-}
-
 int damerauLevenshteinDistance(const std::wstring& s1, const std::wstring& s2) {
     size_t len1 = s1.size();
     size_t len2 = s2.size();
+
     if (len1 == 0) return static_cast<int>(len2);
     if (len2 == 0) return static_cast<int>(len1);
 
+    if (s1 == s2) return 0;
+
     int d[32][32];
-    if (len1 >= 31 || len2 >= 31) {
-        std::vector<std::vector<int>> dyn(len1 + 1, std::vector<int>(len2 + 1, 0));
+    if (len1 >= 32 || len2 >= 32) {
+        std::vector<std::vector<int>> dyn(len1 + 1, std::vector<int>(len2 + 1));
         for (size_t i = 0; i <= len1; ++i) dyn[i][0] = static_cast<int>(i);
         for (size_t j = 0; j <= len2; ++j) dyn[0][j] = static_cast<int>(j);
+
         for (size_t i = 1; i <= len1; ++i) {
             for (size_t j = 1; j <= len2; ++j) {
                 int cost = (s1[i - 1] == s2[j - 1]) ? 0 : 1;
@@ -79,18 +59,19 @@ int damerauLevenshteinDistance(const std::wstring& s1, const std::wstring& s2) {
 
 SymSpellDict::SymSpellDict(int maxEditDistance, int prefixLength)
     : maxEditDistance_(maxEditDistance), prefixLength_(prefixLength) {
-    words_.reserve(90000);
-    deletes_.reserve(350000);
-    prefixMap_.reserve(100000);
+    wordList_.reserve(85000);
+    words_.reserve(85000);
+    deletes_.reserve(300000);
 }
 
-void SymSpellDict::createDeletes(const std::wstring& word) {
+void SymSpellDict::createDeletes(uint32_t wordId) {
+    const std::wstring& word = wordList_[wordId].first;
     std::wstring prefix = word.substr(0, std::min<size_t>(word.size(), prefixLength_));
     std::unordered_set<std::wstring> delSet;
     delSet.insert(prefix);
     getDeletes(prefix, maxEditDistance_, delSet);
     for (const auto& del : delSet) {
-        deletes_[del].push_back(word);
+        deletes_[del].push_back(wordId);
     }
 }
 
@@ -111,29 +92,16 @@ void SymSpellDict::addWord(const std::wstring& word, int64_t count) {
     if (word.empty()) return;
     auto it = words_.find(word);
     if (it != words_.end()) {
-        it->second = std::max(it->second, count);
-    } else {
-        words_[word] = count;
-        if (count > maxCount_) maxCount_ = count;
-        createDeletes(word);
-
-        // Index prefixes for instant ghost text autocomplete
-        for (size_t len = 2; len <= std::min<size_t>(word.size(), 8); ++len) {
-            std::wstring pref = word.substr(0, len);
-            auto& list = prefixMap_[pref];
-            if (list.size() < 10) {
-                list.push_back({word, count});
-                std::sort(list.begin(), list.end(), [](const auto& a, const auto& b) {
-                    return a.second > b.second;
-                });
-            } else if (count > list.back().second) {
-                list.back() = {word, count};
-                std::sort(list.begin(), list.end(), [](const auto& a, const auto& b) {
-                    return a.second > b.second;
-                });
-            }
+        if (count > wordList_[it->second].second) {
+            wordList_[it->second].second = count;
         }
+        return;
     }
+
+    uint32_t wordId = static_cast<uint32_t>(wordList_.size());
+    wordList_.push_back({word, count});
+    words_[word] = wordId;
+    createDeletes(wordId);
 }
 
 bool SymSpellDict::hasWord(const std::wstring& word) const {
@@ -142,14 +110,7 @@ bool SymSpellDict::hasWord(const std::wstring& word) const {
 
 int64_t SymSpellDict::getFrequency(const std::wstring& word) const {
     auto it = words_.find(word);
-    if (it != words_.end()) return it->second;
-    return 0;
-}
-
-int64_t SymSpellDict::getBigramFrequency(const std::wstring& w1, const std::wstring& w2) const {
-    std::wstring phrase = w1 + L" " + w2;
-    auto it = bigrams_.find(phrase);
-    if (it != bigrams_.end()) return it->second;
+    if (it != words_.end()) return wordList_[it->second].second;
     return 0;
 }
 
@@ -183,21 +144,11 @@ static std::string resolveFilePath(const std::string& path) {
         }
         std::filesystem::path binDir = binPath.parent_path();
 
-        // 1. App bundle Resources (e.g. TypingAssistant.app/Contents/Resources/...)
         candidates.push_back((binDir.parent_path() / "Resources" / path).string());
         candidates.push_back((binDir.parent_path() / "Resources" / "dictionaries" / filename).string());
-
-        // 2. Relative to MacOS directory or build output directory
-        candidates.push_back((binDir / path).string());
-        candidates.push_back((binDir / ".." / path).string());
-        candidates.push_back((binDir / ".." / ".." / path).string());
-        candidates.push_back((binDir / ".." / ".." / ".." / path).string());
-        candidates.push_back((binDir / ".." / ".." / ".." / "dictionaries" / filename).string());
         candidates.push_back((binDir / "dictionaries" / filename).string());
+        candidates.push_back((binDir / "Resources" / "dictionaries" / filename).string());
     }
-
-    candidates.push_back("/Applications/TypingAssistant.app/Contents/Resources/" + path);
-    candidates.push_back("/Applications/TypingAssistant.app/Contents/Resources/dictionaries/" + filename);
 #endif
 
     for (const auto& c : candidates) {
@@ -208,43 +159,44 @@ static std::string resolveFilePath(const std::string& path) {
     return path;
 }
 
-bool SymSpellDict::loadDictionary(const std::string& corpusPath, int termIndex, int countIndex) {
-    std::string resolved = resolveFilePath(corpusPath);
-    std::ifstream file(resolved);
-    if (!file.is_open()) return false;
-
-    std::string line;
-    while (std::getline(file, line)) {
-        if (line.empty()) continue;
-        const char* p = line.c_str();
-        if (line.size() >= 3 && (unsigned char)p[0] == 0xEF && (unsigned char)p[1] == 0xBB && (unsigned char)p[2] == 0xBF) {
-            p += 3;
+static inline std::wstring utf8ToWstringFast(const char* s, size_t len) {
+    std::wstring ws;
+    ws.reserve(len);
+    size_t i = 0;
+    while (i < len) {
+        unsigned char c = static_cast<unsigned char>(s[i]);
+        if (c < 0x80) {
+            ws.push_back(static_cast<wchar_t>(c));
+            i += 1;
+        } else if ((c & 0xE0) == 0xC0) {
+            if (i + 1 < len) {
+                wchar_t wc = ((c & 0x1F) << 6) | (s[i + 1] & 0x3F);
+                ws.push_back(wc);
+            }
+            i += 2;
+        } else if ((c & 0xF0) == 0xE0) {
+            if (i + 2 < len) {
+                wchar_t wc = ((c & 0x0F) << 12) | ((s[i + 1] & 0x3F) << 6) | (s[i + 2] & 0x3F);
+                ws.push_back(wc);
+            }
+            i += 3;
+        } else {
+            i += 4;
         }
-        while (*p == ' ' || *p == '\t') ++p;
-        if (!*p) continue;
-
-        const char* wordStart = p;
-        while (*p && *p != ' ' && *p != '\t') ++p;
-        size_t wordLen = p - wordStart;
-
-        while (*p == ' ' || *p == '\t') ++p;
-        int64_t count = 1;
-        if (*p) {
-            char* endp = nullptr;
-            count = std::strtoll(p, &endp, 10);
-            if (count <= 0) count = 1;
-        }
-
-        std::wstring term = utf8ToWstringFast(wordStart, wordLen);
-        addWord(term, count);
     }
-    return true;
+    return ws;
 }
 
-bool SymSpellDict::loadBigramDictionary(const std::string& corpusPath, int termIndex, int countIndex) {
+bool SymSpellDict::loadDictionary(const std::string& corpusPath, int termIndex, int countIndex) {
+    (void)termIndex;
+    (void)countIndex;
+
     std::string resolved = resolveFilePath(corpusPath);
-    std::ifstream file(resolved);
-    if (!file.is_open()) return false;
+    std::ifstream file(resolved, std::ios::in | std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "[SymSpellDict] Failed to open dictionary: " << corpusPath << " (resolved: " << resolved << ")\n";
+        return false;
+    }
 
     std::string line;
     while (std::getline(file, line)) {
@@ -256,14 +208,9 @@ bool SymSpellDict::loadBigramDictionary(const std::string& corpusPath, int termI
         while (*p == ' ' || *p == '\t') ++p;
         if (!*p) continue;
 
-        const char* p1 = p;
+        const char* termStart = p;
         while (*p && *p != ' ' && *p != '\t') ++p;
-        size_t len1 = p - p1;
-
-        while (*p == ' ' || *p == '\t') ++p;
-        const char* p2 = p;
-        while (*p && *p != ' ' && *p != '\t') ++p;
-        size_t len2 = p - p2;
+        size_t termLen = p - termStart;
 
         while (*p == ' ' || *p == '\t') ++p;
         int64_t count = 1;
@@ -273,18 +220,10 @@ bool SymSpellDict::loadBigramDictionary(const std::string& corpusPath, int termI
             if (count <= 0) count = 1;
         }
 
-        std::wstring w1 = utf8ToWstringFast(p1, len1);
-        std::wstring w2 = utf8ToWstringFast(p2, len2);
-        std::wstring term = w1 + L" " + w2;
-        bigrams_[term] = count;
-
-        std::wstring lowerW1 = w1;
-        for (auto& c : lowerW1) c = std::towlower(c);
-        auto it = bigramBestNext_.find(lowerW1);
-        if (it == bigramBestNext_.end() || count > it->second.second) {
-            bigramBestNext_[lowerW1] = {w2, count};
-        }
+        std::wstring wterm = utf8ToWstringFast(termStart, termLen);
+        addWord(wterm, count);
     }
+
     return true;
 }
 
@@ -301,14 +240,14 @@ std::vector<Suggestion> SymSpellDict::lookup(const std::wstring& input, int maxE
     // 1. Exact match
     auto exactIt = words_.find(input);
     if (exactIt != words_.end()) {
-        suggestions.push_back({input, 0, exactIt->second});
+        suggestions.push_back({input, 0, wordList_[exactIt->second].second});
     }
 
     if (maxEditDistance == 0) return suggestions;
 
-    std::unordered_set<std::wstring> consideredCandidates;
+    std::unordered_set<uint32_t> consideredIds;
     if (exactIt != words_.end()) {
-        consideredCandidates.insert(input);
+        consideredIds.insert(exactIt->second);
     }
 
     std::wstring prefix = input.substr(0, std::min<size_t>(input.size(), prefixLength_));
@@ -319,12 +258,14 @@ std::vector<Suggestion> SymSpellDict::lookup(const std::wstring& input, int maxE
     for (const auto& del : inputDeletes) {
         auto delIt = deletes_.find(del);
         if (delIt != deletes_.end()) {
-            for (const auto& cand : delIt->second) {
-                if (consideredCandidates.insert(cand).second) {
+            for (uint32_t candId : delIt->second) {
+                if (consideredIds.insert(candId).second) {
+                    const auto& candEntry = wordList_[candId];
+                    const std::wstring& cand = candEntry.first;
                     if (std::abs(static_cast<int>(cand.size()) - static_cast<int>(input.size())) <= maxEditDistance) {
                         int dist = damerauLevenshteinDistance(input, cand);
                         if (dist <= maxEditDistance) {
-                            suggestions.push_back({cand, dist, getFrequency(cand)});
+                            suggestions.push_back({cand, dist, candEntry.second});
                         }
                     }
                 }
@@ -338,68 +279,4 @@ std::vector<Suggestion> SymSpellDict::lookup(const std::wstring& input, int maxE
     });
 
     return suggestions;
-}
-
-std::vector<Suggestion> SymSpellDict::lookupPrefix(const std::wstring& prefix, size_t maxResults) const {
-    std::vector<Suggestion> result;
-    if (prefix.size() < 2) return result;
-
-    std::wstring lowerPref = prefix;
-    for (auto& c : lowerPref) c = std::towlower(c);
-
-    auto it = prefixMap_.find(lowerPref);
-    if (it != prefixMap_.end()) {
-        for (const auto& item : it->second) {
-            result.push_back({item.first, 0, item.second});
-            if (result.size() >= maxResults) break;
-        }
-    }
-    return result;
-}
-
-std::optional<std::wstring> SymSpellDict::lookupBigramNext(const std::wstring& prevWord) const {
-    if (prevWord.empty()) return std::nullopt;
-
-    std::wstring lowerPrev = prevWord;
-    for (auto& c : lowerPrev) c = std::towlower(c);
-
-    auto it = bigramBestNext_.find(lowerPrev);
-    if (it != bigramBestNext_.end() && !it->second.first.empty()) {
-        return it->second.first;
-    }
-
-    // High-frequency natural language phrase fallbacks
-    static const std::unordered_map<std::wstring, std::wstring> kCommonPhrases = {
-        {L"thank", L"you"},
-        {L"thanks", L"for"},
-        {L"how", L"are"},
-        {L"good", L"morning"},
-        {L"nice", L"to"},
-        {L"feel", L"free"},
-        {L"take", L"care"},
-        {L"welcome", L"to"},
-        {L"see", L"you"},
-        {L"let", L"me"},
-        {L"please", L"let"},
-        {L"i'm", L"going"},
-        {L"i", L"think"},
-        {L"you", L"can"},
-        {L"we", L"can"},
-        {L"they", L"are"},
-        {L"it", L"is"},
-        {L"this", L"is"},
-        {L"that", L"is"},
-        {L"what", L"is"},
-        {L"where", L"is"},
-        {L"have", L"a"},
-        {L"look", L"forward"},
-        {L"best", L"regards"}
-    };
-
-    auto phraseIt = kCommonPhrases.find(lowerPrev);
-    if (phraseIt != kCommonPhrases.end()) {
-        return phraseIt->second;
-    }
-
-    return std::nullopt;
 }

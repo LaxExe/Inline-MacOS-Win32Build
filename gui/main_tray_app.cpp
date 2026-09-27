@@ -39,10 +39,6 @@ static QIcon createStatusIcon(bool active) {
 }
 
 MainTrayApp::MainTrayApp(QObject* parent) : QObject(parent) {
-    pauseTimer_ = new QTimer(this);
-    pauseTimer_->setSingleShot(true);
-    connect(pauseTimer_, &QTimer::timeout, this, &MainTrayApp::onTypingPause);
-
     idleClearTimer_ = new QTimer(this);
     idleClearTimer_->setSingleShot(true);
     idleClearTimer_->setInterval(30000); // 30 seconds
@@ -62,9 +58,6 @@ void MainTrayApp::clearAllBuffers() {
     contextWindow_.words.clear();
     sentenceBuffer_.words.clear();
     undoSM_.reset();
-    overlayWindow_.hide();
-    currentGhostText_.clear();
-    hasGhostActive_.store(false, std::memory_order_release);
     hook_.clearQueue();
     injector_.clearQueue();
 
@@ -172,26 +165,15 @@ void MainTrayApp::quitApp() {
 
 bool MainTrayApp::initEngine() {
     bool d1 = dict_.loadDictionary("dictionaries/frequency_dictionary_en_82_765.txt", 0, 1);
-    bool d2 = dict_.loadBigramDictionary("dictionaries/frequency_bigramdictionary_en_243_342.txt", 0, 2);
     if (!d1) {
         PrivacyLogger::instance().logDiagnosticText("Warning: Failed to load frequency dictionary");
         std::cerr << "[TypingAssistant] Warning: Failed to load frequency dictionary" << std::endl;
     }
-    if (!d2) {
-        PrivacyLogger::instance().logDiagnosticText("Warning: Failed to load bigram dictionary");
-        std::cerr << "[TypingAssistant] Warning: Failed to load bigram dictionary" << std::endl;
-    }
-
-    predictor_ = std::make_unique<GhostPredictor>(dict_);
 
     hook_.setKeyCallback([this](const RawKeyEvent& ev) {
         QMetaObject::invokeMethod(this, [this, ev]() {
             this->onRawKeyEvent(ev);
         }, Qt::QueuedConnection);
-    });
-
-    hook_.setShouldInterceptTab([this]() {
-        return hasGhostActive_.load(std::memory_order_acquire);
     });
 
     injector_.start();
@@ -286,9 +268,6 @@ void MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev) {
     constexpr uint64_t kCtrlMask = (1ULL << 18); // kCGEventFlagMaskControl
     if ((ev.flags & (kCmdMask | kCtrlMask)) != 0) {
         currentWord_.chars.clear();
-        overlayWindow_.hide();
-        currentGhostText_.clear();
-        hasGhostActive_.store(false, std::memory_order_release);
         undoSM_.onOtherKey();
         return;
     }
@@ -300,29 +279,12 @@ void MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev) {
         ev.keyCode == kVK_End || ev.keyCode == kVK_PageUp ||
         ev.keyCode == kVK_PageDown) {
         currentWord_.chars.clear();
-        overlayWindow_.hide();
-        currentGhostText_.clear();
-        hasGhostActive_.store(false, std::memory_order_release);
         undoSM_.onOtherKey();
-        return;
-    }
-
-    // Secure field check
-    if (caretTracker_.isFocusedFieldSecure()) {
-        currentWord_.chars.clear();
-        overlayWindow_.hide();
-        currentGhostText_.clear();
-        hasGhostActive_.store(false, std::memory_order_release);
         return;
     }
 
     if (ev.keyCode == kVK_Delete) {
         handleBackspace();
-        return;
-    }
-
-    if (ev.keyCode == kVK_Tab) {
-        handleTabAccept();
         return;
     }
 
@@ -343,15 +305,6 @@ void MainTrayApp::handleCharacter(wchar_t ch) {
     currentWord_.chars.push_back(ch);
     undoSM_.onOtherKey();
 
-    // Dismiss ghost text while typing characters inside a word
-    overlayWindow_.hide();
-    currentGhostText_.clear();
-    hasGhostActive_.store(false, std::memory_order_release);
-
-    if (pauseTimer_) {
-        pauseTimer_->stop();
-    }
-
     if (settingsDialog_ && settingsDialog_->isVisible()) {
         QString msg = QString("Key typed: '%1'  |  Current word buffer: \"%2\"")
             .arg(QChar(ch))
@@ -361,10 +314,6 @@ void MainTrayApp::handleCharacter(wchar_t ch) {
 }
 
 void MainTrayApp::handleBackspace() {
-    overlayWindow_.hide();
-    currentGhostText_.clear();
-    hasGhostActive_.store(false, std::memory_order_release);
-
     // 1. Check if an auto-correction just occurred right before this backspace
     UndoActionResult undoAction = undoSM_.onBackspace();
     if (undoAction.type == UndoAction::RevertCorrection) {
@@ -414,10 +363,6 @@ void MainTrayApp::handleBackspace() {
 }
 
 void MainTrayApp::handleWordBoundary(wchar_t delimiter) {
-    overlayWindow_.hide();
-    currentGhostText_.clear();
-    hasGhostActive_.store(false, std::memory_order_release);
-
     std::wstring word = currentWord_.chars;
     currentWord_.chars.clear();
 
@@ -488,73 +433,6 @@ void MainTrayApp::handleWordBoundary(wchar_t delimiter) {
     contextWindow_.words.push_back(wordForContext);
     if (contextWindow_.words.size() > 5) {
         contextWindow_.words.pop_front();
-    }
-
-    // Trigger next-word ghost text prediction after spacing
-    if (cfg.ghostTextEnabled && predictor_ && (delimiter == L' ' || delimiter == L'\t')) {
-        auto pred = predictor_->predictNext(contextWindow_, currentWord_, cfg);
-        if (pred.has_value() && !pred->empty()) {
-            currentGhostText_ = *pred;
-            hasGhostActive_.store(true, std::memory_order_release);
-            auto caretOpt = caretTracker_.getCaretScreenRect();
-            if (caretOpt.has_value()) {
-                overlayWindow_.showGhostText(currentGhostText_, caretOpt->x + caretOpt->width, caretOpt->y, caretOpt->height);
-            }
-        }
-    }
-}
-
-void MainTrayApp::handleTabAccept() {
-    if (!currentGhostText_.empty()) {
-        std::wstring textToInject = currentGhostText_;
-        currentGhostText_.clear();
-        hasGhostActive_.store(false, std::memory_order_release);
-        overlayWindow_.hide();
-        undoSM_.onOtherKey();
-
-        currentWordToken_++;
-        injector_.setValidToken(InjectionOp::GHOST_ACCEPT, currentWordToken_);
-
-        InjectionOp typeOp{
-            .type = InjectionOp::TYPE_TEXT,
-            .count = 0,
-            .text = textToInject + L" ",
-            .generation_token = currentWordToken_,
-            .source = InjectionOp::GHOST_ACCEPT
-        };
-        injector_.enqueue(typeOp);
-
-        if (settingsDialog_ && settingsDialog_->isVisible()) {
-            QString msg = QString("⚡ [GHOST ACCEPT] Injected text: \"%1 \"").arg(QString::fromStdWString(textToInject));
-            QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
-        }
-
-        contextWindow_.words.push_back(textToInject);
-        if (contextWindow_.words.size() > 5) {
-            contextWindow_.words.pop_front();
-        }
-        currentWord_.chars.clear();
-    }
-}
-
-void MainTrayApp::onTypingPause() {
-    AppConfig cfg;
-    {
-        std::lock_guard<std::mutex> lock(configMutex);
-        cfg = sharedConfig;
-    }
-    if (!cfg.masterEnabled || !cfg.ghostTextEnabled || !predictor_) return;
-
-    if (currentWord_.chars.empty() && !contextWindow_.words.empty()) {
-        auto pred = predictor_->predictNext(contextWindow_, currentWord_, cfg);
-        if (pred.has_value() && !pred->empty()) {
-            currentGhostText_ = *pred;
-            hasGhostActive_.store(true, std::memory_order_release);
-            auto caretOpt = caretTracker_.getCaretScreenRect();
-            if (caretOpt.has_value()) {
-                overlayWindow_.showGhostText(currentGhostText_, caretOpt->x + caretOpt->width, caretOpt->y, caretOpt->height);
-            }
-        }
     }
 }
 

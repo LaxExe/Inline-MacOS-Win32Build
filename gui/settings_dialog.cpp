@@ -185,24 +185,7 @@ QWidget* SettingsDialog::createGeneralTab() {
     sentenceLayout->addLayout(sentIntRow);
     formLayout->addWidget(sentenceGroup);
 
-    // 4. Predictive Text Section (Ghost Text)
-    auto* ghostGroup = new QGroupBox(tr("Predictive Text"), scrollWidget);
-    auto* ghostLayout = new QVBoxLayout(ghostGroup);
-    ghostTextCheck_ = new QCheckBox(tr("Enable ghost text predictions (Accept with Tab)"), ghostGroup);
-    ghostLayout->addWidget(ghostTextCheck_);
-
-    auto* predLenRow = new QHBoxLayout();
-    predLenRow->addWidget(new QLabel(tr("Prediction Length:"), ghostGroup));
-    predictionLengthCombo_ = new QComboBox(ghostGroup);
-    predictionLengthCombo_->addItem(tr("Conservative"));
-    predictionLengthCombo_->addItem(tr("Balanced"));
-    predictionLengthCombo_->addItem(tr("Verbose"));
-    predLenRow->addWidget(predictionLengthCombo_);
-    predLenRow->addStretch();
-    ghostLayout->addLayout(predLenRow);
-    formLayout->addWidget(ghostGroup);
-
-    // 5. Privacy Section
+    // 4. Privacy Section
     auto* privacyGroup = new QGroupBox(tr("Privacy"), scrollWidget);
     auto* privacyLayout = new QVBoxLayout(privacyGroup);
     auto* privacyLabel = new QLabel(
@@ -280,9 +263,6 @@ void SettingsDialog::loadFromConfig() {
 
     sentenceCorrectionCheck_->setChecked(sharedConfig.sentenceCorrectionEnabled);
     sentenceIntensitySlider_->setValue(static_cast<int>(sharedConfig.sentenceCorrectionIntensity * 100.0f));
-
-    ghostTextCheck_->setChecked(sharedConfig.ghostTextEnabled);
-    predictionLengthCombo_->setCurrentIndex(predictionLengthToIndex(sharedConfig.predictionLength));
 }
 
 void SettingsDialog::saveToConfig() {
@@ -302,9 +282,6 @@ void SettingsDialog::saveToConfig() {
 
         sharedConfig.sentenceCorrectionEnabled = sentenceCorrectionCheck_->isChecked();
         sharedConfig.sentenceCorrectionIntensity = static_cast<float>(sentenceIntensitySlider_->value()) / 100.0f;
-
-        sharedConfig.ghostTextEnabled = ghostTextCheck_->isChecked();
-        sharedConfig.predictionLength = predictionLengthFromIndex(predictionLengthCombo_->currentIndex());
 
         std::string json = serializeConfig(sharedConfig);
         std::ofstream out(getConfigFilePath());

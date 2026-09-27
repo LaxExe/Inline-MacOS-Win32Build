@@ -48,45 +48,26 @@ target_link_libraries(test_undo_state_machine PRIVATE core_lib GTest::gtest_main
 add_test(NAME UndoStateMachine COMMAND test_undo_state_machine)
 
 # Stage 8
-add_executable(test_overlay_position unit/test_overlay_position.cpp)
-target_link_libraries(test_overlay_position PRIVATE mac_platform_lib GTest::gtest_main)
-add_test(NAME OverlayPosition COMMAND test_overlay_position)
-
-# Stage 9
-add_executable(test_ghosttext_dismissal unit/test_ghosttext_dismissal.cpp)
-target_link_libraries(test_ghosttext_dismissal PRIVATE core_lib GTest::gtest_main)
-add_test(NAME GhostTextDismissal COMMAND test_ghosttext_dismissal)
-
-# Stage 10
-add_executable(test_tier2_diff_safety unit/test_tier2_diff_safety.cpp)
-target_link_libraries(test_tier2_diff_safety PRIVATE core_lib GTest::gtest_main)
-add_test(NAME DiffSafety COMMAND test_tier2_diff_safety)
-
-add_executable(test_tier2_supervisor unit/test_tier2_supervisor.cpp)
-target_link_libraries(test_tier2_supervisor PRIVATE core_lib GTest::gtest_main)
-add_test(NAME SupervisorPolicy COMMAND test_tier2_supervisor)
-
-# Stage 11
 add_executable(test_config_persistence unit/test_config_persistence.cpp)
 target_link_libraries(test_config_persistence PRIVATE core_lib GTest::gtest_main)
 add_test(NAME ConfigPersistence COMMAND test_config_persistence)
 
-# Stage 12
+# Stage 9
 add_executable(test_tray_state unit/test_tray_state.cpp)
 target_link_libraries(test_tray_state PRIVATE gui_lib GTest::gtest_main)
 add_test(NAME TrayState COMMAND test_tray_state)
 
-# Stage 13
+# Stage 10
 add_executable(test_settings_binding unit/test_settings_binding.cpp)
 target_link_libraries(test_settings_binding PRIVATE gui_lib GTest::gtest_main)
 add_test(NAME SettingsBinding COMMAND test_settings_binding)
 
-# Stage 14
+# Stage 11
 add_executable(test_hotkey_blocklist unit/test_hotkey_blocklist.cpp)
 target_link_libraries(test_hotkey_blocklist PRIVATE gui_lib GTest::gtest_main)
 add_test(NAME HotkeyBlocklist COMMAND test_hotkey_blocklist)
 
-# Stage 15
+# Stage 12
 add_executable(test_circuit_breaker unit/test_circuit_breaker.cpp)
 target_link_libraries(test_circuit_breaker PRIVATE core_lib GTest::gtest_main)
 add_test(NAME CircuitBreaker COMMAND test_circuit_breaker)
@@ -103,7 +84,3 @@ add_test(NAME HookIntegration COMMAND hook_synth_test)
 add_executable(injector_synth_test integration/mac/injector_synth_test.mm)
 target_link_libraries(injector_synth_test PRIVATE mac_platform_lib GTest::gtest_main)
 add_test(NAME InjectorIntegration COMMAND injector_synth_test)
-
-add_executable(ghost_load_test integration/mac/ghost_load_test.mm)
-target_link_libraries(ghost_load_test PRIVATE mac_platform_lib GTest::gtest_main)
-add_test(NAME GhostLoadTest COMMAND ghost_load_test)

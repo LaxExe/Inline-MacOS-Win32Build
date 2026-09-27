@@ -50,8 +50,6 @@ private:
     QPlainTextEdit* ignoreWordsEdit_ = nullptr;
     QCheckBox* sentenceCorrectionCheck_ = nullptr;
     QSlider* sentenceIntensitySlider_ = nullptr;
-    QCheckBox* ghostTextCheck_ = nullptr;
-    QComboBox* predictionLengthCombo_ = nullptr;
     QPlainTextEdit* disabledAppsEdit_ = nullptr;
 
     bool hookRunning_ = false;

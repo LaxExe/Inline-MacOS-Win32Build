@@ -7,7 +7,6 @@ protected:
     static inline AppConfig cfg;
     static void SetUpTestSuite() {
         dict.loadDictionary("dictionaries/frequency_dictionary_en_82_765.txt", 0, 1);
-        dict.loadBigramDictionary("dictionaries/frequency_bigramdictionary_en_243_342.txt", 0, 2);
         cfg.maxDictionaryEditDistance = 2;
     }
 };
