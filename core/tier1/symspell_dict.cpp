@@ -87,6 +87,7 @@ SymSpellDict::SymSpellDict(int maxEditDistance, int prefixLength)
 void SymSpellDict::createDeletes(const std::wstring& word) {
     std::wstring prefix = word.substr(0, std::min<size_t>(word.size(), prefixLength_));
     std::unordered_set<std::wstring> delSet;
+    delSet.insert(prefix);
     getDeletes(prefix, maxEditDistance_, delSet);
     for (const auto& del : delSet) {
         deletes_[del].push_back(word);
@@ -142,6 +143,13 @@ bool SymSpellDict::hasWord(const std::wstring& word) const {
 int64_t SymSpellDict::getFrequency(const std::wstring& word) const {
     auto it = words_.find(word);
     if (it != words_.end()) return it->second;
+    return 0;
+}
+
+int64_t SymSpellDict::getBigramFrequency(const std::wstring& w1, const std::wstring& w2) const {
+    std::wstring phrase = w1 + L" " + w2;
+    auto it = bigrams_.find(phrase);
+    if (it != bigrams_.end()) return it->second;
     return 0;
 }
 

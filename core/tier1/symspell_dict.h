@@ -27,6 +27,7 @@ public:
     std::optional<std::wstring> lookupBigramNext(const std::wstring& prevWord) const;
     bool hasWord(const std::wstring& word) const;
     int64_t getFrequency(const std::wstring& word) const;
+    int64_t getBigramFrequency(const std::wstring& w1, const std::wstring& w2) const;
 
 private:
     int maxEditDistance_;

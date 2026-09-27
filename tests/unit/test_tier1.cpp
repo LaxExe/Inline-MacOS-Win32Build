@@ -74,4 +74,7 @@ TEST_F(Tier1Test, FixesDistanceTwoVocabularyTypos) {
 TEST_F(Tier1Test, FixesRunTogetherWords) {
     EXPECT_EQ(correctWord(L"theclass", dict, cfg).corrected, L"the class");
     EXPECT_EQ(correctWord(L"ofevening", dict, cfg).corrected, L"of evening");
+    EXPECT_EQ(correctWord(L"timerighte", dict, cfg).corrected, L"time right");
+    EXPECT_EQ(correctWord(L"ths", dict, cfg).corrected, L"this");
+    EXPECT_EQ(correctWord(L"intdo", dict, cfg).corrected, L"into");
 }

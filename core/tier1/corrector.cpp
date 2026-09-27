@@ -94,7 +94,13 @@ static const std::unordered_map<std::wstring, std::wstring> kCommonExpansions = 
     {L"autpcrreccts", L"autocorrects"},
     {L"teh", L"the"},
     {L"het", L"the"},
-    {L"th", L"the"}
+    {L"th", L"the"},
+    {L"ths", L"this"},
+    {L"intdo", L"into"},
+    {L"duto", L"auto"},
+    {L"neht", L"next"},
+    {L"asw", L"as"},
+    {L"wors", L"words"}
 };
 
 CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict, const AppConfig& cfg, bool isSentenceStart) {
@@ -153,36 +159,15 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
         return result;
     }
 
-    // 3. Check for run-together words (e.g. "theclass" -> "the class", "ofevening" -> "of evening")
-    if (lowerTyped.size() >= 5) {
-        for (size_t split = 2; split <= lowerTyped.size() - 2; ++split) {
-            std::wstring w1 = lowerTyped.substr(0, split);
-            std::wstring w2 = lowerTyped.substr(split);
-            if (dict.hasWord(w1) && dict.hasWord(w2)) {
-                auto s1 = dict.lookup(w1, 0);
-                auto s2 = dict.lookup(w2, 0);
-                if (!s1.empty() && !s2.empty() && s1[0].count >= 100000 && s2[0].count >= 30000) {
-                    result.didCorrect = true;
-                    std::wstring c1 = isCapitalized(typed) ? applyCasing(w1, typed.substr(0, split)) : w1;
-                    result.corrected = c1 + L" " + w2;
-                    result.editDistance = 1;
-                    return result;
-                }
-            }
+    bool isAllAlpha = true;
+    for (wchar_t c : lowerTyped) {
+        if (!std::iswalpha(c)) {
+            isAllAlpha = false;
+            break;
         }
     }
 
     auto suggestions = dict.lookup(lowerTyped, cfg.maxDictionaryEditDistance);
-    if (suggestions.empty()) {
-        if (cfg.sentenceCorrectionEnabled && isSentenceStart && std::iswlower(typed[0])) {
-            result.didCorrect = true;
-            result.corrected = typed;
-            result.corrected[0] = std::towupper(result.corrected[0]);
-            result.editDistance = 0;
-            return result;
-        }
-        return result;
-    }
 
     // Rank candidates by log frequency penalizing edit distance
     const Suggestion* best = nullptr;
@@ -238,13 +223,100 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
         }
     }
 
-    if (best) {
+    // 3. Check for run-together words & compound typos (e.g. "theclass" -> "the class", "timerighte" -> "time right", "ofevening" -> "of evening")
+    std::wstring bestSplitWord;
+    double bestSplitScore = -1e9;
+    int bestSplitDist = 1;
+
+    if (isAllAlpha && lowerTyped.size() >= 5) {
+        for (size_t split = 2; split <= lowerTyped.size() - 2; ++split) {
+            std::wstring w1 = lowerTyped.substr(0, split);
+            std::wstring w2 = lowerTyped.substr(split);
+
+            // Case A: Both w1 and w2 are exact dictionary words
+            if (dict.hasWord(w1) && dict.hasWord(w2)) {
+                int64_t c1 = dict.getFrequency(w1);
+                int64_t c2 = dict.getFrequency(w2);
+                if (c1 >= 10000 && c2 >= 10000) {
+                    int64_t bg = dict.getBigramFrequency(w1, w2);
+                    double splitScore = std::log10(static_cast<double>(c1)) + std::log10(static_cast<double>(c2)) + (bg > 0 ? std::log10(static_cast<double>(bg)) * 0.8 : 0.0);
+                    if (splitScore > bestSplitScore) {
+                        bestSplitScore = splitScore;
+                        bestSplitWord = w1 + L" " + w2;
+                        bestSplitDist = 1;
+                    }
+                }
+            }
+            // Case B: w1 is exact word, w2 has distance 1 typo (e.g. "time" + "righte" -> "time right")
+            else if (w1.size() >= 3 && w2.size() >= 3 && dict.hasWord(w1)) {
+                int64_t c1 = dict.getFrequency(w1);
+                if (c1 >= 10000) {
+                    auto s2_list = dict.lookup(w2, 1);
+                    for (const auto& s2 : s2_list) {
+                        if (s2.distance == 1 && s2.count >= 50000) {
+                            int64_t bg = dict.getBigramFrequency(w1, s2.term);
+                            bool isTrailingExtra = (w2.size() > s2.term.size() && w2.rfind(s2.term, 0) == 0);
+                            if (bg > 0 || isTrailingExtra) {
+                                double bgBonus = (bg > 0) ? std::log10(static_cast<double>(bg)) * 1.5 : 0.0;
+                                double trailingBonus = isTrailingExtra ? 2.0 : 0.0;
+                                double splitScore = std::log10(static_cast<double>(c1)) + std::log10(static_cast<double>(s2.count)) - 2.0 + trailingBonus + bgBonus;
+                                if (splitScore > bestSplitScore) {
+                                    bestSplitScore = splitScore;
+                                    bestSplitWord = w1 + L" " + s2.term;
+                                    bestSplitDist = 2;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Case C: w1 has distance 1 typo, w2 is exact word (e.g. "wors" + "we" -> "words we")
+            else if (w1.size() >= 3 && w2.size() >= 2 && dict.hasWord(w2)) {
+                int64_t c2 = dict.getFrequency(w2);
+                if (c2 >= 10000) {
+                    auto s1_list = dict.lookup(w1, 1);
+                    for (const auto& s1 : s1_list) {
+                        if (s1.distance == 1 && s1.count >= 50000) {
+                            int64_t bg = dict.getBigramFrequency(s1.term, w2);
+                            bool isTrailingExtra = (w1.size() > s1.term.size() && w1.rfind(s1.term, 0) == 0);
+                            if (bg > 0 || isTrailingExtra) {
+                                double bgBonus = (bg > 0) ? std::log10(static_cast<double>(bg)) * 1.5 : 0.0;
+                                double trailingBonus = isTrailingExtra ? 2.0 : 0.0;
+                                double splitScore = std::log10(static_cast<double>(s1.count)) + std::log10(static_cast<double>(c2)) - 2.0 + trailingBonus + bgBonus;
+                                if (splitScore > bestSplitScore) {
+                                    bestSplitScore = splitScore;
+                                    bestSplitWord = s1.term + L" " + w2;
+                                    bestSplitDist = 2;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (best && (bestSplitWord.empty() || bestScore >= bestSplitScore - 5.0)) {
         result.didCorrect = true;
         result.corrected = applyCasing(best->term, typed);
         if (cfg.sentenceCorrectionEnabled && isSentenceStart && !result.corrected.empty()) {
             result.corrected[0] = std::towupper(result.corrected[0]);
         }
         result.editDistance = best->distance;
+        return result;
+    }
+
+    if (!bestSplitWord.empty() && bestSplitScore >= 10.0) {
+        result.didCorrect = true;
+        size_t sp = bestSplitWord.find(L' ');
+        std::wstring p1 = bestSplitWord.substr(0, sp);
+        std::wstring p2 = (sp != std::wstring::npos) ? bestSplitWord.substr(sp) : L"";
+        std::wstring c1 = isCapitalized(typed) ? applyCasing(p1, typed.substr(0, std::min(typed.size(), p1.size()))) : p1;
+        result.corrected = c1 + p2;
+        if (cfg.sentenceCorrectionEnabled && isSentenceStart && !result.corrected.empty()) {
+            result.corrected[0] = std::towupper(result.corrected[0]);
+        }
+        result.editDistance = bestSplitDist;
         return result;
     }
 
