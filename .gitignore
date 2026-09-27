@@ -1,0 +1,8 @@
+build/
+build_release/
+.DS_Store
+*.o
+*.a
+*.dylib
+tools/generate_app_icon
+tools/live_e2e_test
