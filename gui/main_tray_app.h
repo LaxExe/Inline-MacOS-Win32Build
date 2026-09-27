@@ -55,7 +55,6 @@ private:
     CurrentWordBuffer currentWord_;
     ContextWindow contextWindow_;
     SentenceBuffer sentenceBuffer_;
-    std::wstring textHistory_;
 
     int currentWordToken_ = 0;
     int currentSentenceToken_ = 0;

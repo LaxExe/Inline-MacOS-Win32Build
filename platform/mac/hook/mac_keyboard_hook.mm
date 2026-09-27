@@ -22,29 +22,43 @@ bool MacKeyboardHook::start() {
 void MacKeyboardHook::stop() {
     if (!running_) return;
     running_ = false;
+
+    // 1. Immediately disable tap so WindowServer stops routing events
+    if (tap_) {
+        CGEventTapEnable(tap_, false);
+    }
+
+    // 2. Clear pending events and wake worker
     {
         std::lock_guard<std::mutex> lock(queueMutex_);
         eventQueue_.clear();
     }
     queueCv_.notify_all();
 
+    // 3. Detach run loop source and stop runloop
     if (runLoop_) {
+        if (runLoopSource_) {
+            CFRunLoopRemoveSource(runLoop_, runLoopSource_, kCFRunLoopCommonModes);
+        }
         CFRunLoopStop(runLoop_);
     }
+
+    // 4. Wait for threads to join
     if (hookThread_.joinable()) {
         hookThread_.join();
     }
     if (workerThread_.joinable()) {
         workerThread_.join();
     }
-    if (tap_) {
-        CGEventTapEnable(tap_, false);
-        CFRelease(tap_);
-        tap_ = nullptr;
-    }
+
+    // 5. Release CoreGraphics handles
     if (runLoopSource_) {
         CFRelease(runLoopSource_);
         runLoopSource_ = nullptr;
+    }
+    if (tap_) {
+        CFRelease(tap_);
+        tap_ = nullptr;
     }
     runLoop_ = nullptr;
 }
@@ -126,7 +140,7 @@ void MacKeyboardHook::hookThreadFunc() {
         tap_ = CGEventTapCreate(
             kCGSessionEventTap,
             kCGHeadInsertEventTap,
-            kCGEventTapOptionDefault,
+            kCGEventTapOptionListenOnly,
             mask,
             MacKeyboardHook::eventTapCallback,
             this
@@ -135,7 +149,7 @@ void MacKeyboardHook::hookThreadFunc() {
             tap_ = CGEventTapCreate(
                 kCGAnnotatedSessionEventTap,
                 kCGHeadInsertEventTap,
-                kCGEventTapOptionDefault,
+                kCGEventTapOptionListenOnly,
                 mask,
                 MacKeyboardHook::eventTapCallback,
                 this
@@ -145,7 +159,7 @@ void MacKeyboardHook::hookThreadFunc() {
             tap_ = CGEventTapCreate(
                 kCGHIDEventTap,
                 kCGHeadInsertEventTap,
-                kCGEventTapOptionDefault,
+                kCGEventTapOptionListenOnly,
                 mask,
                 MacKeyboardHook::eventTapCallback,
                 this
@@ -155,7 +169,7 @@ void MacKeyboardHook::hookThreadFunc() {
             tap_ = CGEventTapCreate(
                 kCGSessionEventTap,
                 kCGHeadInsertEventTap,
-                kCGEventTapOptionListenOnly,
+                kCGEventTapOptionDefault,
                 mask,
                 MacKeyboardHook::eventTapCallback,
                 this

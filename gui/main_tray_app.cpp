@@ -48,6 +48,8 @@ MainTrayApp::MainTrayApp(QObject* parent) : QObject(parent) {
 MainTrayApp::~MainTrayApp() {
     hook_.stop();
     injector_.stop();
+    currentWord_.chars.clear();
+    contextWindow_.words.clear();
 }
 
 void MainTrayApp::setupTray() {
@@ -237,7 +239,6 @@ void MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev) {
     constexpr uint64_t kCmdMask = (1ULL << 20); // kCGEventFlagMaskCommand
     constexpr uint64_t kCtrlMask = (1ULL << 18); // kCGEventFlagMaskControl
     if ((ev.flags & (kCmdMask | kCtrlMask)) != 0) {
-        textHistory_.clear();
         currentWord_.chars.clear();
         overlayWindow_.hide();
         currentGhostText_.clear();
@@ -252,7 +253,6 @@ void MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev) {
         ev.keyCode == kVK_Escape || ev.keyCode == kVK_Home ||
         ev.keyCode == kVK_End || ev.keyCode == kVK_PageUp ||
         ev.keyCode == kVK_PageDown) {
-        textHistory_.clear();
         currentWord_.chars.clear();
         overlayWindow_.hide();
         currentGhostText_.clear();
@@ -263,7 +263,6 @@ void MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev) {
 
     // Secure field check
     if (caretTracker_.isFocusedFieldSecure()) {
-        textHistory_.clear();
         currentWord_.chars.clear();
         overlayWindow_.hide();
         currentGhostText_.clear();
@@ -294,21 +293,8 @@ void MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev) {
     }
 }
 
-static std::wstring extractTrailingWord(const std::wstring& text) {
-    if (text.empty()) return L"";
-    size_t i = text.size();
-    while (i > 0 && !isWordBoundary(text[i - 1])) {
-        i--;
-    }
-    return text.substr(i);
-}
-
 void MainTrayApp::handleCharacter(wchar_t ch) {
-    textHistory_.push_back(ch);
-    if (textHistory_.size() > 2000) {
-        textHistory_.erase(0, 1000);
-    }
-    currentWord_.chars = extractTrailingWord(textHistory_);
+    currentWord_.chars.push_back(ch);
     undoSM_.onOtherKey();
 
     // Dismiss ghost text while typing characters inside a word
@@ -321,7 +307,7 @@ void MainTrayApp::handleCharacter(wchar_t ch) {
     }
 
     if (settingsDialog_ && settingsDialog_->isVisible()) {
-        QString msg = QString("Key typed: '%1'  |  Current buffer: \"%2\"")
+        QString msg = QString("Key typed: '%1'  |  Current word buffer: \"%2\"")
             .arg(QChar(ch))
             .arg(QString::fromStdWString(currentWord_.chars));
         QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
@@ -352,13 +338,6 @@ void MainTrayApp::handleBackspace() {
 
         injector_.enqueue(replaceOp);
 
-        if (!textHistory_.empty()) {
-            textHistory_.pop_back(); // remove the delimiter that physical backspace deleted
-        }
-        if (textHistory_.size() >= static_cast<size_t>(backspaces)) {
-            textHistory_.erase(textHistory_.size() - backspaces);
-        }
-        textHistory_.append(undoAction.revertedText);
         currentWord_.chars = undoAction.revertedText;
 
         if (!contextWindow_.words.empty() && contextWindow_.words.back() == undoAction.correctedText) {
@@ -376,15 +355,14 @@ void MainTrayApp::handleBackspace() {
         return;
     }
 
-    // 2. Normal backspace: synchronize character history
+    // 2. Normal backspace: pop last character from the current active word
     undoSM_.onOtherKey();
-    if (!textHistory_.empty()) {
-        textHistory_.pop_back();
+    if (!currentWord_.chars.empty()) {
+        currentWord_.chars.pop_back();
     }
-    currentWord_.chars = extractTrailingWord(textHistory_);
 
     if (settingsDialog_ && settingsDialog_->isVisible()) {
-        QString msg = QString("⌫ [BACKSPACE] Current buffer: \"%1\"").arg(QString::fromStdWString(currentWord_.chars));
+        QString msg = QString("⌫ [BACKSPACE] Current word buffer: \"%1\"").arg(QString::fromStdWString(currentWord_.chars));
         QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
     }
 }
@@ -394,11 +372,8 @@ void MainTrayApp::handleWordBoundary(wchar_t delimiter) {
     currentGhostText_.clear();
     hasGhostActive_.store(false, std::memory_order_release);
 
-    std::wstring word = extractTrailingWord(textHistory_);
-    textHistory_.push_back(delimiter);
-    if (textHistory_.size() > 2000) {
-        textHistory_.erase(0, 1000);
-    }
+    std::wstring word = currentWord_.chars;
+    currentWord_.chars.clear();
 
     if (word.empty()) {
         undoSM_.onOtherKey();
@@ -407,7 +382,6 @@ void MainTrayApp::handleWordBoundary(wchar_t delimiter) {
         } else if (delimiter == L',' || delimiter == L';' || delimiter == L':') {
             isSentenceStart_ = false;
         }
-        currentWord_.chars.clear();
         return;
     }
 
@@ -439,11 +413,6 @@ void MainTrayApp::handleWordBoundary(wchar_t delimiter) {
 
             injector_.enqueue(replaceOp);
 
-            if (textHistory_.size() >= static_cast<size_t>(backspaces)) {
-                textHistory_.erase(textHistory_.size() - backspaces);
-            }
-            textHistory_.append(retype);
-
             if (settingsDialog_ && settingsDialog_->isVisible()) {
                 QString msg = QString("✨ FIXED: \"%1\" -> \"%2\" (Injected %3 Backspaces + \"%4\")")
                     .arg(QString::fromStdWString(word))
@@ -471,10 +440,9 @@ void MainTrayApp::handleWordBoundary(wchar_t delimiter) {
     }
 
     contextWindow_.words.push_back(wordForContext);
-    if (contextWindow_.words.size() > 10) {
+    if (contextWindow_.words.size() > 5) {
         contextWindow_.words.pop_front();
     }
-    currentWord_.chars.clear();
 
     // Trigger next-word ghost text prediction after spacing
     if (cfg.ghostTextEnabled && predictor_ && (delimiter == L' ' || delimiter == L'\t')) {
@@ -515,9 +483,8 @@ void MainTrayApp::handleTabAccept() {
             QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
         }
 
-        textHistory_.append(textToInject + L" ");
         contextWindow_.words.push_back(textToInject);
-        if (contextWindow_.words.size() > 10) {
+        if (contextWindow_.words.size() > 5) {
             contextWindow_.words.pop_front();
         }
         currentWord_.chars.clear();
@@ -544,3 +511,4 @@ void MainTrayApp::onTypingPause() {
         }
     }
 }
+
