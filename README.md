@@ -77,39 +77,52 @@ A high-performance, ultra-lightweight native cross-platform system tray / menu b
 
 ---
 
-## Building and Running
+## Branches & Platform Downloads
 
-### 1. Build for macOS
+| Platform | Recommended Branch | 1-Click Installer | Details |
+| :--- | :--- | :--- | :--- |
+| **🍎 macOS** | [`mac-branch`](https://github.com/LaxExe/Inline-mac-c/tree/mac-branch) | `./install_mac.sh` | Optimized for macOS (`CGEventTap`, permission onboarding, menu bar) |
+| **🪟 Windows** | [`windows-branch`](https://github.com/LaxExe/Inline-mac-c/tree/windows-branch) | `install_win.bat` | Optimized for Windows (`WH_KEYBOARD_LL`, `SendInput`, system tray) |
 
+---
+
+## Quick Install (1-Click)
+
+### 🍎 macOS Quick Install
 ```bash
-# Clone the repository
-git clone https://github.com/LaxExe/Inline-mac-c.git
-cd Inline-mac-c
+git checkout mac-branch
+./install_mac.sh
+```
+This builds the native Release bundle, configures application icons and dictionaries, and automatically installs to `/Applications/Inline.app`.
 
-# Configure and build Release bundle
+### 🪟 Windows Quick Install
+Double-click `install_win.bat` or run:
+```cmd
+git checkout windows-branch
+install_win.bat
+```
+*(Or via PowerShell: `.\install_win.ps1`)*
+
+---
+
+## Manual Build Instructions
+
+### macOS Manual Build
+```bash
 cmake -B build_release -DCMAKE_BUILD_TYPE=Release
 cmake --build build_release -j8
-
-# Run test suite
 ctest --test-dir build_release --output-on-failure
-
-# Launch the application
 open build_release/gui/TypingAssistant.app
 ```
 
-### 2. Build for Windows
-
+### Windows Manual Build
 ```cmd
-# Configure and build for Windows target
 cmake -B build_win -DBUILD_WINDOWS=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build build_win --config Release -j8
-
-# Run test suite
 ctest --test-dir build_win --output-on-failure
-
-# Launch executable
 build_win\gui\TypingAssistant.exe
 ```
+
 
 ---
 

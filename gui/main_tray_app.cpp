@@ -17,31 +17,38 @@
 #include <iostream>
 
 static QIcon createStatusIcon(bool active) {
-    QPixmap pixmap(32, 32);
+    // 36x36 px @ 2x = 18x18 pt Retina display tray icon
+    QPixmap pixmap(36, 36);
     pixmap.fill(Qt::transparent);
+    pixmap.setDevicePixelRatio(2.0);
 
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing);
 
     if (active) {
-        painter.setBrush(QColor(40, 180, 80)); // Active Green
+        // Minimal vertical cursor bar
         painter.setPen(Qt::NoPen);
-        painter.drawEllipse(4, 4, 24, 24);
+        painter.setBrush(QColor(15, 23, 42));
+        painter.drawRoundedRect(QRectF(5.5, 3.0, 2.5, 12.0), 1.25, 1.25);
 
-        painter.setPen(QPen(Qt::white, 3));
-        painter.drawLine(10, 16, 14, 20);
-        painter.drawLine(14, 20, 22, 12);
+        // Minimal active emerald dot
+        painter.setBrush(QColor(16, 185, 129));
+        painter.drawEllipse(QRectF(10.5, 7.25, 3.5, 3.5));
     } else {
-        painter.setBrush(QColor(160, 160, 160)); // Paused Gray
+        // Paused muted cursor bar
         painter.setPen(Qt::NoPen);
-        painter.drawEllipse(4, 4, 24, 24);
+        painter.setBrush(QColor(148, 163, 184));
+        painter.drawRoundedRect(QRectF(5.5, 3.0, 2.5, 12.0), 1.25, 1.25);
 
-        painter.setPen(QPen(Qt::white, 3));
-        painter.drawLine(10, 16, 22, 16);
+        // Amber paused dot
+        painter.setBrush(QColor(245, 158, 11));
+        painter.drawEllipse(QRectF(10.5, 7.25, 3.5, 3.5));
     }
 
-    return QIcon(pixmap);
+    QIcon icon(pixmap);
+    return icon;
 }
+
 
 MainTrayApp::MainTrayApp(QObject* parent) : QObject(parent) {
     idleClearTimer_ = new QTimer(this);
