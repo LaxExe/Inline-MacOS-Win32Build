@@ -3,6 +3,7 @@
 #include <fstream>
 #include <filesystem>
 #include "gui/main_tray_app.h"
+#include "gui/permission_dialog.h"
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
 #include "platform/mac/permissions.h"
 #else
@@ -41,36 +42,12 @@ int main(int argc, char *argv[]) {
     PrivacyLogger::instance().init("TypingAssistant");
     loadInitialConfig();
 
-    // Check permissions
-    bool inputMon = checkInputMonitoringPermission();
-    bool ax = checkAccessibilityPermission(true);
-
-    auto action = decidePermissionAction(inputMon, ax, true);
-    if (action == PermissionAction::PromptInputMonitoring || action == PermissionAction::DirectToInputMonitoringSettings) {
-        QMessageBox msgBox;
-        msgBox.setWindowTitle("Permissions Required");
-        msgBox.setText("Typing Assistant requires Input Monitoring permission to observe keystrokes.");
-        msgBox.setInformativeText("Please enable Typing Assistant in System Settings -> Privacy & Security -> Input Monitoring.");
-        QPushButton* openBtn = msgBox.addButton("Open System Settings", QMessageBox::ActionRole);
-        msgBox.addButton("Cancel", QMessageBox::RejectRole);
-        msgBox.exec();
-
-        if (msgBox.clickedButton() == openBtn) {
-            openInputMonitoringSettings();
-        }
-    } else if (action == PermissionAction::PromptAccessibility || action == PermissionAction::DirectToAccessibilitySettings) {
-        QMessageBox msgBox;
-        msgBox.setWindowTitle("Accessibility Permission Required");
-        msgBox.setText("Typing Assistant requires Accessibility permission to insert text corrections.");
-        msgBox.setInformativeText("Please enable Typing Assistant in System Settings -> Privacy & Security -> Accessibility.");
-        QPushButton* openBtn = msgBox.addButton("Open System Settings", QMessageBox::ActionRole);
-        msgBox.addButton("Cancel", QMessageBox::RejectRole);
-        msgBox.exec();
-
-        if (msgBox.clickedButton() == openBtn) {
-            openAccessibilitySettings();
-        }
+    // If permissions are missing, show the onboarding & permission explanation dialog
+    if (!PermissionDialog::areAllPermissionsGranted()) {
+        PermissionDialog permDialog;
+        permDialog.exec();
     }
+
 
     MainTrayApp trayApp;
     trayApp.initEngine();

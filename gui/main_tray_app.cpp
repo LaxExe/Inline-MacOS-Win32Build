@@ -1,4 +1,5 @@
 #include "gui/main_tray_app.h"
+#include "gui/permission_dialog.h"
 #include "gui/tray_state.h"
 #include "core/buffers/buffer_gate.h"
 #include "core/buffers/word_boundary.h"
@@ -99,6 +100,7 @@ void MainTrayApp::setupTray() {
 
     trayMenu_->addSeparator();
 
+    permAction_ = trayMenu_->addAction(tr("Permissions & Setup..."), this, &MainTrayApp::openPermissions);
     prefsAction_ = trayMenu_->addAction(tr("Preferences..."), this, &MainTrayApp::openPreferences);
     quitAction_ = trayMenu_->addAction(tr("Quit"), this, &MainTrayApp::quitApp);
 
@@ -147,6 +149,14 @@ void MainTrayApp::toggleSentenceCorrection() {
         sharedConfig.sentenceCorrectionEnabled = !sharedConfig.sentenceCorrectionEnabled;
     }
     updateTrayIcon();
+}
+
+void MainTrayApp::openPermissions() {
+    PermissionDialog dlg;
+    dlg.exec();
+    if (settingsDialog_ && settingsDialog_->isVisible()) {
+        settingsDialog_->refreshPermissions();
+    }
 }
 
 void MainTrayApp::openPreferences() {

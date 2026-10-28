@@ -26,6 +26,7 @@ public:
 public slots:
     void appendLog(const QString& msg);
     void refreshPermissions();
+    void openWizard();
 
 private:
     QTabWidget* tabWidget_ = nullptr;
@@ -56,6 +57,8 @@ private:
     size_t dictWords_ = 0;
 
     void setupUi();
-    QWidget* createDiagnosticsTab();
+    void applyTheme();
     QWidget* createGeneralTab();
+    QWidget* createDiagnosticsTab();
+    QWidget* createPlaygroundTab();
 };

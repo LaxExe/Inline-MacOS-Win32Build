@@ -9,6 +9,7 @@ add_library(gui_lib STATIC
     settings_binding.cpp
     hotkey_blocklist.cpp
     settings_dialog.cpp
+    permission_dialog.cpp
     main_tray_app.cpp
 )
 
