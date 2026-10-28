@@ -1,8 +1,13 @@
 #include "gui/settings_dialog.h"
 #include "gui/settings_binding.h"
 #include "core/config/config_json.h"
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
 #include "platform/mac/login/login_item.h"
 #include "platform/mac/permissions.h"
+#else
+#include "platform/win/login/login_item.h"
+#include "platform/win/permissions.h"
+#endif
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGroupBox>
@@ -13,8 +18,14 @@
 #include <filesystem>
 
 static std::string getConfigFilePath() {
+    std::string path;
+#ifdef _WIN32
+    const char* appData = getenv("APPDATA");
+    path = (appData ? appData : ".") + std::string("/TypingAssistant");
+#else
     const char* home = getenv("HOME");
-    std::string path = (home ? home : ".") + std::string("/Library/Application Support/TypingAssistant");
+    path = (home ? home : ".") + std::string("/Library/Application Support/TypingAssistant");
+#endif
     std::filesystem::create_directories(path);
     return path + "/config.json";
 }

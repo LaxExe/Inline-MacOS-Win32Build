@@ -139,7 +139,10 @@ void MacKeyboardHook::workerThreadFunc() {
 void MacKeyboardHook::hookThreadFunc() {
     CGEventMask mask = CGEventMaskBit(kCGEventKeyDown)
                      | CGEventMaskBit(kCGEventKeyUp)
-                     | CGEventMaskBit(kCGEventFlagsChanged);
+                     | CGEventMaskBit(kCGEventFlagsChanged)
+                     | CGEventMaskBit(kCGEventLeftMouseDown)
+                     | CGEventMaskBit(kCGEventRightMouseDown)
+                     | CGEventMaskBit(kCGEventOtherMouseDown);
 
     while (running_ && !tap_) {
         tap_ = CGEventTapCreate(

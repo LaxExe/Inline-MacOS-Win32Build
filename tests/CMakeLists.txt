@@ -1,5 +1,11 @@
 # tests/CMakeLists.txt
 
+if(APPLE AND NOT BUILD_WINDOWS)
+    set(PLATFORM_LIB mac_platform_lib)
+else()
+    set(PLATFORM_LIB win_platform_lib)
+endif()
+
 add_executable(test_smoke unit/test_smoke.cpp)
 target_link_libraries(test_smoke PRIVATE GTest::gtest_main)
 add_test(NAME Smoke.HarnessRuns COMMAND test_smoke)
@@ -11,17 +17,17 @@ add_test(NAME Tier1Test COMMAND test_tier1)
 
 # Stage 2
 add_executable(test_permission_flow unit/test_permission_flow.cpp)
-target_link_libraries(test_permission_flow PRIVATE mac_platform_lib GTest::gtest_main)
+target_link_libraries(test_permission_flow PRIVATE ${PLATFORM_LIB} GTest::gtest_main)
 add_test(NAME PermissionFlow COMMAND test_permission_flow)
 
 # Stage 3
 add_executable(test_hook_filter unit/test_hook_filter.cpp)
-target_link_libraries(test_hook_filter PRIVATE mac_platform_lib GTest::gtest_main)
+target_link_libraries(test_hook_filter PRIVATE ${PLATFORM_LIB} GTest::gtest_main)
 add_test(NAME HookFilter COMMAND test_hook_filter)
 
 # Stage 4
 add_executable(test_secure_field_classifier unit/test_secure_field_classifier.cpp)
-target_link_libraries(test_secure_field_classifier PRIVATE mac_platform_lib GTest::gtest_main)
+target_link_libraries(test_secure_field_classifier PRIVATE ${PLATFORM_LIB} GTest::gtest_main)
 add_test(NAME SecureFieldClassifier COMMAND test_secure_field_classifier)
 
 add_executable(test_buffer_suppression unit/test_buffer_suppression.cpp)
@@ -77,10 +83,13 @@ target_link_libraries(test_engine_mode PRIVATE core_lib GTest::gtest_main)
 add_test(NAME EngineMode COMMAND test_engine_mode)
 
 # Integration tests
-add_executable(hook_synth_test integration/mac/hook_synth_test.mm)
-target_link_libraries(hook_synth_test PRIVATE mac_platform_lib GTest::gtest_main)
-add_test(NAME HookIntegration COMMAND hook_synth_test)
+if(APPLE AND NOT BUILD_WINDOWS)
+    add_executable(hook_synth_test integration/mac/hook_synth_test.mm)
+    target_link_libraries(hook_synth_test PRIVATE mac_platform_lib GTest::gtest_main)
+    add_test(NAME HookIntegration COMMAND hook_synth_test)
 
-add_executable(injector_synth_test integration/mac/injector_synth_test.mm)
-target_link_libraries(injector_synth_test PRIVATE mac_platform_lib GTest::gtest_main)
-add_test(NAME InjectorIntegration COMMAND injector_synth_test)
+    add_executable(injector_synth_test integration/mac/injector_synth_test.mm)
+    target_link_libraries(injector_synth_test PRIVATE mac_platform_lib GTest::gtest_main)
+    add_test(NAME InjectorIntegration COMMAND injector_synth_test)
+endif()
+

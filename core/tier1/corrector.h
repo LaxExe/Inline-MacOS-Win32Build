@@ -10,4 +10,4 @@ struct CorrectionResult {
     int editDistance = 0;
 };
 
-CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict, const AppConfig& cfg, bool isSentenceStart = false);
+CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict, const AppConfig& cfg, bool isSentenceStart = false, const std::wstring& prevWord = L"");

@@ -3,13 +3,23 @@
 #include <fstream>
 #include <filesystem>
 #include "gui/main_tray_app.h"
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
 #include "platform/mac/permissions.h"
+#else
+#include "platform/win/permissions.h"
+#endif
 #include "core/config/config_json.h"
 #include "core/reliability/privacy_logger.h"
 
 static void loadInitialConfig() {
+    std::string path;
+#ifdef _WIN32
+    const char* appData = getenv("APPDATA");
+    path = (appData ? appData : ".") + std::string("/TypingAssistant/config.json");
+#else
     const char* home = getenv("HOME");
-    std::string path = (home ? home : ".") + std::string("/Library/Application Support/TypingAssistant/config.json");
+    path = (home ? home : ".") + std::string("/Library/Application Support/TypingAssistant/config.json");
+#endif
     if (std::filesystem::exists(path)) {
         std::ifstream in(path);
         if (in.is_open()) {

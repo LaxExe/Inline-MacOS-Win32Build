@@ -37,6 +37,69 @@ static std::wstring applyCasing(const std::wstring& target, const std::wstring& 
     return target;
 }
 
+// True if every character of `small` appears in `big` in order (i.e. `small` is `big` with letters dropped).
+static bool isSubsequence(const std::wstring& small, const std::wstring& big) {
+    size_t i = 0;
+    for (wchar_t c : big) {
+        if (i < small.size() && small[i] == c) ++i;
+    }
+    return i == small.size();
+}
+
+// True if `a` and `b` are identical except for one swapped adjacent pair (e.g. "wnat" / "want").
+static bool isAdjacentTransposition(const std::wstring& a, const std::wstring& b) {
+    if (a.size() != b.size() || a.size() < 2) return false;
+    size_t i = 0;
+    while (i < a.size() && a[i] == b[i]) ++i;
+    if (i + 1 >= a.size()) return false;
+    if (a[i] != b[i + 1] || a[i + 1] != b[i]) return false;
+    return a.compare(i + 2, std::wstring::npos, b, i + 2, std::wstring::npos) == 0;
+}
+
+// QWERTY neighbours: a substituted letter that sits next to the intended one is a very likely slip.
+static bool areKeysAdjacent(wchar_t x, wchar_t y) {
+    static const wchar_t* rows[3] = { L"qwertyuiop", L"asdfghjkl", L"zxcvbnm" };
+    auto locate = [](wchar_t c, int& row, int& col) {
+        for (int r = 0; r < 3; ++r) {
+            for (int k = 0; rows[r][k]; ++k) {
+                if (rows[r][k] == c) { row = r; col = k; return true; }
+            }
+        }
+        return false;
+    };
+    int rx, cx, ry, cy;
+    if (!locate(x, rx, cx) || !locate(y, ry, cy)) return false;
+    if (rx == ry) return std::abs(cx - cy) == 1;
+    if (std::abs(rx - ry) != 1) return false;
+    // Rows are staggered: a key touches the keys directly above/below and the one diagonal to its upper-left/lower-right.
+    int upperCol = (rx < ry) ? cx : cy;
+    int lowerCol = (rx < ry) ? cy : cx;
+    int off = lowerCol - upperCol;
+    return off == 0 || off == -1;
+}
+
+// Bonus applied on top of the frequency score for candidates whose relationship to the typed text
+// matches how typos really happen. Without this, a very frequent but unrelated word beats the
+// intended one (e.g. "wich" -> "with" instead of "which", "wnat" -> "what" instead of "want").
+static double typoShapeBonus(const std::wstring& typed, const std::wstring& cand, int distance) {
+    if (distance == 1) {
+        if (isAdjacentTransposition(typed, cand)) return 2.5;
+        if (typed.size() + 1 == cand.size() && isSubsequence(typed, cand)) return 2.8;   // missing letter
+        if (typed.size() == cand.size()) {                                                 // substitution
+            for (size_t i = 0; i < typed.size(); ++i) {
+                if (typed[i] != cand[i]) return areKeysAdjacent(typed[i], cand[i]) ? 1.0 : 0.0;
+            }
+        }
+        if (typed.size() == cand.size() + 1 && isSubsequence(cand, typed)) return 0.8;   // extra letter
+        return 0.0;
+    }
+    if (distance == 2) {
+        if (typed.size() + 2 == cand.size() && isSubsequence(typed, cand)) return 1.2;   // two missing letters
+        if (typed.size() == cand.size() + 2 && isSubsequence(cand, typed)) return 0.6;   // two extra letters
+    }
+    return 0.0;
+}
+
 static const std::unordered_map<std::wstring, std::wstring> kCommonExpansions = {
     {L"i", L"I"},
     {L"im", L"I'm"},
@@ -100,10 +163,12 @@ static const std::unordered_map<std::wstring, std::wstring> kCommonExpansions = 
     {L"duto", L"auto"},
     {L"neht", L"next"},
     {L"asw", L"as"},
-    {L"wors", L"words"}
+    {L"wors", L"words"},
+    {L"alot", L"a lot"},   // one word -> two words, SymSpell cannot produce this
+    {L"fo", L"of"}         // <=2 chars are skipped by the fuzzy path, so handle the common transposition here
 };
 
-CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict, const AppConfig& cfg, bool isSentenceStart) {
+CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict, const AppConfig& cfg, bool isSentenceStart, const std::wstring& prevWord) {
     CorrectionResult result;
     result.didCorrect = false;
     result.corrected = typed;
@@ -115,6 +180,14 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
         std::wstring wign(ign.begin(), ign.end());
         if (toLower(wign) == lowerTyped) {
             return result;
+        }
+    }
+
+    // Extract clean previous word for bigram context
+    std::wstring cleanPrev;
+    for (wchar_t c : prevWord) {
+        if (std::iswalnum(c) || c == L'\'') {
+            cleanPrev.push_back(std::towlower(c));
         }
     }
 
@@ -207,7 +280,15 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
         if (s.distance > 1 && overlapRatio < 0.60) {
             continue;
         }
-        double score = logCount - s.distance * 2.0 + overlapRatio * 1.5;
+        double score = logCount - s.distance * 2.0 + overlapRatio * 1.5 + typoShapeBonus(lowerTyped, s.term, s.distance);
+
+        // Context-aware bigram boost: if this candidate forms a frequent, natural bigram with the previous word
+        if (!cleanPrev.empty()) {
+            int64_t biFreq = dict.getBigramFrequency(cleanPrev, s.term);
+            if (biFreq > 0) {
+                score += std::log10(static_cast<double>(biFreq)) * 1.5;
+            }
+        }
 
         // Confidence threshold based on distance:
         // Dist 1 requires logCount >= 4.0 (10,000+ count in 82K dictionary)

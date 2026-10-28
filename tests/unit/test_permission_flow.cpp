@@ -1,5 +1,9 @@
 #include <gtest/gtest.h>
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
 #include "platform/mac/permissions.h"
+#else
+#include "platform/win/permissions.h"
+#endif
 
 TEST(PermissionFlow, FirstRunBothMissingPromptsInputMonitoringFirst) {
     auto action = decidePermissionAction(/*inputMon=*/false, /*accessibility=*/false, /*firstRun=*/true);

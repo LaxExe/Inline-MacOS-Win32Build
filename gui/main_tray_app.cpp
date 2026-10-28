@@ -3,12 +3,16 @@
 #include "core/buffers/buffer_gate.h"
 #include "core/buffers/word_boundary.h"
 #include "core/tier1/corrector.h"
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
 #include "platform/mac/hotkey/global_hotkey.h"
+#include <Carbon/Carbon.h>
+#else
+#include "platform/win/hotkey/global_hotkey.h"
+#endif
 #include <QApplication>
 #include <QPainter>
 #include <QPixmap>
 #include <QTimer>
-#include <Carbon/Carbon.h>
 #include <iostream>
 
 static QIcon createStatusIcon(bool active) {
@@ -149,7 +153,7 @@ void MainTrayApp::openPreferences() {
     if (!settingsDialog_) {
         settingsDialog_ = std::make_unique<SettingsDialog>();
     }
-    settingsDialog_->updateStatusInfo(hook_.isRunning(), 82834);
+    settingsDialog_->updateStatusInfo(hook_.isRunning(), static_cast<int>(dict_.wordCount()));
     settingsDialog_->loadFromConfig();
     settingsDialog_->show();
     settingsDialog_->raise();
@@ -164,10 +168,31 @@ void MainTrayApp::quitApp() {
 }
 
 bool MainTrayApp::initEngine() {
-    bool d1 = dict_.loadDictionary("dictionaries/frequency_dictionary_en_82_765.txt", 0, 1);
+    std::string dictPath = "dictionaries/frequency_dictionary_en_82_765.txt";
+    std::string bigramPath = "dictionaries/frequency_bigramdictionary_en_243_342.txt";
+    std::string appDir = QCoreApplication::applicationDirPath().toStdString();
+    if (std::filesystem::exists(appDir + "/../Resources/dictionaries/frequency_dictionary_en_82_765.txt")) {
+        dictPath = appDir + "/../Resources/dictionaries/frequency_dictionary_en_82_765.txt";
+    } else if (std::filesystem::exists(appDir + "/dictionaries/frequency_dictionary_en_82_765.txt")) {
+        dictPath = appDir + "/dictionaries/frequency_dictionary_en_82_765.txt";
+    }
+
+    if (std::filesystem::exists(appDir + "/../Resources/dictionaries/frequency_bigramdictionary_en_243_342.txt")) {
+        bigramPath = appDir + "/../Resources/dictionaries/frequency_bigramdictionary_en_243_342.txt";
+    } else if (std::filesystem::exists(appDir + "/dictionaries/frequency_bigramdictionary_en_243_342.txt")) {
+        bigramPath = appDir + "/dictionaries/frequency_bigramdictionary_en_243_342.txt";
+    }
+
+    bool d1 = dict_.loadDictionary(dictPath, 0, 1);
     if (!d1) {
         PrivacyLogger::instance().logDiagnosticText("Warning: Failed to load frequency dictionary");
-        std::cerr << "[TypingAssistant] Warning: Failed to load frequency dictionary" << std::endl;
+        std::cerr << "[TypingAssistant] Warning: Failed to load frequency dictionary from: " << dictPath << std::endl;
+    }
+
+    bool d2 = dict_.loadBigramDictionary(bigramPath);
+    if (!d2) {
+        PrivacyLogger::instance().logDiagnosticText("Warning: Failed to load bigram dictionary");
+        std::cerr << "[TypingAssistant] Warning: Failed to load bigram dictionary from: " << bigramPath << std::endl;
     }
 
     hook_.setKeyCallback([this](const RawKeyEvent& ev) {
@@ -250,6 +275,14 @@ static wchar_t keyCodeToChar(int64_t keycode, uint64_t flags) {
 }
 
 void MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev) {
+    // A click can move the caret anywhere, so whatever we buffered no longer sits before the caret.
+    // CGEventType values: LeftMouseDown=1, RightMouseDown=3, OtherMouseDown=25.
+    if (ev.type == 1 || ev.type == 3 || ev.type == 25) {
+        currentWord_.chars.clear();
+        undoSM_.onOtherKey();
+        return;
+    }
+
     if (ev.type != kCGEventKeyDown) return;
 
     if (idleClearTimer_) {
@@ -383,7 +416,12 @@ void MainTrayApp::handleWordBoundary(wchar_t delimiter) {
     }
 
     std::wstring wordForContext = word;
-    auto correction = correctWord(word, dict_, cfg, isSentenceStart_);
+    std::wstring prevWord = L"";
+    if (!isSentenceStart_ && !contextWindow_.words.empty()) {
+        prevWord = contextWindow_.words.back();
+    }
+
+    auto correction = correctWord(word, dict_, cfg, isSentenceStart_, prevWord);
     if (correction.didCorrect) {
         auto check = undoSM_.onWordCorrected(word, correction.corrected);
         if (!check.suppressed) {

@@ -22,6 +22,8 @@ public:
 
     void postTaggedKeyEvent(CGKeyCode key, bool keyDown);
     void postTaggedUnicodeEvent(wchar_t ch);
+    void postTaggedUnicodeString(const std::wstring& text);
+    void postBackspaces(int count);
 
 private:
     std::atomic<bool> running_{false};

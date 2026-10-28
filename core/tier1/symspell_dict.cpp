@@ -227,6 +227,57 @@ bool SymSpellDict::loadDictionary(const std::string& corpusPath, int termIndex, 
     return true;
 }
 
+bool SymSpellDict::loadBigramDictionary(const std::string& corpusPath) {
+    std::string resolved = resolveFilePath(corpusPath);
+    std::ifstream file(resolved, std::ios::in | std::ios::binary);
+    if (!file.is_open()) {
+        std::cerr << "[SymSpellDict] Failed to open bigram dictionary: " << corpusPath << " (resolved: " << resolved << ")\n";
+        return false;
+    }
+
+    bigrams_.reserve(250000);
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+        const char* p = line.c_str();
+        if (line.size() >= 3 && (unsigned char)p[0] == 0xEF && (unsigned char)p[1] == 0xBB && (unsigned char)p[2] == 0xBF) {
+            p += 3;
+        }
+        while (*p == ' ' || *p == '\t') ++p;
+        if (!*p) continue;
+
+        size_t lastSpace = line.rfind(' ');
+        if (lastSpace != std::string::npos && lastSpace > static_cast<size_t>(p - line.c_str())) {
+            std::string phrase(p, lastSpace - static_cast<size_t>(p - line.c_str()));
+            for (auto& c : phrase) {
+                c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+            }
+            int64_t count = std::strtoll(line.c_str() + lastSpace + 1, nullptr, 10);
+            if (count <= 0) count = 1;
+            bigrams_[phrase] = count;
+        }
+    }
+
+    return true;
+}
+
+int64_t SymSpellDict::getBigramFrequency(const std::wstring& word1, const std::wstring& word2) const {
+    if (bigrams_.empty() || word1.empty() || word2.empty()) return 0;
+    std::string key;
+    key.reserve(word1.size() + word2.size() + 1);
+    for (wchar_t c : word1) {
+        if (c < 128) key.push_back(static_cast<char>(std::towlower(c)));
+    }
+    key.push_back(' ');
+    for (wchar_t c : word2) {
+        if (c < 128) key.push_back(static_cast<char>(std::towlower(c)));
+    }
+    auto it = bigrams_.find(key);
+    if (it != bigrams_.end()) return it->second;
+    return 0;
+}
+
 void SymSpellDict::mergePersonalDictionary(const std::vector<std::pair<std::wstring, int64_t>>& personalEntries) {
     for (const auto& entry : personalEntries) {
         addWord(entry.first, entry.second);

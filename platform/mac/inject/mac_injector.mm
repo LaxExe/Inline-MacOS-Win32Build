@@ -3,6 +3,9 @@
 #include "core/injection/token_validation.h"
 #include "core/injection/priority_queue.h"
 #include <chrono>
+#include <algorithm>
+#include <string>
+#include <vector>
 #include <Carbon/Carbon.h>
 
 MacInjector::MacInjector() {
@@ -150,6 +153,55 @@ void MacInjector::postTaggedUnicodeEvent(wchar_t ch) {
     }
 }
 
+// Post one key-down/key-up pair that types up to kMaxUnicodeChunk UTF-16 units at once.
+// CGEventKeyboardSetUnicodeString accepts a multi-character payload, so a whole corrected word
+// goes out as a single event pair instead of 2 events (and a sleep) per character.
+static constexpr size_t kMaxUnicodeChunk = 16;
+
+static void toUtf16(const std::wstring& in, std::vector<UniChar>& out) {
+    out.clear();
+    out.reserve(in.size());
+    for (wchar_t wc : in) {
+        uint32_t cp = static_cast<uint32_t>(wc);
+        if (cp > 0xFFFF) {
+            cp -= 0x10000;
+            out.push_back(static_cast<UniChar>(0xD800 + (cp >> 10)));
+            out.push_back(static_cast<UniChar>(0xDC00 + (cp & 0x3FF)));
+        } else {
+            out.push_back(static_cast<UniChar>(cp));
+        }
+    }
+}
+
+void MacInjector::postTaggedUnicodeString(const std::wstring& text) {
+    std::vector<UniChar> units;
+    toUtf16(text, units);
+
+    for (size_t off = 0; off < units.size(); off += kMaxUnicodeChunk) {
+        size_t n = std::min(kMaxUnicodeChunk, units.size() - off);
+        // Never split a surrogate pair across two events.
+        if (n > 0 && off + n < units.size() && (units[off + n - 1] & 0xFC00) == 0xD800) {
+            --n;
+        }
+        for (int down = 1; down >= 0; --down) {
+            CGEventRef e = CGEventCreateKeyboardEvent(eventSource_, 0, down != 0);
+            if (!e) continue;
+            CGEventSetFlags(e, 0);
+            CGEventKeyboardSetUnicodeString(e, n, &units[off]);
+            CGEventSetIntegerValueField(e, kCGEventSourceUserData, kOurAppMagicTagValue);
+            CGEventPost(kCGSessionEventTap, e);
+            CFRelease(e);
+        }
+    }
+}
+
+void MacInjector::postBackspaces(int count) {
+    for (int i = 0; i < count; ++i) {
+        postTaggedKeyEvent(kVK_Delete, true);
+        postTaggedKeyEvent(kVK_Delete, false);
+    }
+}
+
 void MacInjector::run() {
     while (running_) {
         InjectionOp op;
@@ -168,33 +220,20 @@ void MacInjector::run() {
             continue; // stale op, drop silently
         }
 
+        // No inter-event sleeps: each CGEventPost already takes tens of microseconds and the
+        // session event queue preserves ordering, so a full replacement completes in ~1-2 ms
+        // instead of ~30 ms. The shorter the window, the less chance the user's next keystrokes
+        // interleave with the replacement.
         switch (op.type) {
             case InjectionOp::BACKSPACE_N:
-                for (int i = 0; i < op.count; ++i) {
-                    postTaggedKeyEvent(kVK_Delete, true);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                    postTaggedKeyEvent(kVK_Delete, false);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                }
+                postBackspaces(op.count);
                 break;
             case InjectionOp::TYPE_TEXT:
-                for (wchar_t ch : op.text) {
-                    postTaggedUnicodeEvent(ch);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                }
+                postTaggedUnicodeString(op.text);
                 break;
             case InjectionOp::REPLACE_TEXT:
-                for (int i = 0; i < op.count; ++i) {
-                    postTaggedKeyEvent(kVK_Delete, true);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                    postTaggedKeyEvent(kVK_Delete, false);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(2));
-                for (wchar_t ch : op.text) {
-                    postTaggedUnicodeEvent(ch);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                }
+                postBackspaces(op.count);
+                postTaggedUnicodeString(op.text);
                 break;
             case InjectionOp::MOVE_CARET:
                 break;

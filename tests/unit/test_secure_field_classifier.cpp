@@ -1,5 +1,9 @@
 #include <gtest/gtest.h>
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
 #include "platform/mac/caret/secure_field_classifier.h"
+#else
+#include "platform/win/caret/secure_field_classifier.h"
+#endif
 
 TEST(SecureFieldClassifier, RecognizesSecureTextField) {
     EXPECT_TRUE(isSecureFieldRole("AXTextField", "AXSecureTextField"));
