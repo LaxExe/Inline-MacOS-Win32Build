@@ -1,10 +1,6 @@
 # tests/CMakeLists.txt
 
-if(APPLE AND NOT BUILD_WINDOWS)
-    set(PLATFORM_LIB mac_platform_lib)
-else()
-    set(PLATFORM_LIB win_platform_lib)
-endif()
+set(PLATFORM_LIB mac_platform_lib)
 
 add_executable(test_smoke unit/test_smoke.cpp)
 target_link_libraries(test_smoke PRIVATE GTest::gtest_main)

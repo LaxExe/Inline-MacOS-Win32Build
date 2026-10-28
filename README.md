@@ -1,6 +1,8 @@
-# Inline (macOS & Windows)
+# Inline (macOS)
 
-A high-performance, ultra-lightweight native cross-platform system tray / menu bar autocorrect engine built in C++20, Qt6, and native platform APIs. **Inline** provides instant, sub-millisecond typo correction, run-together word splitting, and smart single-key undo recovery directly across all macOS and Windows applications with minimal CPU and memory footprint (<5 MB RAM, ~0.0% idle CPU).
+A high-performance, ultra-lightweight native macOS menu bar autocorrect engine built in C++20, Qt6, and native macOS APIs (`CGEventTap`). **Inline** provides instant, sub-millisecond typo correction, context-aware disambiguation (e.g., `helo` → `help` vs `hello`), run-together word splitting, and smart single-key undo recovery directly across all macOS applications with minimal CPU and memory footprint (<5 MB RAM, ~0.0% idle CPU).
+
+> **Looking for Windows?** The native Windows version (`WH_KEYBOARD_LL`, `SendInput`) is maintained on the [**`windows-branch`**](https://github.com/LaxExe/Inline-mac-c/tree/windows-branch).
 
 ---
 
@@ -10,12 +12,14 @@ A high-performance, ultra-lightweight native cross-platform system tray / menu b
 - 🧠 **Context-Aware Bigram Disambiguation**: Intelligently scores candidates against preceding conversational context via a 240,000+ bigram corpus (e.g. typing `helo` naturally becomes `help` after "need" or "please", but `hello` after "say" or at the start of a sentence).
 - 🧩 **Run-Together Word Splitting**: Automatically detects and splits concatenated words (e.g. `theclass` → `the class`, `ofevening` → `of evening`, `timerighte` → `time right`).
 - 🔄 **Single-Key Revert on Backspace**: If a word is autocorrected and you press Backspace, Inline seamlessly reverts the word back to your exact typed input.
-- 🪟 **Windows & macOS Multi-Platform Support**: Modular platform abstraction layer (`platform/mac` & `platform/win`) supporting macOS (`CGEventTap`) and Windows (`SetWindowsHookEx` & `SendInput`).
+- 🚀 **1-Click Installer**: Automated `./install_mac.sh` script to build, package icons, and install to `/Applications/Inline.app`.
+- 🔐 **First-Run Permission Onboarding**: Interactive permission setup window guiding you through Input Monitoring and Accessibility with live verification.
 - 🧹 **Automatic & Manual Buffer Purging**: Automatically clears all keystroke buffers after 30 seconds of inactivity, on menu bar/tray interaction, via manual menu action, and on application quit.
 - 🛡️ **Zero Keystroke Dumps on Teardown**: Ensures clean event queue draining and immediate hook disabling on quit, preventing any buffered keystrokes from dumping to active apps.
 - 🔒 **Privacy & Secure Field Protection**: Password and credential fields are automatically excluded from logging, buffering, and corrections.
-- 🎛️ **Native Tray App**: Sits discreetly in the system tray / menu bar with real-time status indication, live test playground, and hotkey controls.
-- 🧪 **Cross-Platform Test Coverage**: Complete GoogleTest unit test suite covering hooks, injectors, buffers, priority queues, and undo state machines.
+- 🎛️ **Minimal Modern Menu Bar App**: Sits discreetly in the macOS menu bar with a clean status indicator, live test playground, and hotkey controls.
+- 🧪 **100% Test Coverage**: Complete GoogleTest unit test suite covering hooks, injectors, buffers, priority queues, and undo state machines.
+
 
 ---
 
