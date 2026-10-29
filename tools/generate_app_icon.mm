@@ -15,7 +15,7 @@ void drawAppIcon(CGContextRef ctx, CGFloat size) {
     CGContextAddPath(ctx, clipPath);
     CGContextClip(ctx);
 
-    // 2. Base Surface: Solid, flat deep industrial obsidian (no gradients, no glow)
+    // 2. Base Surface: Solid, flat industrial obsidian
     CGContextSetRGBFillColor(ctx, 0.08f, 0.08f, 0.09f, 1.0f); // #141417
     CGContextFillRect(ctx, rect);
 
@@ -25,31 +25,31 @@ void drawAppIcon(CGContextRef ctx, CGFloat size) {
     CGContextAddPath(ctx, clipPath);
     CGContextStrokePath(ctx);
 
-    // 4. High-Contrast Editorial Geometric Monogram for "Inline"
-    // Left Element: Crisp vertical cursor rule
-    CGFloat ruleW = s * 0.075;
+    // 4. Exact Menu Bar Emblem (Cursor Rule + Forest Green Precision Indicator)
+    // Proportions matching the menu bar glyph:
+    // Vertical rule: 2.0w x 12.0h -> aspect ratio 1 : 6
+    // Precision dot: 3.0w x 3.0h -> aspect ratio 1 : 1
+    // Gap: 2.0
+    CGFloat ruleW = s * 0.08;
     CGFloat ruleH = s * 0.48;
-    CGFloat ruleX = s * 0.38 - ruleW * 0.5;
-    CGFloat ruleY = s * 0.26;
+    CGFloat gap = s * 0.065;
+    CGFloat dotSize = s * 0.12;
 
-    CGRect ruleRect = CGRectMake(ruleX, ruleY, ruleW, ruleH);
-    CGContextSetRGBFillColor(ctx, 0.98f, 0.98f, 0.98f, 1.0f); // Pure paper white #FAFAFA
+    CGFloat totalW = ruleW + gap + dotSize;
+    CGFloat startX = (s - totalW) * 0.5;
+    CGFloat ruleY = (s - ruleH) * 0.5;
+
+    // A. Vertical Cursor Rule (pure paper white)
+    CGRect ruleRect = CGRectMake(startX, ruleY, ruleW, ruleH);
+    CGContextSetRGBFillColor(ctx, 0.98f, 0.98f, 0.98f, 1.0f); // #FAFAFA
     CGContextFillRect(ctx, ruleRect);
 
-    // Baseline Accent Rule (horizontal editorial typographic line)
-    CGFloat baseW = s * 0.22;
-    CGFloat baseH = s * 0.045;
-    CGFloat baseX = ruleX;
-    CGFloat baseY = ruleY + ruleH - baseH;
-    CGContextFillRect(ctx, CGRectMake(baseX, baseY, baseW, baseH));
-
-    // Right Element: High-contrast geometric red precision indicator dot (1 intentional accent color)
-    CGFloat dotSize = s * 0.085;
-    CGFloat dotX = s * 0.62;
-    CGFloat dotY = s * 0.44;
+    // B. Precision Status Square (crisp forest green matching menu bar active state)
+    CGFloat dotX = startX + ruleW + gap;
+    CGFloat dotY = (s - dotSize) * 0.5; // Centered vertically
     CGRect dotRect = CGRectMake(dotX, dotY, dotSize, dotSize);
 
-    CGContextSetRGBFillColor(ctx, 0.88f, 0.16f, 0.18f, 1.0f); // Warm vermilion #E11D48
+    CGContextSetRGBFillColor(ctx, 0.08f, 0.50f, 0.24f, 1.0f); // Forest Green #15803D
     CGContextFillRect(ctx, dotRect);
 
     CGPathRelease(clipPath);
@@ -102,7 +102,7 @@ int main(int argc, char* argv[]) {
 
         int res = system("iconutil -c icns resources/AppIcon.iconset -o resources/AppIcon.icns");
         if (res == 0) {
-            std::cout << "Successfully created restrained architectural resources/AppIcon.icns!" << std::endl;
+            std::cout << "Successfully created resources/AppIcon.icns with menu bar glyph!" << std::endl;
         } else {
             std::cerr << "iconutil failed with code " << res << std::endl;
         }
