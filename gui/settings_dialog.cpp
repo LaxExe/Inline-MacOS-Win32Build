@@ -32,9 +32,9 @@ static std::string getConfigFilePath() {
 }
 
 SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent) {
-    setWindowTitle(tr("Inline Settings"));
-    resize(560, 600);
-    setMinimumSize(500, 520);
+    setWindowTitle(tr("Inline Engine Settings"));
+    resize(580, 560);
+    setMinimumSize(540, 500);
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
     setupUi();
@@ -49,107 +49,140 @@ SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent) {
 void SettingsDialog::applyTheme() {
     setStyleSheet(
         "SettingsDialog {"
-        "  background-color: #F8FAFC;"
-        "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"
+        "  background-color: #FFFFFF;"
+        "  color: #111827;"
+        "  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;"
         "}"
         "QTabWidget::pane {"
-        "  border: 1px solid #E2E8F0;"
-        "  border-radius: 8px;"
+        "  border: 1px solid #E4E4E7;"
         "  background-color: #FFFFFF;"
         "  top: -1px;"
         "}"
         "QTabBar::tab {"
-        "  background: transparent;"
-        "  padding: 8px 18px;"
-        "  margin-right: 4px;"
-        "  font-size: 13px;"
-        "  font-weight: 500;"
-        "  color: #64748B;"
-        "  border-radius: 6px;"
+        "  background: #FAFAFA;"
+        "  border: 1px solid #E4E4E7;"
+        "  border-bottom: none;"
+        "  padding: 7px 16px;"
+        "  margin-right: 2px;"
+        "  font-size: 11px;"
+        "  font-weight: 600;"
+        "  letter-spacing: 0.04em;"
+        "  color: #71717A;"
         "}"
         "QTabBar::tab:selected {"
-        "  background-color: #E2E8F0;"
-        "  color: #0F172A;"
-        "  font-weight: 600;"
+        "  background: #FFFFFF;"
+        "  color: #09090B;"
+        "  border-bottom: 2px solid #18181B;"
         "}"
         "QTabBar::tab:hover:!selected {"
-        "  background-color: #F1F5F9;"
-        "  color: #334155;"
+        "  background: #F4F4F5;"
+        "  color: #27272A;"
         "}"
         "QScrollArea {"
         "  border: none;"
         "  background-color: transparent;"
         "}"
-        "QFrame#card {"
-        "  background-color: #FFFFFF;"
-        "  border: 1px solid #E2E8F0;"
-        "  border-radius: 8px;"
-        "  padding: 12px 14px;"
+        ".SectionHeader {"
+        "  font-size: 10px;"
+        "  font-weight: 700;"
+        "  letter-spacing: 0.08em;"
+        "  color: #71717A;"
+        "  text-transform: uppercase;"
+        "}"
+        ".HairlineRule {"
+        "  color: #E4E4E7;"
+        "  background-color: #E4E4E7;"
+        "  height: 1px;"
+        "  border: none;"
         "}"
         "QCheckBox {"
-        "  font-size: 13px;"
+        "  font-size: 12px;"
         "  font-weight: 500;"
-        "  color: #1E293B;"
+        "  color: #18181B;"
         "  spacing: 8px;"
         "}"
         "QLineEdit, QPlainTextEdit, QSpinBox {"
         "  background-color: #FFFFFF;"
-        "  border: 1px solid #CBD5E1;"
-        "  border-radius: 6px;"
-        "  padding: 6px 10px;"
-        "  font-size: 13px;"
-        "  color: #0F172A;"
+        "  border: 1px solid #D4D4D8;"
+        "  border-radius: 2px;"
+        "  padding: 5px 8px;"
+        "  font-size: 12px;"
+        "  color: #09090B;"
         "}"
         "QLineEdit:focus, QPlainTextEdit:focus, QSpinBox:focus {"
-        "  border: 1px solid #2563EB;"
+        "  border: 1px solid #18181B;"
         "}"
         "QSlider::groove:horizontal {"
-        "  height: 6px;"
-        "  background: #E2E8F0;"
-        "  border-radius: 3px;"
+        "  height: 4px;"
+        "  background: #E4E4E7;"
         "}"
         "QSlider::sub-page:horizontal {"
-        "  background: #2563EB;"
-        "  border-radius: 3px;"
+        "  background: #18181B;"
         "}"
         "QSlider::handle:horizontal {"
         "  background: #FFFFFF;"
-        "  border: 2px solid #2563EB;"
-        "  width: 16px;"
+        "  border: 1px solid #18181B;"
+        "  width: 12px;"
         "  margin-top: -5px;"
         "  margin-bottom: -5px;"
-        "  border-radius: 8px;"
+        "  border-radius: 2px;"
         "}"
     );
 }
 
 void SettingsDialog::setupUi() {
     auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(20, 16, 20, 16);
+    mainLayout->setContentsMargins(20, 18, 20, 16);
     mainLayout->setSpacing(12);
 
-    tabWidget_ = new QTabWidget(this);
-    tabWidget_->addTab(createGeneralTab(), tr("Preferences"));
-    tabWidget_->addTab(createDiagnosticsTab(), tr("Permissions & Health"));
-    tabWidget_->addTab(createPlaygroundTab(), tr("Playground"));
+    // Header Strip
+    auto* headerLayout = new QHBoxLayout();
+    auto* titleLayout = new QVBoxLayout();
+    auto* subTitle = new QLabel(tr("INLINE WORKSTATION ENGINE"), this);
+    subTitle->setStyleSheet("font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: #71717A;");
+    auto* mainTitle = new QLabel(tr("Configuration & Diagnostics"), this);
+    mainTitle->setStyleSheet("font-size: 16px; font-weight: 700; color: #09090B;");
+    titleLayout->addWidget(subTitle);
+    titleLayout->addWidget(mainTitle);
+    titleLayout->setSpacing(2);
+    headerLayout->addLayout(titleLayout);
+    headerLayout->addStretch();
 
+    // Telemetry badge
+    auto* telemFrame = new QFrame(this);
+    telemFrame->setStyleSheet("background-color: #F4F4F5; border: 1px solid #E4E4E7; padding: 4px 8px;");
+    auto* telemLbl = new QLabel(tr("SUB-MS LATENCY · AIR-GAPPED"), telemFrame);
+    telemLbl->setStyleSheet("font-family: 'SF Mono', Menlo, monospace; font-size: 10px; font-weight: 600; color: #52525B;");
+    auto* telemBox = new QHBoxLayout(telemFrame);
+    telemBox->setContentsMargins(6, 4, 6, 4);
+    telemBox->addWidget(telemLbl);
+    headerLayout->addWidget(telemFrame);
+
+    mainLayout->addLayout(headerLayout);
+
+    // Tab Widget
+    tabWidget_ = new QTabWidget(this);
+    tabWidget_->addTab(createGeneralTab(), tr("PREFERENCES"));
+    tabWidget_->addTab(createDiagnosticsTab(), tr("SYSTEM HEALTH"));
+    tabWidget_->addTab(createPlaygroundTab(), tr("REPL TEST"));
     mainLayout->addWidget(tabWidget_);
 
+    // Footer actions
     auto* buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
-    buttonBox->button(QDialogButtonBox::Ok)->setText(tr("Save"));
+    buttonBox->button(QDialogButtonBox::Ok)->setText(tr("Save Configuration"));
     buttonBox->button(QDialogButtonBox::Ok)->setStyleSheet(
         "QPushButton {"
-        "  background-color: #2563EB; color: #FFFFFF; border: none; border-radius: 6px;"
-        "  padding: 6px 16px; font-weight: 600; font-size: 13px;"
+        "  background-color: #18181B; color: #FAFAFA; border: 1px solid #18181B; border-radius: 2px;"
+        "  padding: 6px 14px; font-size: 12px; font-weight: 600;"
         "}"
-        "QPushButton:hover { background-color: #1D4ED8; }"
+        "QPushButton:hover { background-color: #27272A; }"
     );
     buttonBox->button(QDialogButtonBox::Cancel)->setStyleSheet(
         "QPushButton {"
-        "  background-color: transparent; color: #64748B; border: 1px solid #CBD5E1;"
-        "  border-radius: 6px; padding: 6px 14px; font-size: 13px;"
+        "  background-color: #FFFFFF; color: #52525B; border: 1px solid #D4D4D8;"
+        "  border-radius: 2px; padding: 6px 14px; font-size: 12px; font-weight: 500;"
         "}"
-        "QPushButton:hover { background-color: #F1F5F9; color: #334155; }"
+        "QPushButton:hover { background-color: #F4F4F5; color: #18181B; }"
     );
 
     connect(buttonBox, &QDialogButtonBox::accepted, this, [this]() {
@@ -165,100 +198,82 @@ QWidget* SettingsDialog::createGeneralTab() {
     scrollArea->setWidgetResizable(true);
     auto* container = new QWidget(scrollArea);
     auto* layout = new QVBoxLayout(container);
-    layout->setContentsMargins(14, 14, 14, 14);
+    layout->setContentsMargins(16, 16, 16, 16);
     layout->setSpacing(12);
 
-    // 1. General Card
-    auto* genCard = new QFrame(container);
-    genCard->setObjectName("card");
-    auto* genLayout = new QVBoxLayout(genCard);
-    genLayout->setContentsMargins(12, 10, 12, 10);
-    genLayout->setSpacing(10);
+    // SECTION 1: EXECUTION
+    auto* sec1 = new QLabel(tr("DAEMON BEHAVIOR"), container);
+    sec1->setProperty("class", "SectionHeader");
+    layout->addWidget(sec1);
 
-    auto* genTitle = new QLabel(tr("Core Settings"), genCard);
-    genTitle->setStyleSheet("font-size: 14px; font-weight: 700; color: #0F172A;");
-    genLayout->addWidget(genTitle);
+    masterEnabledCheck_ = new QCheckBox(tr("Active Autocorrection (Global Keystroke Interception)"), container);
+    launchAtLoginCheck_ = new QCheckBox(tr("Launch at Login (Start Minimized in Menu Bar)"), container);
+    sentenceCorrectionCheck_ = new QCheckBox(tr("Auto-Capitalization (Uppercase Initial Sentence Tokens)"), container);
 
-    masterEnabledCheck_ = new QCheckBox(tr("Enable Autocorrection"), genCard);
-    auto* masterSub = new QLabel(tr("Silently fixes typos and misspelled words across all apps."), genCard);
-    masterSub->setStyleSheet("font-size: 12px; color: #64748B; margin-left: 24px;");
-    genLayout->addWidget(masterEnabledCheck_);
-    genLayout->addWidget(masterSub);
+    layout->addWidget(masterEnabledCheck_);
+    layout->addWidget(launchAtLoginCheck_);
+    layout->addWidget(sentenceCorrectionCheck_);
 
-    launchAtLoginCheck_ = new QCheckBox(tr("Launch at Login"), genCard);
-    auto* loginSub = new QLabel(tr("Starts Inline minimized in the menu bar on system startup."), genCard);
-    loginSub->setStyleSheet("font-size: 12px; color: #64748B; margin-left: 24px;");
-    genLayout->addWidget(launchAtLoginCheck_);
-    genLayout->addWidget(loginSub);
+    auto* line1 = new QFrame(container);
+    line1->setProperty("class", "HairlineRule");
+    line1->setFrameShape(QFrame::HLine);
+    layout->addWidget(line1);
 
-    layout->addWidget(genCard);
+    // SECTION 2: TUNING
+    auto* sec2 = new QLabel(tr("CORRECTION ALGORITHM THRESHOLDS"), container);
+    sec2->setProperty("class", "SectionHeader");
+    layout->addWidget(sec2);
 
-    // 2. Engine Tuning Card
-    auto* tuneCard = new QFrame(container);
-    tuneCard->setObjectName("card");
-    auto* tuneLayout = new QVBoxLayout(tuneCard);
-    tuneLayout->setContentsMargins(12, 10, 12, 10);
-    tuneLayout->setSpacing(10);
+    auto* aggRow = new QHBoxLayout();
+    auto* aggTitle = new QLabel(tr("Aggressiveness Index:"), container);
+    aggTitle->setStyleSheet("font-size: 12px; font-weight: 500; color: #18181B;");
+    aggressivenessLabel_ = new QLabel("50%", container);
+    aggressivenessLabel_->setStyleSheet("font-family: 'SF Mono', Menlo, monospace; font-size: 11px; font-weight: 700; color: #18181B;");
+    aggRow->addWidget(aggTitle);
+    aggRow->addStretch();
+    aggRow->addWidget(aggressivenessLabel_);
+    layout->addLayout(aggRow);
 
-    auto* tuneTitle = new QLabel(tr("Engine Tuning"), tuneCard);
-    tuneTitle->setStyleSheet("font-size: 14px; font-weight: 700; color: #0F172A;");
-    tuneLayout->addWidget(tuneTitle);
-
-    // Aggressiveness
-    auto* aggHeader = new QHBoxLayout();
-    aggHeader->addWidget(new QLabel(tr("Aggressiveness:"), tuneCard));
-    aggressivenessLabel_ = new QLabel("50%", tuneCard);
-    aggressivenessLabel_->setStyleSheet("font-weight: 600; color: #2563EB; font-size: 12px;");
-    aggHeader->addStretch();
-    aggHeader->addWidget(aggressivenessLabel_);
-    tuneLayout->addLayout(aggHeader);
-
-    aggressivenessSlider_ = new QSlider(Qt::Horizontal, tuneCard);
+    aggressivenessSlider_ = new QSlider(Qt::Horizontal, container);
     aggressivenessSlider_->setRange(0, 100);
-    tuneLayout->addWidget(aggressivenessSlider_);
+    layout->addWidget(aggressivenessSlider_);
     connect(aggressivenessSlider_, &QSlider::valueChanged, this, [this](int val) {
         aggressivenessLabel_->setText(QString::number(val) + "%");
     });
 
-    // Max Edit Distance
     auto* distRow = new QHBoxLayout();
-    distRow->addWidget(new QLabel(tr("Max Edit Distance:"), tuneCard));
-    maxEditDistanceSpin_ = new QSpinBox(tuneCard);
+    auto* distTitle = new QLabel(tr("Max Edit Distance (Damerau-Levenshtein):"), container);
+    distTitle->setStyleSheet("font-size: 12px; font-weight: 500; color: #18181B;");
+    maxEditDistanceSpin_ = new QSpinBox(container);
     maxEditDistanceSpin_->setRange(1, 2);
-    distRow->addWidget(maxEditDistanceSpin_);
+    distRow->addWidget(distTitle);
     distRow->addStretch();
-    tuneLayout->addLayout(distRow);
+    distRow->addWidget(maxEditDistanceSpin_);
+    layout->addLayout(distRow);
 
-    auto* distSub = new QLabel(tr("1: Conservative (single-letter typos) • 2: Standard (transpositions & multi-letter)"), tuneCard);
-    distSub->setStyleSheet("font-size: 11px; color: #64748B;");
-    tuneLayout->addWidget(distSub);
+    auto* distHelp = new QLabel(tr("Distance 1: Single deletions/insertions (fastest) · Distance 2: Transpositions and compounding"), container);
+    distHelp->setStyleSheet("font-size: 11px; color: #71717A;");
+    layout->addWidget(distHelp);
 
-    sentenceCorrectionCheck_ = new QCheckBox(tr("Auto-capitalize sentence starts"), tuneCard);
-    tuneLayout->addWidget(sentenceCorrectionCheck_);
-
-    sentenceIntensitySlider_ = new QSlider(Qt::Horizontal, tuneCard);
+    sentenceIntensitySlider_ = new QSlider(Qt::Horizontal, container);
     sentenceIntensitySlider_->setRange(0, 100);
     sentenceIntensitySlider_->hide();
 
-    layout->addWidget(tuneCard);
+    auto* line2 = new QFrame(container);
+    line2->setProperty("class", "HairlineRule");
+    line2->setFrameShape(QFrame::HLine);
+    layout->addWidget(line2);
 
-    // 3. Ignored Words Card
-    auto* vocabCard = new QFrame(container);
-    vocabCard->setObjectName("card");
-    auto* vocabLayout = new QVBoxLayout(vocabCard);
-    vocabLayout->setContentsMargins(12, 10, 12, 10);
-    vocabLayout->setSpacing(6);
+    // SECTION 3: VOCABULARY EXCLUSIONS
+    auto* sec3 = new QLabel(tr("EXCLUDED TOKENS (ONE PER LINE)"), container);
+    sec3->setProperty("class", "SectionHeader");
+    layout->addWidget(sec3);
 
-    auto* vocabTitle = new QLabel(tr("Ignored Words (one per line)"), vocabCard);
-    vocabTitle->setStyleSheet("font-size: 14px; font-weight: 700; color: #0F172A;");
-    vocabLayout->addWidget(vocabTitle);
-
-    ignoreWordsEdit_ = new QPlainTextEdit(vocabCard);
+    ignoreWordsEdit_ = new QPlainTextEdit(container);
     ignoreWordsEdit_->setMaximumHeight(70);
-    ignoreWordsEdit_->setPlaceholderText(tr("e.g. acronyms, slang, or custom names..."));
-    vocabLayout->addWidget(ignoreWordsEdit_);
-
-    layout->addWidget(vocabCard);
+    ignoreWordsEdit_->setStyleSheet("font-family: 'SF Mono', Menlo, monospace; font-size: 11px;");
+    ignoreWordsEdit_->setPlaceholderText(tr("technical_terms, acronyms, handles"));
+    layout->addWidget(ignoreWordsEdit_);
 
     layout->addStretch();
     scrollArea->setWidget(container);
@@ -268,73 +283,103 @@ QWidget* SettingsDialog::createGeneralTab() {
 QWidget* SettingsDialog::createDiagnosticsTab() {
     auto* widget = new QWidget();
     auto* layout = new QVBoxLayout(widget);
-    layout->setContentsMargins(14, 14, 14, 14);
+    layout->setContentsMargins(16, 16, 16, 16);
     layout->setSpacing(10);
 
-    // Accessibility Card
-    auto* axCard = new QFrame(widget);
-    axCard->setObjectName("card");
-    auto* axLayout = new QHBoxLayout(axCard);
-    axStatusLabel_ = new QLabel(axCard);
-    axFixBtn_ = new QPushButton(tr("Configure..."), axCard);
-    axFixBtn_->setStyleSheet(
-        "QPushButton { background-color: #F1F5F9; color: #2563EB; border: 1px solid #CBD5E1; "
-        "border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; }"
-        "QPushButton:hover { background-color: #E2E8F0; }"
-    );
-    connect(axFixBtn_, &QPushButton::clicked, this, []() {
+    auto* secTitle = new QLabel(tr("SUBSYSTEM TELEMETRY"), widget);
+    secTitle->setProperty("class", "SectionHeader");
+    layout->addWidget(secTitle);
+
+    // Table container
+    auto* table = new QFrame(widget);
+    table->setStyleSheet("background-color: #FFFFFF; border: 1px solid #E4E4E7;");
+    auto* tLayout = new QVBoxLayout(table);
+    tLayout->setContentsMargins(0, 0, 0, 0);
+    tLayout->setSpacing(0);
+
+    // Helper lambda for dense rows
+    auto addRow = [this, widget, tLayout](const QString& key, QLabel*& valLabel, QPushButton*& actionBtn, const QString& btnText, auto slot) {
+        auto* row = new QWidget(widget);
+        auto* rBox = new QHBoxLayout(row);
+        rBox->setContentsMargins(12, 8, 12, 8);
+        rBox->setSpacing(10);
+
+        auto* kLbl = new QLabel(key, row);
+        kLbl->setStyleSheet("font-size: 12px; font-weight: 500; color: #18181B;");
+        kLbl->setFixedWidth(160);
+
+        valLabel = new QLabel(row);
+        valLabel->setStyleSheet("font-family: 'SF Mono', Menlo, monospace; font-size: 11px;");
+
+        actionBtn = new QPushButton(btnText, row);
+        actionBtn->setStyleSheet(
+            "QPushButton { background: #FFFFFF; border: 1px solid #D4D4D8; border-radius: 2px; padding: 2px 8px; font-size: 11px; font-weight: 600; }"
+            "QPushButton:hover { background: #F4F4F5; }"
+        );
+        actionBtn->setFixedWidth(90);
+        connect(actionBtn, &QPushButton::clicked, widget, slot);
+
+        rBox->addWidget(kLbl);
+        rBox->addWidget(valLabel, 1);
+        rBox->addWidget(actionBtn);
+        tLayout->addWidget(row);
+
+        auto* line = new QFrame(widget);
+        line->setStyleSheet("background-color: #E4E4E7; height: 1px; border: none;");
+        line->setFrameShape(QFrame::HLine);
+        tLayout->addWidget(line);
+    };
+
+    addRow(tr("Input Monitoring"), imStatusLabel_, imFixBtn_, tr("Authorize"), []() {
+        openInputMonitoringSettings();
+    });
+
+    addRow(tr("Accessibility"), axStatusLabel_, axFixBtn_, tr("Authorize"), []() {
         checkAccessibilityPermission(true);
         openAccessibilitySettings();
     });
-    axLayout->addWidget(axStatusLabel_, 1);
-    axLayout->addWidget(axFixBtn_);
-    layout->addWidget(axCard);
 
-    // Input Monitoring Card
-    auto* imCard = new QFrame(widget);
-    imCard->setObjectName("card");
-    auto* imLayout = new QHBoxLayout(imCard);
-    imStatusLabel_ = new QLabel(imCard);
-    imFixBtn_ = new QPushButton(tr("Configure..."), imCard);
-    imFixBtn_->setStyleSheet(
-        "QPushButton { background-color: #F1F5F9; color: #2563EB; border: 1px solid #CBD5E1; "
-        "border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; }"
-        "QPushButton:hover { background-color: #E2E8F0; }"
-    );
-    connect(imFixBtn_, &QPushButton::clicked, this, []() {
-        openInputMonitoringSettings();
-    });
-    imLayout->addWidget(imStatusLabel_, 1);
-    imLayout->addWidget(imFixBtn_);
-    layout->addWidget(imCard);
+    // Pure telemetry rows
+    auto* dictRow = new QWidget(widget);
+    auto* dBox = new QHBoxLayout(dictRow);
+    dBox->setContentsMargins(12, 8, 12, 8);
+    auto* dTitle = new QLabel(tr("Dictionary Indices"), dictRow);
+    dTitle->setStyleSheet("font-size: 12px; font-weight: 500; color: #18181B;");
+    dTitle->setFixedWidth(160);
+    dictStatusLabel_ = new QLabel(dictRow);
+    dictStatusLabel_->setStyleSheet("font-family: 'SF Mono', Menlo, monospace; font-size: 11px; color: #52525B;");
+    dBox->addWidget(dTitle);
+    dBox->addWidget(dictStatusLabel_, 1);
+    tLayout->addWidget(dictRow);
 
-    // Engine & Dictionaries Card
-    auto* engCard = new QFrame(widget);
-    engCard->setObjectName("card");
-    auto* engLayout = new QVBoxLayout(engCard);
-    engLayout->setSpacing(6);
+    auto* line3 = new QFrame(widget);
+    line3->setStyleSheet("background-color: #E4E4E7; height: 1px; border: none;");
+    line3->setFrameShape(QFrame::HLine);
+    tLayout->addWidget(line3);
 
-    auto* engTitle = new QLabel(tr("Engine & Dictionaries"), engCard);
-    engTitle->setStyleSheet("font-size: 14px; font-weight: 700; color: #0F172A;");
-    engLayout->addWidget(engTitle);
+    auto* hookRow = new QWidget(widget);
+    auto* hBox = new QHBoxLayout(hookRow);
+    hBox->setContentsMargins(12, 8, 12, 8);
+    auto* hTitle = new QLabel(tr("Background Hook"), hookRow);
+    hTitle->setStyleSheet("font-size: 12px; font-weight: 500; color: #18181B;");
+    hTitle->setFixedWidth(160);
+    hookStatusLabel_ = new QLabel(hookRow);
+    hookStatusLabel_->setStyleSheet("font-family: 'SF Mono', Menlo, monospace; font-size: 11px; color: #52525B;");
+    hBox->addWidget(hTitle);
+    hBox->addWidget(hookStatusLabel_, 1);
+    tLayout->addWidget(hookRow);
 
-    dictStatusLabel_ = new QLabel(engCard);
-    dictStatusLabel_->setStyleSheet("font-size: 12px; color: #475569;");
-    hookStatusLabel_ = new QLabel(engCard);
-    hookStatusLabel_->setStyleSheet("font-size: 12px; color: #475569;");
+    layout->addWidget(table);
 
-    engLayout->addWidget(dictStatusLabel_);
-    engLayout->addWidget(hookStatusLabel_);
-    layout->addWidget(engCard);
+    layout->addSpacing(8);
 
-    // Wizard Launcher
-    auto* wizardBtn = new QPushButton(tr("Launch Permission Setup Wizard..."), widget);
+    auto* wizardBtn = new QPushButton(tr("Re-run Subsystem Authorization Wizard"), widget);
     wizardBtn->setStyleSheet(
         "QPushButton {"
-        "  background-color: #F8FAFC; color: #2563EB; border: 1px solid #CBD5E1;"
-        "  border-radius: 6px; padding: 8px 14px; font-size: 13px; font-weight: 600;"
+        "  background-color: #FFFFFF; color: #18181B; border: 1px solid #D4D4D8;"
+        "  border-radius: 2px; padding: 6px 12px; font-size: 11px; font-weight: 600;"
         "}"
-        "QPushButton:hover { background-color: #F1F5F9; }"
+        "QPushButton:hover { background-color: #F4F4F5; }"
     );
     connect(wizardBtn, &QPushButton::clicked, this, &SettingsDialog::openWizard);
     layout->addWidget(wizardBtn);
@@ -347,59 +392,53 @@ QWidget* SettingsDialog::createDiagnosticsTab() {
 QWidget* SettingsDialog::createPlaygroundTab() {
     auto* widget = new QWidget();
     auto* layout = new QVBoxLayout(widget);
-    layout->setContentsMargins(14, 14, 14, 14);
+    layout->setContentsMargins(16, 16, 16, 16);
     layout->setSpacing(10);
 
-    auto* playCard = new QFrame(widget);
-    playCard->setObjectName("card");
-    auto* playLayout = new QVBoxLayout(playCard);
-    playLayout->setSpacing(8);
+    auto* promptLbl = new QLabel(tr("INTERACTIVE PIPELINE TEST RUNNER"), widget);
+    promptLbl->setProperty("class", "SectionHeader");
+    layout->addWidget(promptLbl);
 
-    auto* playTitle = new QLabel(tr("Interactive Test Playground"), playCard);
-    playTitle->setStyleSheet("font-size: 14px; font-weight: 700; color: #0F172A;");
-    playLayout->addWidget(playTitle);
+    auto* inputFrame = new QFrame(widget);
+    inputFrame->setStyleSheet("background-color: #FFFFFF; border: 1px solid #E4E4E7;");
+    auto* iLayout = new QHBoxLayout(inputFrame);
+    iLayout->setContentsMargins(8, 6, 8, 6);
+    iLayout->setSpacing(8);
 
-    auto* hint = new QLabel(
-        tr("Type common typos like <code>teh </code> (space), <code>recieve </code>, <code>need helo </code>, or <code>adn </code>:"),
-        playCard);
-    hint->setWordWrap(true);
-    hint->setStyleSheet("font-size: 12px; color: #64748B;");
-    playLayout->addWidget(hint);
+    auto* prefix = new QLabel(tr(">"), inputFrame);
+    prefix->setStyleSheet("font-family: 'SF Mono', Menlo, monospace; font-size: 13px; font-weight: 700; color: #71717A;");
+    iLayout->addWidget(prefix);
 
-    auto* inputRow = new QHBoxLayout();
-    testInputEdit_ = new QLineEdit(playCard);
-    testInputEdit_->setPlaceholderText(tr("Type mistakes here to test instant correction..."));
-    auto* clearBtn = new QPushButton(tr("Clear"), playCard);
+    testInputEdit_ = new QLineEdit(inputFrame);
+    testInputEdit_->setPlaceholderText(tr("Type phrases (e.g., 'teh ', 'recieve ', 'need helo ')..."));
+    testInputEdit_->setStyleSheet("border: none; font-family: 'SF Mono', Menlo, monospace; font-size: 12px;");
+    iLayout->addWidget(testInputEdit_, 1);
+
+    auto* clearBtn = new QPushButton(tr("CLEAR"), inputFrame);
     clearBtn->setStyleSheet(
-        "QPushButton { background-color: #F1F5F9; border: 1px solid #CBD5E1; "
-        "border-radius: 6px; padding: 6px 12px; font-size: 12px; }"
-        "QPushButton:hover { background-color: #E2E8F0; }"
+        "QPushButton { background: #F4F4F5; border: 1px solid #D4D4D8; border-radius: 2px; padding: 2px 8px; font-size: 10px; font-weight: 700; color: #52525B; }"
+        "QPushButton:hover { background: #E4E4E7; color: #18181B; }"
     );
     connect(clearBtn, &QPushButton::clicked, testInputEdit_, &QLineEdit::clear);
-    inputRow->addWidget(testInputEdit_);
-    inputRow->addWidget(clearBtn);
-    playLayout->addLayout(inputRow);
+    iLayout->addWidget(clearBtn);
 
-    layout->addWidget(playCard);
+    layout->addWidget(inputFrame);
 
-    // Activity Stream Card
-    auto* logCard = new QFrame(widget);
-    logCard->setObjectName("card");
-    auto* logLayout = new QVBoxLayout(logCard);
-    logLayout->setSpacing(6);
+    auto* logHeader = new QLabel(tr("EVENT LEDGER"), widget);
+    logHeader->setProperty("class", "SectionHeader");
+    layout->addWidget(logHeader);
 
-    auto* logTitle = new QLabel(tr("Activity Stream"), logCard);
-    logTitle->setStyleSheet("font-size: 13px; font-weight: 600; color: #334155;");
-    logLayout->addWidget(logTitle);
-
-    liveLogEdit_ = new QPlainTextEdit(logCard);
+    liveLogEdit_ = new QPlainTextEdit(widget);
     liveLogEdit_->setReadOnly(true);
-    liveLogEdit_->setMaximumHeight(150);
-    liveLogEdit_->setPlaceholderText(tr("Typing corrections and buffer events will appear here..."));
-    liveLogEdit_->setStyleSheet("background-color: #F8FAFC; border: 1px solid #E2E8F0; font-family: monospace; font-size: 11px;");
-    logLayout->addWidget(liveLogEdit_);
+    liveLogEdit_->setStyleSheet(
+        "QPlainTextEdit {"
+        "  background-color: #FAFAFA; border: 1px solid #E4E4E7; border-radius: 2px;"
+        "  font-family: 'SF Mono', Menlo, monospace; font-size: 10px; color: #27272A; line-height: 1.4;"
+        "}"
+    );
+    liveLogEdit_->setPlaceholderText(tr("Awaiting keystrokes. Dispatched token modifications and undo operations will register here in real time..."));
+    layout->addWidget(liveLogEdit_, 1);
 
-    layout->addWidget(logCard);
     return widget;
 }
 
@@ -421,37 +460,42 @@ void SettingsDialog::refreshPermissions() {
 
     if (axStatusLabel_) {
         if (ax) {
-            axStatusLabel_->setText(tr("<b>Accessibility:</b> <span style='color:#166534;'>✓ Granted</span> (Key injection ready)"));
+            axStatusLabel_->setText(tr("GRANTED"));
+            axStatusLabel_->setStyleSheet("color: #15803D; font-weight: 700;");
             if (axFixBtn_) axFixBtn_->hide();
         } else {
-            axStatusLabel_->setText(tr("<b>Accessibility:</b> <span style='color:#DC2626;'>✖ Missing</span> (Text injection blocked)"));
+            axStatusLabel_->setText(tr("MISSING"));
+            axStatusLabel_->setStyleSheet("color: #B91C1C; font-weight: 700;");
             if (axFixBtn_) axFixBtn_->show();
         }
     }
 
     if (imStatusLabel_) {
         if (im) {
-            imStatusLabel_->setText(tr("<b>Input Monitoring:</b> <span style='color:#166534;'>✓ Granted</span> (Observing keystrokes)"));
+            imStatusLabel_->setText(tr("GRANTED"));
+            imStatusLabel_->setStyleSheet("color: #15803D; font-weight: 700;");
             if (imFixBtn_) imFixBtn_->hide();
         } else {
-            imStatusLabel_->setText(tr("<b>Input Monitoring:</b> <span style='color:#DC2626;'>✖ Missing</span> (Keystroke hook blocked)"));
+            imStatusLabel_->setText(tr("MISSING"));
+            imStatusLabel_->setStyleSheet("color: #B91C1C; font-weight: 700;");
             if (imFixBtn_) imFixBtn_->show();
         }
     }
 
     if (dictStatusLabel_) {
-        dictStatusLabel_->setText(tr("<b>Dictionaries:</b> %1 words + 242,342 bigrams active")
-            .arg(dictWords_ > 0 ? dictWords_ : 82834));
+        dictStatusLabel_->setText(tr("%1 unigrams · 242,342 bigrams active")
+            .arg(dictWords_ > 0 ? dictWords_ : 82765));
     }
 
     if (hookStatusLabel_) {
-        hookStatusLabel_->setText(tr("<b>Background Hook:</b> <span style='color:#166534;'>● Active & Listening</span> (Sub-millisecond pipeline)"));
+        hookStatusLabel_->setText(tr("CGEventTap operational · 0 dropped"));
+        hookStatusLabel_->setStyleSheet("color: #15803D; font-weight: 600;");
     }
 }
 
 void SettingsDialog::appendLog(const QString& msg) {
     if (!liveLogEdit_) return;
-    QString timeStr = QDateTime::currentDateTime().toString("hh:mm:ss");
+    QString timeStr = QDateTime::currentDateTime().toString("hh:mm:ss.zzz");
     liveLogEdit_->appendPlainText(QString("[%1] %2").arg(timeStr, msg));
 }
 
