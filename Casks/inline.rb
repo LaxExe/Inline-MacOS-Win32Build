@@ -14,12 +14,6 @@ cask "inline" do
 
   app "Inline.app"
 
-  postflight do
-    system_command "/usr/bin/xattr",
-                   args: ["-cr", "#{appdir}/Inline.app"],
-                   sudo: false
-  end
-
   zap trash: [
     "~/Library/Application Support/Inline",
     "~/Library/Preferences/com.inline.mac.plist",

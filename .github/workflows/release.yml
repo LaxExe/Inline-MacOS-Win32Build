@@ -57,7 +57,7 @@ jobs:
 
             **Homebrew:**
             ```bash
-            brew install --cask https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/Casks/inline.rb
+            brew install LaxExe/tap/inline
             ```
 
             **Or One-Line Installer:**

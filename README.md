@@ -26,13 +26,11 @@ To ensure macOS allows Inline to run smoothly without Gatekeeper quarantine warn
 
 ### Option 1: Install with Homebrew (Recommended)
 
-Run the following command in Terminal:
+Run this single command in Terminal:
 
 ```bash
-brew install --cask https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/Casks/inline.rb
+brew install LaxExe/tap/inline
 ```
-
-*(If you have tapped `LaxExe/tap`, you can also run `brew install --cask inline`)*
 
 To update Inline in the future:
 ```bash
