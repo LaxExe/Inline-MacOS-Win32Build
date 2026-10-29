@@ -22,10 +22,10 @@ static std::string getConfigFilePath() {
     std::string path;
 #ifdef _WIN32
     const char* appData = getenv("APPDATA");
-    path = (appData ? appData : ".") + std::string("/TypingAssistant");
+    path = (appData ? appData : ".") + std::string("/Inline");
 #else
     const char* home = getenv("HOME");
-    path = (home ? home : ".") + std::string("/Library/Application Support/TypingAssistant");
+    path = (home ? home : ".") + std::string("/Library/Application Support/Inline");
 #endif
     std::filesystem::create_directories(path);
     return path + "/config.json";

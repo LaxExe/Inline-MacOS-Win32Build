@@ -16,10 +16,10 @@ static void loadInitialConfig() {
     std::string path;
 #ifdef _WIN32
     const char* appData = getenv("APPDATA");
-    path = (appData ? appData : ".") + std::string("/TypingAssistant/config.json");
+    path = (appData ? appData : ".") + std::string("/Inline/config.json");
 #else
     const char* home = getenv("HOME");
-    path = (home ? home : ".") + std::string("/Library/Application Support/TypingAssistant/config.json");
+    path = (home ? home : ".") + std::string("/Library/Application Support/Inline/config.json");
 #endif
     if (std::filesystem::exists(path)) {
         std::ifstream in(path);
@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
     app.setQuitOnLastWindowClosed(false);
 
-    PrivacyLogger::instance().init("TypingAssistant");
+    PrivacyLogger::instance().init("Inline");
     loadInitialConfig();
 
     // If permissions are missing, show the onboarding & permission explanation dialog
