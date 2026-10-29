@@ -3,7 +3,6 @@
 #include <iostream>
 #include <filesystem>
 #include <vector>
-#include <cmath>
 
 void drawAppIcon(CGContextRef ctx, CGFloat size) {
     CGFloat s = size;
@@ -16,111 +15,43 @@ void drawAppIcon(CGContextRef ctx, CGFloat size) {
     CGContextAddPath(ctx, clipPath);
     CGContextClip(ctx);
 
-    // 2. Base Gradient: Deep Slate Midnight to Obsidian Black
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-    CGFloat bgComponents[8] = {
-        0.08f, 0.11f, 0.18f, 1.0f, // Top: Slate Midnight
-        0.02f, 0.03f, 0.06f, 1.0f  // Bottom: Obsidian
-    };
-    CGFloat bgLocations[2] = {0.0f, 1.0f};
-    CGGradientRef bgGrad = CGGradientCreateWithColorComponents(colorSpace, bgComponents, bgLocations, 2);
-    CGContextDrawLinearGradient(ctx, bgGrad, CGPointMake(0, s), CGPointMake(0, 0), 0);
-    CGGradientRelease(bgGrad);
+    // 2. Base Surface: Solid, flat deep industrial obsidian (no gradients, no glow)
+    CGContextSetRGBFillColor(ctx, 0.08f, 0.08f, 0.09f, 1.0f); // #141417
+    CGContextFillRect(ctx, rect);
 
-    // 3. Central Ambient Radial Glow (Electric Cyan / Royal Blue)
-    CGFloat glowComponents[8] = {
-        0.20f, 0.50f, 0.98f, 0.30f, // Core Glow
-        0.08f, 0.11f, 0.18f, 0.00f  // Falloff
-    };
-    CGFloat glowLocations[2] = {0.0f, 1.0f};
-    CGGradientRef glowGrad = CGGradientCreateWithColorComponents(colorSpace, glowComponents, glowLocations, 2);
-    CGContextDrawRadialGradient(ctx, glowGrad,
-                                CGPointMake(s * 0.50, s * 0.50), 0,
-                                CGPointMake(s * 0.50, s * 0.50), s * 0.45,
-                                kCGGradientDrawsAfterEndLocation);
-    CGGradientRelease(glowGrad);
-
-    // 4. Subtle Inner Rim Highlight (Apple Glassmorphic Edge)
-    CGContextSetRGBStrokeColor(ctx, 1.0f, 1.0f, 1.0f, 0.14f);
-    CGContextSetLineWidth(ctx, s * 0.015);
+    // 3. Crisp 1px Architectural Perimeter Rule
+    CGContextSetRGBStrokeColor(ctx, 0.20f, 0.20f, 0.23f, 1.0f); // #33333A
+    CGContextSetLineWidth(ctx, s * 0.012);
     CGContextAddPath(ctx, clipPath);
     CGContextStrokePath(ctx);
 
-    // 5. Minimal "Inline" Glyph:
-    // Left Element: Sleek Glowing Caret / Cursor Bar
-    CGFloat barW = s * 0.085;
-    CGFloat barH = s * 0.44;
-    CGFloat barX = s * 0.38 - barW * 0.5;
-    CGFloat barY = s * 0.50 - barH * 0.5;
-    CGFloat barRadius = barW * 0.5; // Fully rounded capsule
+    // 4. High-Contrast Editorial Geometric Monogram for "Inline"
+    // Left Element: Crisp vertical cursor rule
+    CGFloat ruleW = s * 0.075;
+    CGFloat ruleH = s * 0.48;
+    CGFloat ruleX = s * 0.38 - ruleW * 0.5;
+    CGFloat ruleY = s * 0.26;
 
-    CGRect barRect = CGRectMake(barX, barY, barW, barH);
-    CGPathRef barPath = CGPathCreateWithRoundedRect(barRect, barRadius, barRadius, NULL);
+    CGRect ruleRect = CGRectMake(ruleX, ruleY, ruleW, ruleH);
+    CGContextSetRGBFillColor(ctx, 0.98f, 0.98f, 0.98f, 1.0f); // Pure paper white #FAFAFA
+    CGContextFillRect(ctx, ruleRect);
 
-    // Draw Caret Glow
-    CGContextSaveGState(ctx);
-    CGContextSetShadowWithColor(ctx, CGSizeMake(0, 0), s * 0.04,
-                                CGColorCreateGenericRGB(0.25f, 0.65f, 1.0f, 0.5f));
-    CGContextAddPath(ctx, barPath);
-    CGContextSetRGBFillColor(ctx, 1.0f, 1.0f, 1.0f, 0.98f);
-    CGContextFillPath(ctx);
-    CGContextRestoreGState(ctx);
+    // Baseline Accent Rule (horizontal editorial typographic line)
+    CGFloat baseW = s * 0.22;
+    CGFloat baseH = s * 0.045;
+    CGFloat baseX = ruleX;
+    CGFloat baseY = ruleY + ruleH - baseH;
+    CGContextFillRect(ctx, CGRectMake(baseX, baseY, baseW, baseH));
 
-    // Caret Gradient Fill
-    CGContextSaveGState(ctx);
-    CGContextAddPath(ctx, barPath);
-    CGContextClip(ctx);
-    CGFloat barComponents[8] = {
-        1.00f, 1.00f, 1.00f, 1.00f, // Crisp White Top
-        0.55f, 0.85f, 1.00f, 1.00f  // Cyan Tint Bottom
-    };
-    CGGradientRef barGrad = CGGradientCreateWithColorComponents(colorSpace, barComponents, bgLocations, 2);
-    CGContextDrawLinearGradient(ctx, barGrad, CGPointMake(0, barY + barH), CGPointMake(0, barY), 0);
-    CGGradientRelease(barGrad);
-    CGContextRestoreGState(ctx);
-    CGPathRelease(barPath);
+    // Right Element: High-contrast geometric red precision indicator dot (1 intentional accent color)
+    CGFloat dotSize = s * 0.085;
+    CGFloat dotX = s * 0.62;
+    CGFloat dotY = s * 0.44;
+    CGRect dotRect = CGRectMake(dotX, dotY, dotSize, dotSize);
 
-    // Right Element: Elegant Geometric 4-Point Autocorrect Spark
-    CGFloat sparkCenterX = s * 0.63;
-    CGFloat sparkCenterY = s * 0.50;
-    CGFloat sparkRadius = s * 0.16;
-    CGFloat sparkInner = s * 0.045;
+    CGContextSetRGBFillColor(ctx, 0.88f, 0.16f, 0.18f, 1.0f); // Warm vermilion #E11D48
+    CGContextFillRect(ctx, dotRect);
 
-    CGMutablePathRef sparkPath = CGPathCreateMutable();
-    // 4 points (Top, Right, Bottom, Left) with smooth concave curved transitions
-    CGPathMoveToPoint(sparkPath, NULL, sparkCenterX, sparkCenterY + sparkRadius);
-    CGPathAddQuadCurveToPoint(sparkPath, NULL, sparkCenterX + sparkInner, sparkCenterY + sparkInner, sparkCenterX + sparkRadius, sparkCenterY);
-    CGPathAddQuadCurveToPoint(sparkPath, NULL, sparkCenterX + sparkInner, sparkCenterY - sparkInner, sparkCenterX, sparkCenterY - sparkRadius);
-    CGPathAddQuadCurveToPoint(sparkPath, NULL, sparkCenterX - sparkInner, sparkCenterY - sparkInner, sparkCenterX - sparkRadius, sparkCenterY);
-    CGPathAddQuadCurveToPoint(sparkPath, NULL, sparkCenterX - sparkInner, sparkCenterY + sparkInner, sparkCenterX, sparkCenterY + sparkRadius);
-    CGPathCloseSubpath(sparkPath);
-
-    // Draw Spark Glow
-    CGContextSaveGState(ctx);
-    CGContextSetShadowWithColor(ctx, CGSizeMake(0, 0), s * 0.05,
-                                CGColorCreateGenericRGB(0.20f, 0.85f, 0.70f, 0.6f));
-    CGContextAddPath(ctx, sparkPath);
-    CGContextSetRGBFillColor(ctx, 0.40f, 0.95f, 0.75f, 1.0f);
-    CGContextFillPath(ctx);
-    CGContextRestoreGState(ctx);
-
-    // Spark Gradient Fill (Emerald Green to Electric Cyan)
-    CGContextSaveGState(ctx);
-    CGContextAddPath(ctx, sparkPath);
-    CGContextClip(ctx);
-    CGFloat sparkComponents[8] = {
-        0.35f, 0.95f, 0.75f, 1.0f, // Radiant Emerald
-        0.20f, 0.65f, 1.00f, 1.0f  // Electric Cyan
-    };
-    CGGradientRef sparkGrad = CGGradientCreateWithColorComponents(colorSpace, sparkComponents, bgLocations, 2);
-    CGContextDrawLinearGradient(ctx, sparkGrad,
-                                CGPointMake(sparkCenterX - sparkRadius, sparkCenterY + sparkRadius),
-                                CGPointMake(sparkCenterX + sparkRadius, sparkCenterY - sparkRadius), 0);
-    CGGradientRelease(sparkGrad);
-    CGContextRestoreGState(ctx);
-    CGPathRelease(sparkPath);
-
-    CGColorSpaceRelease(colorSpace);
     CGPathRelease(clipPath);
 }
 
@@ -169,10 +100,9 @@ int main(int argc, char* argv[]) {
             exportIconPNG(filePath, spec.size);
         }
 
-        // Run iconutil to convert .iconset -> AppIcon.icns
         int res = system("iconutil -c icns resources/AppIcon.iconset -o resources/AppIcon.icns");
         if (res == 0) {
-            std::cout << "Successfully created minimal modern resources/AppIcon.icns!" << std::endl;
+            std::cout << "Successfully created restrained architectural resources/AppIcon.icns!" << std::endl;
         } else {
             std::cerr << "iconutil failed with code " << res << std::endl;
         }

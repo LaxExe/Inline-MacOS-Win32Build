@@ -26,23 +26,22 @@ static QIcon createStatusIcon(bool active) {
     painter.setRenderHint(QPainter::Antialiasing);
 
     if (active) {
-        // Minimal vertical cursor bar
+        // High-contrast industrial glyph: crisp vertical rule + precision tick
         painter.setPen(Qt::NoPen);
-        painter.setBrush(QColor(15, 23, 42));
-        painter.drawRoundedRect(QRectF(5.5, 3.0, 2.5, 12.0), 1.25, 1.25);
+        painter.setBrush(QColor(24, 24, 27)); // Ink black
+        painter.drawRect(QRectF(5.5, 3.0, 2.0, 12.0));
 
-        // Minimal active emerald dot
-        painter.setBrush(QColor(16, 185, 129));
-        painter.drawEllipse(QRectF(10.5, 7.25, 3.5, 3.5));
+        // Precision status square
+        painter.setBrush(QColor(21, 128, 61)); // Forest green
+        painter.drawRect(QRectF(9.5, 7.5, 3.0, 3.0));
     } else {
-        // Paused muted cursor bar
+        // Paused outline state
         painter.setPen(Qt::NoPen);
-        painter.setBrush(QColor(148, 163, 184));
-        painter.drawRoundedRect(QRectF(5.5, 3.0, 2.5, 12.0), 1.25, 1.25);
+        painter.setBrush(QColor(161, 161, 170)); // Muted zinc
+        painter.drawRect(QRectF(5.5, 3.0, 2.0, 12.0));
 
-        // Amber paused dot
-        painter.setBrush(QColor(245, 158, 11));
-        painter.drawEllipse(QRectF(10.5, 7.25, 3.5, 3.5));
+        painter.setBrush(QColor(180, 83, 9)); // Amber
+        painter.drawRect(QRectF(9.5, 7.5, 3.0, 3.0));
     }
 
     QIcon icon(pixmap);
@@ -74,7 +73,7 @@ void MainTrayApp::clearAllBuffers() {
     injector_.clearQueue();
 
     if (settingsDialog_ && settingsDialog_->isVisible()) {
-        QString msg = QString("🧹 [BUFFER CLEARED] All keystrokes, word buffers, and queues purged.");
+        QString msg = QString("[BUFFER_PURGE] Keystroke buffers, history, and queues flushed.");
         QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
     }
 }
@@ -82,7 +81,7 @@ void MainTrayApp::clearAllBuffers() {
 void MainTrayApp::onIdleTimeout() {
     clearAllBuffers();
     if (settingsDialog_ && settingsDialog_->isVisible()) {
-        QString msg = QString("⏳ [IDLE AUTO-CLEAR] Inactivity for >30s detected. Buffer automatically purged.");
+        QString msg = QString("[IDLE_TIMEOUT] Inactivity elapsed (>30s). Buffer purged.");
         QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
     }
 }
@@ -96,20 +95,20 @@ void MainTrayApp::setupTray() {
     trayIcon_ = new QSystemTrayIcon(this);
     trayMenu_ = new QMenu();
 
-    statusAction_ = trayMenu_->addAction(tr("● Typing Assistant: On"));
+    statusAction_ = trayMenu_->addAction(tr("Inline: Active"));
     statusAction_->setEnabled(false);
 
     trayMenu_->addSeparator();
 
-    pauseAction_ = trayMenu_->addAction(tr("Pause Corrections"), this, &MainTrayApp::toggleMasterEnabled);
-    sentenceToggleAction_ = trayMenu_->addAction(tr("Sentence Correction: On"), this, &MainTrayApp::toggleSentenceCorrection);
-    clearAction_ = trayMenu_->addAction(tr("🧹 Clear Keystroke Buffer"), this, &MainTrayApp::clearAllBuffers);
+    pauseAction_ = trayMenu_->addAction(tr("Pause Autocorrection"), this, &MainTrayApp::toggleMasterEnabled);
+    sentenceToggleAction_ = trayMenu_->addAction(tr("Sentence Capitalization: Active"), this, &MainTrayApp::toggleSentenceCorrection);
+    clearAction_ = trayMenu_->addAction(tr("Purge Keystroke Buffer"), this, &MainTrayApp::clearAllBuffers);
 
     trayMenu_->addSeparator();
 
-    permAction_ = trayMenu_->addAction(tr("Permissions & Setup..."), this, &MainTrayApp::openPermissions);
-    prefsAction_ = trayMenu_->addAction(tr("Preferences..."), this, &MainTrayApp::openPreferences);
-    quitAction_ = trayMenu_->addAction(tr("Quit"), this, &MainTrayApp::quitApp);
+    permAction_ = trayMenu_->addAction(tr("System Permissions..."), this, &MainTrayApp::openPermissions);
+    prefsAction_ = trayMenu_->addAction(tr("Settings & Diagnostics..."), this, &MainTrayApp::openPreferences);
+    quitAction_ = trayMenu_->addAction(tr("Quit Inline"), this, &MainTrayApp::quitApp);
 
     trayIcon_->setContextMenu(trayMenu_);
     connect(trayIcon_, &QSystemTrayIcon::activated, this, &MainTrayApp::onTrayActivated);
@@ -132,14 +131,14 @@ void MainTrayApp::updateTrayIcon() {
     trayIcon_->setIcon(createStatusIcon(state == TrayIconState::Active));
 
     if (enabled) {
-        statusAction_->setText(tr("● Typing Assistant: On"));
-        pauseAction_->setText(tr("Pause Corrections"));
+        statusAction_->setText(tr("Inline: Active"));
+        pauseAction_->setText(tr("Pause Autocorrection"));
     } else {
-        statusAction_->setText(tr("○ Typing Assistant: Paused"));
-        pauseAction_->setText(tr("Resume Corrections"));
+        statusAction_->setText(tr("Inline: Paused"));
+        pauseAction_->setText(tr("Resume Autocorrection"));
     }
 
-    sentenceToggleAction_->setText(sentenceEnabled ? tr("Sentence Correction: On") : tr("Sentence Correction: Off"));
+    sentenceToggleAction_->setText(sentenceEnabled ? tr("Sentence Capitalization: Active") : tr("Sentence Capitalization: Inactive"));
 }
 
 void MainTrayApp::toggleMasterEnabled() {

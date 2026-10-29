@@ -12,7 +12,6 @@ public:
     explicit PermissionDialog(QWidget* parent = nullptr);
     ~PermissionDialog() override = default;
 
-    // Returns true if all needed permissions are granted
     static bool areAllPermissionsGranted();
 
 public slots:
@@ -21,31 +20,26 @@ public slots:
     void onOpenAccessibilityClicked();
 
 private:
+    QLabel* categoryLabel_ = nullptr;
     QLabel* titleLabel_ = nullptr;
-    QLabel* subtitleLabel_ = nullptr;
-    QLabel* privacyNoticeLabel_ = nullptr;
+    QLabel* descriptionLabel_ = nullptr;
 
-    // Input Monitoring card
-    QWidget* imCard_ = nullptr;
-    QLabel* imStatusBadge_ = nullptr;
-    QLabel* imDescLabel_ = nullptr;
+    // Subsystem inspection rows
+    QLabel* imStatusLabel_ = nullptr;
     QPushButton* imActionButton_ = nullptr;
 
-    // Accessibility card
-    QWidget* axCard_ = nullptr;
-    QLabel* axStatusBadge_ = nullptr;
-    QLabel* axDescLabel_ = nullptr;
+    QLabel* axStatusLabel_ = nullptr;
     QPushButton* axActionButton_ = nullptr;
 
-    // Footer
-    QLabel* allSetLabel_ = nullptr;
+    QLabel* statusSummaryLabel_ = nullptr;
     QPushButton* skipButton_ = nullptr;
-    QPushButton* doneButton_ = nullptr;
+    QPushButton* continueButton_ = nullptr;
 
     QTimer* pollTimer_ = nullptr;
 
     void setupUi();
     void applyTheme();
-    QWidget* createCard(const QString& title, const QString& whyText, const QString& howText,
-                        QLabel*& statusBadge, QPushButton*& actionButton, const char* slot);
+    QWidget* createSubsystemRow(const QString& name, const QString& purpose,
+                                QLabel*& statusLabel, QPushButton*& actionButton,
+                                const char* slot);
 };

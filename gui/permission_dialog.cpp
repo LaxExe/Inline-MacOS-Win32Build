@@ -8,7 +8,6 @@
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QFrame>
-#include <QIcon>
 #include <QApplication>
 
 bool PermissionDialog::areAllPermissionsGranted() {
@@ -18,8 +17,8 @@ bool PermissionDialog::areAllPermissionsGranted() {
 }
 
 PermissionDialog::PermissionDialog(QWidget* parent) : QDialog(parent) {
-    setWindowTitle(tr("Welcome to Inline"));
-    setFixedSize(540, 620);
+    setWindowTitle(tr("System Permissions"));
+    setFixedSize(540, 480);
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
     setupUi();
@@ -34,204 +33,276 @@ PermissionDialog::PermissionDialog(QWidget* parent) : QDialog(parent) {
 
 void PermissionDialog::setupUi() {
     auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(28, 24, 28, 24);
-    mainLayout->setSpacing(14);
+    mainLayout->setContentsMargins(28, 28, 28, 24);
+    mainLayout->setSpacing(0);
 
-    // 1. Header
-    titleLabel_ = new QLabel(tr("Permissions Required"), this);
-    titleLabel_->setStyleSheet("font-size: 20px; font-weight: 700; color: #0F172A;");
+    // 1. Header Section
+    categoryLabel_ = new QLabel(tr("SYSTEM CONFIGURATION"), this);
+    categoryLabel_->setObjectName("categoryLabel");
+    mainLayout->addWidget(categoryLabel_);
 
-    subtitleLabel_ = new QLabel(
-        tr("Inline provides instant, system-wide autocorrection across all your apps. "
-           "To listen for typos and replace words on macOS, two permissions are needed:"), this);
-    subtitleLabel_->setWordWrap(true);
-    subtitleLabel_->setStyleSheet("font-size: 13px; color: #475569; line-height: 1.4;");
-
+    titleLabel_ = new QLabel(tr("macOS Permissions Required"), this);
+    titleLabel_->setObjectName("titleLabel");
     mainLayout->addWidget(titleLabel_);
-    mainLayout->addWidget(subtitleLabel_);
 
-    // 2. Privacy Callout Banner
-    auto* privacyBanner = new QFrame(this);
-    privacyBanner->setObjectName("privacyBanner");
-    privacyBanner->setStyleSheet(
-        "#privacyBanner {"
-        "  background-color: #F0FDF4;"
-        "  border: 1px solid #BBF7D0;"
-        "  border-radius: 8px;"
-        "  padding: 10px;"
-        "}"
-    );
-    auto* privacyLayout = new QHBoxLayout(privacyBanner);
-    privacyLayout->setContentsMargins(12, 8, 12, 8);
-    privacyLayout->setSpacing(10);
+    mainLayout->addSpacing(8);
 
-    auto* lockIcon = new QLabel(tr("🔒"), privacyBanner);
-    lockIcon->setStyleSheet("font-size: 18px;");
-    privacyLayout->addWidget(lockIcon);
+    descriptionLabel_ = new QLabel(
+        tr("Inline processes keystrokes strictly on-device to detect typographical errors and perform "
+           "in-place text replacement. macOS requires explicit authorization for the background event "
+           "tap and accessibility injection pipelines."), this);
+    descriptionLabel_->setWordWrap(true);
+    descriptionLabel_->setObjectName("descriptionLabel");
+    mainLayout->addWidget(descriptionLabel_);
 
-    privacyNoticeLabel_ = new QLabel(
-        tr("<b>100% Private & On-Device:</b> Keystrokes are processed locally and never "
-           "recorded or sent to any server. Passwords and secure fields are automatically ignored."),
-        privacyBanner);
-    privacyNoticeLabel_->setWordWrap(true);
-    privacyNoticeLabel_->setStyleSheet("font-size: 12px; color: #166534; line-height: 1.3;");
-    privacyLayout->addWidget(privacyNoticeLabel_, 1);
+    mainLayout->addSpacing(20);
 
-    mainLayout->addWidget(privacyBanner);
+    // 2. Telemetry Ribbon
+    auto* telemetryFrame = new QFrame(this);
+    telemetryFrame->setObjectName("telemetryFrame");
+    auto* telemetryLayout = new QHBoxLayout(telemetryFrame);
+    telemetryLayout->setContentsMargins(12, 8, 12, 8);
+    telemetryLayout->setSpacing(0);
 
-    // 3. Permission Cards
-    imCard_ = createCard(
+    auto* telemetryText = new QLabel(
+        tr("PRIVACY: 100% LOCAL  |  NETWORK: AIR-GAPPED  |  PASSWORDS: RAW SUPPRESSION"), telemetryFrame);
+    telemetryText->setObjectName("telemetryText");
+    telemetryLayout->addWidget(telemetryText);
+    mainLayout->addWidget(telemetryFrame);
+
+    mainLayout->addSpacing(16);
+
+    // 3. Structured Subsystems Table
+    auto* tableContainer = new QFrame(this);
+    tableContainer->setObjectName("tableContainer");
+    auto* tableLayout = new QVBoxLayout(tableContainer);
+    tableLayout->setContentsMargins(0, 0, 0, 0);
+    tableLayout->setSpacing(0);
+
+    // Table Header
+    auto* headerRow = new QWidget(tableContainer);
+    auto* headerLayout = new QHBoxLayout(headerRow);
+    headerLayout->setContentsMargins(14, 8, 14, 8);
+    headerLayout->setSpacing(12);
+
+    auto* col1 = new QLabel(tr("SUBSYSTEM"), headerRow);
+    col1->setObjectName("tableHeader");
+    col1->setFixedWidth(140);
+
+    auto* col2 = new QLabel(tr("FUNCTION"), headerRow);
+    col2->setObjectName("tableHeader");
+
+    auto* col3 = new QLabel(tr("STATUS"), headerRow);
+    col3->setObjectName("tableHeader");
+    col3->setFixedWidth(90);
+
+    auto* col4 = new QLabel(tr("ACTION"), headerRow);
+    col4->setObjectName("tableHeader");
+    col4->setFixedWidth(100);
+
+    headerLayout->addWidget(col1);
+    headerLayout->addWidget(col2, 1);
+    headerLayout->addWidget(col3);
+    headerLayout->addWidget(col4);
+    tableLayout->addWidget(headerRow);
+
+    auto* line1 = new QFrame(tableContainer);
+    line1->setObjectName("hairline");
+    line1->setFrameShape(QFrame::HLine);
+    tableLayout->addWidget(line1);
+
+    // Row 1: Input Monitoring
+    tableLayout->addWidget(createSubsystemRow(
         tr("Input Monitoring"),
-        tr("Allows Inline to observe keystrokes so it can detect mistyped words in real time."),
-        tr("Used strictly on-device to match typos against local dictionaries."),
-        imStatusBadge_, imActionButton_, SLOT(onOpenInputMonitoringClicked())
-    );
-    mainLayout->addWidget(imCard_);
+        tr("Keystroke observation tap"),
+        imStatusLabel_, imActionButton_, SLOT(onOpenInputMonitoringClicked())
+    ));
 
-    axCard_ = createCard(
+    auto* line2 = new QFrame(tableContainer);
+    line2->setObjectName("hairline");
+    line2->setFrameShape(QFrame::HLine);
+    tableLayout->addWidget(line2);
+
+    // Row 2: Accessibility
+    tableLayout->addWidget(createSubsystemRow(
         tr("Accessibility"),
-        tr("Allows Inline to seamlessly replace misspelled words right where your cursor is."),
-        tr("Used solely to backspace the mistyped letters and inject the corrected word."),
-        axStatusBadge_, axActionButton_, SLOT(onOpenAccessibilityClicked())
-    );
-    mainLayout->addWidget(axCard_);
+        tr("Synthetic replacement injection"),
+        axStatusLabel_, axActionButton_, SLOT(onOpenAccessibilityClicked())
+    ));
 
-    // 4. Status / All-Set Message
-    allSetLabel_ = new QLabel(this);
-    allSetLabel_->setAlignment(Qt::AlignCenter);
-    allSetLabel_->setStyleSheet("font-size: 13px; font-weight: 600; color: #15803D; padding: 4px;");
-    allSetLabel_->setText(tr("Waiting for permissions in System Settings..."));
-    mainLayout->addWidget(allSetLabel_);
+    mainLayout->addWidget(tableContainer);
 
-    // 5. Footer Buttons
-    auto* buttonLayout = new QHBoxLayout();
-    buttonLayout->setSpacing(12);
+    mainLayout->addSpacing(16);
 
-    skipButton_ = new QPushButton(tr("Skip for Now"), this);
-    skipButton_->setStyleSheet(
-        "QPushButton {"
-        "  background-color: transparent;"
-        "  color: #64748B;"
-        "  border: 1px solid #CBD5E1;"
-        "  border-radius: 6px;"
-        "  padding: 8px 16px;"
-        "  font-size: 13px;"
-        "  font-weight: 500;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: #F1F5F9;"
-        "  color: #334155;"
-        "}"
-    );
+    // 4. Live Status Summary
+    statusSummaryLabel_ = new QLabel(this);
+    statusSummaryLabel_->setObjectName("statusSummary");
+    statusSummaryLabel_->setText(tr("Awaiting system authorization..."));
+    mainLayout->addWidget(statusSummaryLabel_);
+
+    mainLayout->addStretch();
+
+    // 5. Actions Footer
+    auto* footerRow = new QHBoxLayout();
+    footerRow->setContentsMargins(0, 0, 0, 0);
+    footerRow->setSpacing(10);
+
+    skipButton_ = new QPushButton(tr("Dismiss"), this);
+    skipButton_->setObjectName("secondaryBtn");
     connect(skipButton_, &QPushButton::clicked, this, &QDialog::reject);
 
-    doneButton_ = new QPushButton(tr("Get Started"), this);
-    doneButton_->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #2563EB;"
-        "  color: #FFFFFF;"
-        "  border: none;"
-        "  border-radius: 6px;"
-        "  padding: 8px 20px;"
-        "  font-size: 13px;"
-        "  font-weight: 600;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: #1D4ED8;"
-        "}"
-        "QPushButton:disabled {"
-        "  background-color: #94A3B8;"
-        "}"
-    );
-    connect(doneButton_, &QPushButton::clicked, this, &QDialog::accept);
+    continueButton_ = new QPushButton(tr("Proceed"), this);
+    continueButton_->setObjectName("primaryBtn");
+    connect(continueButton_, &QPushButton::clicked, this, &QDialog::accept);
 
-    buttonLayout->addWidget(skipButton_);
-    buttonLayout->addStretch();
-    buttonLayout->addWidget(doneButton_);
-
-    mainLayout->addLayout(buttonLayout);
+    footerRow->addWidget(skipButton_);
+    footerRow->addStretch();
+    footerRow->addWidget(continueButton_);
+    mainLayout->addLayout(footerRow);
 }
 
-QWidget* PermissionDialog::createCard(const QString& title, const QString& whyText, const QString& howText,
-                                      QLabel*& statusBadge, QPushButton*& actionButton, const char* slot) {
-    auto* card = new QFrame(this);
-    card->setObjectName("permCard");
-    card->setStyleSheet(
-        "#permCard {"
-        "  background-color: #FFFFFF;"
-        "  border: 1px solid #E2E8F0;"
-        "  border-radius: 10px;"
-        "  padding: 12px 14px;"
-        "}"
-    );
+QWidget* PermissionDialog::createSubsystemRow(const QString& name, const QString& purpose,
+                                              QLabel*& statusLabel, QPushButton*& actionButton,
+                                              const char* slot) {
+    auto* rowWidget = new QWidget(this);
+    auto* rowLayout = new QHBoxLayout(rowWidget);
+    rowLayout->setContentsMargins(14, 10, 14, 10);
+    rowLayout->setSpacing(12);
 
-    auto* cardLayout = new QVBoxLayout(card);
-    cardLayout->setContentsMargins(14, 12, 14, 12);
-    cardLayout->setSpacing(8);
+    auto* nameLabel = new QLabel(name, rowWidget);
+    nameLabel->setObjectName("rowName");
+    nameLabel->setFixedWidth(140);
 
-    // Top row: Title + Status Pill
-    auto* headerRow = new QHBoxLayout();
-    auto* titleLbl = new QLabel(title, card);
-    titleLbl->setStyleSheet("font-size: 14px; font-weight: 600; color: #1E293B;");
+    auto* descLabel = new QLabel(purpose, rowWidget);
+    descLabel->setObjectName("rowDesc");
 
-    statusBadge = new QLabel(tr("Action Required"), card);
-    statusBadge->setStyleSheet(
-        "background-color: #FEF3C7; color: #92400E; "
-        "border-radius: 10px; padding: 2px 8px; font-size: 11px; font-weight: 600;"
-    );
+    statusLabel = new QLabel(tr("[ MISSING ]"), rowWidget);
+    statusLabel->setObjectName("statusIndicator");
+    statusLabel->setFixedWidth(90);
 
-    headerRow->addWidget(titleLbl);
-    headerRow->addStretch();
-    headerRow->addWidget(statusBadge);
-    cardLayout->addLayout(headerRow);
-
-    // Descriptions
-    auto* whyLbl = new QLabel(QString("<b>Why:</b> %1").arg(whyText), card);
-    whyLbl->setWordWrap(true);
-    whyLbl->setStyleSheet("font-size: 12px; color: #475569;");
-    cardLayout->addWidget(whyLbl);
-
-    auto* howLbl = new QLabel(QString("<b>How:</b> %1").arg(howText), card);
-    howLbl->setWordWrap(true);
-    howLbl->setStyleSheet("font-size: 12px; color: #64748B;");
-    cardLayout->addWidget(howLbl);
-
-    // Action button row
-    auto* actionRow = new QHBoxLayout();
-    actionButton = new QPushButton(tr("Open System Settings →"), card);
-    actionButton->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #F1F5F9;"
-        "  color: #2563EB;"
-        "  border: 1px solid #CBD5E1;"
-        "  border-radius: 6px;"
-        "  padding: 5px 12px;"
-        "  font-size: 12px;"
-        "  font-weight: 600;"
-        "}"
-        "QPushButton:hover {"
-        "  background-color: #E2E8F0;"
-        "}"
-        "QPushButton:disabled {"
-        "  color: #15803D;"
-        "  background-color: #DCFCE7;"
-        "  border: 1px solid #86EFAC;"
-        "}"
-    );
+    actionButton = new QPushButton(tr("Authorize"), rowWidget);
+    actionButton->setObjectName("tableActionBtn");
+    actionButton->setFixedWidth(100);
     connect(actionButton, SIGNAL(clicked()), this, slot);
 
-    actionRow->addStretch();
-    actionRow->addWidget(actionButton);
-    cardLayout->addLayout(actionRow);
+    rowLayout->addWidget(nameLabel);
+    rowLayout->addWidget(descLabel, 1);
+    rowLayout->addWidget(statusLabel);
+    rowLayout->addWidget(actionButton);
 
-    return card;
+    return rowWidget;
 }
 
 void PermissionDialog::applyTheme() {
     setStyleSheet(
         "PermissionDialog {"
-        "  background-color: #F8FAFC;"
-        "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;"
+        "  background-color: #FFFFFF;"
+        "  color: #111827;"
+        "  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;"
+        "}"
+        "#categoryLabel {"
+        "  font-size: 10px;"
+        "  font-weight: 700;"
+        "  letter-spacing: 0.1em;"
+        "  color: #71717A;"
+        "}"
+        "#titleLabel {"
+        "  font-size: 18px;"
+        "  font-weight: 700;"
+        "  color: #09090B;"
+        "  margin-top: 2px;"
+        "}"
+        "#descriptionLabel {"
+        "  font-size: 12px;"
+        "  line-height: 1.45;"
+        "  color: #52525B;"
+        "}"
+        "#telemetryFrame {"
+        "  background-color: #F4F4F5;"
+        "  border: 1px solid #E4E4E7;"
+        "}"
+        "#telemetryText {"
+        "  font-family: 'SF Mono', Menlo, Monaco, monospace;"
+        "  font-size: 10px;"
+        "  color: #3F3F46;"
+        "}"
+        "#tableContainer {"
+        "  background-color: #FFFFFF;"
+        "  border: 1px solid #E4E4E7;"
+        "}"
+        "#tableHeader {"
+        "  font-size: 10px;"
+        "  font-weight: 700;"
+        "  letter-spacing: 0.06em;"
+        "  color: #71717A;"
+        "}"
+        "#hairline {"
+        "  color: #E4E4E7;"
+        "  background-color: #E4E4E7;"
+        "  height: 1px;"
+        "  border: none;"
+        "}"
+        "#rowName {"
+        "  font-size: 12px;"
+        "  font-weight: 600;"
+        "  color: #09090B;"
+        "}"
+        "#rowDesc {"
+        "  font-size: 12px;"
+        "  color: #52525B;"
+        "}"
+        "#statusIndicator {"
+        "  font-family: 'SF Mono', Menlo, Monaco, monospace;"
+        "  font-size: 11px;"
+        "  font-weight: 600;"
+        "}"
+        "#statusSummary {"
+        "  font-family: 'SF Mono', Menlo, Monaco, monospace;"
+        "  font-size: 11px;"
+        "  color: #71717A;"
+        "}"
+        "#tableActionBtn {"
+        "  background-color: #FFFFFF;"
+        "  color: #18181B;"
+        "  border: 1px solid #D4D4D8;"
+        "  border-radius: 2px;"
+        "  padding: 4px 8px;"
+        "  font-size: 11px;"
+        "  font-weight: 600;"
+        "}"
+        "#tableActionBtn:hover {"
+        "  background-color: #F4F4F5;"
+        "  border-color: #A1A1AA;"
+        "}"
+        "#tableActionBtn:disabled {"
+        "  color: #A1A1AA;"
+        "  border-color: #E4E4E7;"
+        "  background-color: #FAFAFA;"
+        "}"
+        "#primaryBtn {"
+        "  background-color: #18181B;"
+        "  color: #FAFAFA;"
+        "  border: 1px solid #18181B;"
+        "  border-radius: 2px;"
+        "  padding: 6px 16px;"
+        "  font-size: 12px;"
+        "  font-weight: 600;"
+        "}"
+        "#primaryBtn:hover {"
+        "  background-color: #27272A;"
+        "}"
+        "#secondaryBtn {"
+        "  background-color: #FFFFFF;"
+        "  color: #52525B;"
+        "  border: 1px solid #D4D4D8;"
+        "  border-radius: 2px;"
+        "  padding: 6px 14px;"
+        "  font-size: 12px;"
+        "  font-weight: 500;"
+        "}"
+        "#secondaryBtn:hover {"
+        "  background-color: #F4F4F5;"
+        "  color: #18181B;"
         "}"
     );
 }
@@ -240,53 +311,42 @@ void PermissionDialog::checkPermissions() {
     bool im = checkInputMonitoringPermission();
     bool ax = checkAccessibilityPermission(false);
 
-    // Update Input Monitoring card
+    // Update Input Monitoring row
     if (im) {
-        imStatusBadge_->setText(tr("✓ Granted"));
-        imStatusBadge_->setStyleSheet(
-            "background-color: #DCFCE7; color: #166534; "
-            "border-radius: 10px; padding: 2px 8px; font-size: 11px; font-weight: 600;"
-        );
-        imActionButton_->setText(tr("✓ Enabled"));
+        imStatusLabel_->setText(tr("GRANTED"));
+        imStatusLabel_->setStyleSheet("color: #15803D; font-weight: 700;");
+        imActionButton_->setText(tr("Configured"));
         imActionButton_->setEnabled(false);
     } else {
-        imStatusBadge_->setText(tr("Action Required"));
-        imStatusBadge_->setStyleSheet(
-            "background-color: #FEF3C7; color: #92400E; "
-            "border-radius: 10px; padding: 2px 8px; font-size: 11px; font-weight: 600;"
-        );
-        imActionButton_->setText(tr("Open System Settings →"));
+        imStatusLabel_->setText(tr("MISSING"));
+        imStatusLabel_->setStyleSheet("color: #B91C1C; font-weight: 700;");
+        imActionButton_->setText(tr("Authorize"));
         imActionButton_->setEnabled(true);
     }
 
-    // Update Accessibility card
+    // Update Accessibility row
     if (ax) {
-        axStatusBadge_->setText(tr("✓ Granted"));
-        axStatusBadge_->setStyleSheet(
-            "background-color: #DCFCE7; color: #166534; "
-            "border-radius: 10px; padding: 2px 8px; font-size: 11px; font-weight: 600;"
-        );
-        axActionButton_->setText(tr("✓ Enabled"));
+        axStatusLabel_->setText(tr("GRANTED"));
+        axStatusLabel_->setStyleSheet("color: #15803D; font-weight: 700;");
+        axActionButton_->setText(tr("Configured"));
         axActionButton_->setEnabled(false);
     } else {
-        axStatusBadge_->setText(tr("Action Required"));
-        axStatusBadge_->setStyleSheet(
-            "background-color: #FEF3C7; color: #92400E; "
-            "border-radius: 10px; padding: 2px 8px; font-size: 11px; font-weight: 600;"
-        );
-        axActionButton_->setText(tr("Open System Settings →"));
+        axStatusLabel_->setText(tr("MISSING"));
+        axStatusLabel_->setStyleSheet("color: #B91C1C; font-weight: 700;");
+        axActionButton_->setText(tr("Authorize"));
         axActionButton_->setEnabled(true);
     }
 
     if (im && ax) {
-        allSetLabel_->setText(tr("🎉 All permissions granted! Inline is ready."));
-        allSetLabel_->setStyleSheet("font-size: 13px; font-weight: 600; color: #15803D; padding: 4px;");
-        doneButton_->setEnabled(true);
-        doneButton_->setText(tr("Get Started"));
+        statusSummaryLabel_->setText(tr("STATUS: ALL SUBSYSTEMS AUTHORIZED AND OPERATIONAL"));
+        statusSummaryLabel_->setStyleSheet("color: #15803D; font-weight: 600;");
+        continueButton_->setEnabled(true);
+        continueButton_->setText(tr("Launch Engine"));
         skipButton_->setText(tr("Close"));
     } else {
-        allSetLabel_->setText(tr("Toggle the switch in System Settings to enable permissions in real time."));
-        allSetLabel_->setStyleSheet("font-size: 12px; font-weight: 500; color: #B45309; padding: 4px;");
+        statusSummaryLabel_->setText(tr("STATUS: AWAITING SYSTEM PERMISSION AUTHORIZATION"));
+        statusSummaryLabel_->setStyleSheet("color: #71717A; font-weight: 600;");
+        continueButton_->setText(tr("Proceed"));
     }
 }
 
@@ -295,7 +355,6 @@ void PermissionDialog::onOpenInputMonitoringClicked() {
 }
 
 void PermissionDialog::onOpenAccessibilityClicked() {
-    // Prompting registers the app with macOS Accessibility if not already in the list
     checkAccessibilityPermission(true);
     openAccessibilitySettings();
 }
