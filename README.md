@@ -2,8 +2,6 @@
 
 A high-performance, ultra-lightweight native Windows system tray autocorrect engine built in C++20, Qt6, and low-level Win32 APIs (`WH_KEYBOARD_LL`, `SendInput`). **Inline** provides instant, sub-millisecond typo correction, context-aware disambiguation (e.g., `helo` → `help` vs `hello`), run-together word splitting, and smart single-key undo recovery directly across all Windows applications with minimal CPU and memory footprint (<5 MB RAM, ~0.0% idle CPU).
 
-> **Looking for macOS?** The native macOS version (`CGEventTap`, Menu Bar) is maintained on the [**`mac-branch`**](https://github.com/LaxExe/Inline-mac-c/tree/mac-branch).
-
 ---
 
 ## Features
@@ -28,28 +26,31 @@ A high-performance, ultra-lightweight native Windows system tray autocorrect eng
 #### A. C++ Compiler & Build Tools
 - **Visual Studio 2022** (or 2019):
   - Download the free [Visual Studio Community Edition](https://visualstudio.microsoft.com/vs/community/).
-  - In the installer, select the **Desktop development with C++** workload.
-- **CMake** (3.20 or newer):
+  - In the Visual Studio Installer, ensure the **Desktop development with C++** workload is checked and installed.
+- **CMake** (version 3.20 or newer):
   - Download from [cmake.org](https://cmake.org/download/) or install via Windows Terminal / PowerShell:
     ```powershell
     winget install Kitware.CMake
     ```
 
-#### B. Qt 6 (Free & Open Source)
+#### B. Qt 6 (Free & Open Source - LGPLv3)
 > [!IMPORTANT]
-> **Qt is Free and Open Source (LGPLv3)**. The main Qt landing page often redirects users toward commercial trials and paid subscriptions, which creates confusion. **You do NOT need to buy a license.**
+> **Qt is Free and Open Source under the LGPLv3 license.**
+> The main Qt homepage frequently pushes users toward commercial trials and paid subscriptions. **You do NOT need to buy a license or enter payment information.**
 
-Choose one of the three free installation methods:
+Choose any of the three free installation options:
 
-* **Method 1: Official Free Open-Source Online Installer (GUI - Recommended)**
+* **Option 1: Official Free Open-Source Online Installer (Recommended GUI)**
   1. Open the [Qt Open-Source Download Portal](https://www.qt.io/download-open-source).
-  2. Scroll down to the bottom and download the **Qt Online Installer for Windows**.
-  3. Run the installer. Create or log into a free personal community account.
-  4. When prompted about licensing, check the box confirming you are using Qt under the **LGPLv3 open-source license**.
-  5. Under component selection, expand **Qt 6.x** and select the build matching your compiler (e.g., **MSVC 2022 64-bit** or **MinGW 64-bit**).
-  6. Add the Qt `bin` directory (e.g. `C:\Qt\6.6.2\msvc2022_64\bin`) to your system `PATH` (or let CMake detect `CMAKE_PREFIX_PATH=C:\Qt\6.6.2\msvc2022_64`).
+  2. Scroll to the bottom and click **Download the Qt Online Installer**.
+  3. Run the installer and sign in with a free personal Qt Community account (or create one for free).
+  4. On the license agreement screen, check the box confirming you are using Qt under the **LGPLv3 open-source license**.
+  5. In the component selection tree:
+     - Expand **Qt 6.x** (e.g., 6.6 or 6.7).
+     - Check **MSVC 2022 64-bit** (if using Visual Studio) or **MinGW 64-bit**.
+  6. Finish installation. (Optional: add `C:\Qt\6.x.x\msvc2022_64\bin` to your system `PATH`).
 
-* **Method 2: Using vcpkg (No Qt Account Needed)**
+* **Option 2: Using vcpkg (No Qt Account Required)**
   Open Command Prompt or PowerShell:
   ```powershell
   git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
@@ -58,8 +59,8 @@ Choose one of the three free installation methods:
   .\vcpkg.exe install qtbase:x64-windows
   ```
 
-* **Method 3: aqtinstall (Fast CLI Open-Source Qt Downloader)**
-  If you have Python installed:
+* **Option 3: Using aqtinstall (Fast CLI Open-Source Downloader via Python)**
+  If Python is installed on your machine:
   ```powershell
   pip install aqtinstall
   aqt install-qt windows desktop 6.6.2 win64_msvc2022_64
@@ -80,43 +81,43 @@ git checkout windows-branch
 
 ### 3. Run 1-Click Installer
 
-Double-click `install_win.bat` in File Explorer, or execute in Command Prompt:
+Double-click `install_win.bat` in File Explorer, or run in Command Prompt:
 ```cmd
 install_win.bat
 ```
 *(Or in PowerShell: `.\install_win.ps1`)*
 
-The installer will:
-1. Detect Visual Studio environment (`vcvarsall.bat`), CMake, and Qt6 installation.
-2. Configure a Release build using CMake.
-3. Compile `Inline.exe` using all available CPU threads.
-4. Run `windeployqt` to bundle required Qt runtime DLLs.
+The installer script will:
+1. Detect your Visual Studio environment (`vcvarsall.bat`), CMake, and Qt6 paths.
+2. Generate and configure a Release build directory (`build_win`).
+3. Compile `Inline.exe` in parallel across all CPU cores.
+4. Run `windeployqt` to bundle required Qt runtime DLLs next to the executable.
 5. Launch `Inline.exe` directly into your Windows System Tray.
 
 ---
 
 ## Manual Build & Run Instructions
 
-If you prefer building manually from the command line:
+To build and run manually using the command line:
 
 ```cmd
 :: 1. Open the "x64 Native Tools Command Prompt for VS 2022"
-:: 2. Navigate to project root:
+:: 2. Navigate to your cloned repository folder:
 cd C:\path\to\Inline-mac-c
 
-:: 3. Configure Release build (specify Qt prefix if not on PATH):
+:: 3. Configure Release build (pass your Qt path to CMAKE_PREFIX_PATH if not on PATH):
 cmake -B build_win -DBUILD_WINDOWS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="C:\Qt\6.6.2\msvc2022_64"
 
-:: 4. Build Release binary:
+:: 4. Compile the Release binary:
 cmake --build build_win --config Release -j%NUMBER_OF_PROCESSORS%
 
-:: 5. Run test suite:
+:: 5. Run the test suite:
 ctest --test-dir build_win --output-on-failure
 
-:: 6. Deploy Qt dependencies to the output folder:
+:: 6. Deploy Qt dependencies:
 windeployqt build_win\gui\Release\Inline.exe
 
-:: 7. Run Inline:
+:: 7. Launch Inline:
 build_win\gui\Release\Inline.exe
 ```
 
@@ -155,7 +156,7 @@ build_win\gui\Release\Inline.exe
 
 ## Stopping or Uninstalling
 
-To terminate running instances and clean up:
+To terminate running instances and remove build artifacts:
 ```cmd
 taskkill /IM Inline.exe /F 2>nul
 rmdir /s /q build_win
