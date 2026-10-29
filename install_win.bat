@@ -31,13 +31,13 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-set EXE_PATH=build_win\gui\TypingAssistant.exe
+set EXE_PATH=build_win\gui\Inline.exe
 if not exist "%EXE_PATH%" (
-    set EXE_PATH=build_win\gui\Release\TypingAssistant.exe
+    set EXE_PATH=build_win\gui\Release\Inline.exe
 )
 
 if not exist "%EXE_PATH%" (
-    echo [ERROR] Could not find compiled TypingAssistant.exe
+    echo [ERROR] Could not find compiled Inline.exe
     pause
     exit /b 1
 )

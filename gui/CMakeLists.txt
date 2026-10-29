@@ -33,38 +33,42 @@ target_link_libraries(gui_lib PUBLIC
 
 if(APPLE AND NOT BUILD_WINDOWS)
     # App Bundle executable
-    add_executable(TypingAssistant MACOSX_BUNDLE
+    add_executable(Inline MACOSX_BUNDLE
         main.cpp
     )
 
-    set_target_properties(TypingAssistant PROPERTIES
+    set_target_properties(Inline PROPERTIES
+        OUTPUT_NAME "Inline"
+        MACOSX_BUNDLE_BUNDLE_NAME "Inline"
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/../Info.plist
     )
 elseif(WIN32)
-    add_executable(TypingAssistant WIN32
+    add_executable(Inline WIN32
         main.cpp
     )
+    set_target_properties(Inline PROPERTIES OUTPUT_NAME "Inline")
 else()
-    add_executable(TypingAssistant
+    add_executable(Inline
         main.cpp
     )
+    set_target_properties(Inline PROPERTIES OUTPUT_NAME "Inline")
 endif()
 
-target_link_libraries(TypingAssistant PRIVATE
+target_link_libraries(Inline PRIVATE
     gui_lib
 )
 
 if(APPLE AND NOT BUILD_WINDOWS)
-    add_custom_command(TARGET TypingAssistant POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:TypingAssistant>/../Resources/dictionaries"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../dictionaries" "$<TARGET_FILE_DIR:TypingAssistant>/../Resources/dictionaries"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../resources/AppIcon.icns" "$<TARGET_FILE_DIR:TypingAssistant>/../Resources/AppIcon.icns"
-        COMMAND /usr/bin/codesign --force --deep --sign - "$<TARGET_FILE_DIR:TypingAssistant>/../.."
+    add_custom_command(TARGET Inline POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:Inline>/../Resources/dictionaries"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../dictionaries" "$<TARGET_FILE_DIR:Inline>/../Resources/dictionaries"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../resources/AppIcon.icns" "$<TARGET_FILE_DIR:Inline>/../Resources/AppIcon.icns"
+        COMMAND /usr/bin/codesign --force --deep --sign - "$<TARGET_FILE_DIR:Inline>/../.."
     )
 else()
-    add_custom_command(TARGET TypingAssistant POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:TypingAssistant>/dictionaries"
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../dictionaries" "$<TARGET_FILE_DIR:TypingAssistant>/dictionaries"
+    add_custom_command(TARGET Inline POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:Inline>/dictionaries"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../dictionaries" "$<TARGET_FILE_DIR:Inline>/dictionaries"
     )
 endif()
 

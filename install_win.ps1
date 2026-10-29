@@ -24,13 +24,13 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-$exePath = "build_win\gui\TypingAssistant.exe"
+$exePath = "build_win\gui\Inline.exe"
 if (-not (Test-Path $exePath)) {
-    $exePath = "build_win\gui\Release\TypingAssistant.exe"
+    $exePath = "build_win\gui\Release\Inline.exe"
 }
 
 if (-not (Test-Path $exePath)) {
-    Write-Error "Could not locate compiled TypingAssistant.exe"
+    Write-Error "Could not locate compiled Inline.exe"
     exit 1
 }
 

@@ -112,7 +112,7 @@ install_win.bat
 cmake -B build_release -DCMAKE_BUILD_TYPE=Release
 cmake --build build_release -j8
 ctest --test-dir build_release --output-on-failure
-open build_release/gui/TypingAssistant.app
+open build_release/gui/Inline.app
 ```
 
 ### Windows Manual Build
@@ -120,7 +120,7 @@ open build_release/gui/TypingAssistant.app
 cmake -B build_win -DBUILD_WINDOWS=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build build_win --config Release -j8
 ctest --test-dir build_win --output-on-failure
-build_win\gui\TypingAssistant.exe
+build_win\gui\Inline.exe
 ```
 
 

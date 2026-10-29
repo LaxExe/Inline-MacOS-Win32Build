@@ -56,7 +56,7 @@ echo -e "\n${BOLD}Building Inline (Release)...${NC}"
 cmake -B build_release $CMAKE_FLAGS
 cmake --build build_release -j$(sysctl -n hw.ncpu || echo 4)
 
-APP_SRC="build_release/gui/TypingAssistant.app"
+APP_SRC="build_release/gui/Inline.app"
 if [ ! -d "$APP_SRC" ]; then
     echo -e "${RED}Build failed: $APP_SRC not found.${NC}"
     exit 1
