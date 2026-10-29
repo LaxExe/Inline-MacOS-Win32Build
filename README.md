@@ -1,6 +1,8 @@
-# Inline
+# Inline (Windows)
 
-A high-performance, ultra-lightweight native system tray / menu bar autocorrect engine built in C++20, Qt6, and low-level native OS APIs. **Inline** provides instant, sub-millisecond typo correction, context-aware disambiguation (e.g., `helo` → `help` vs `hello`), run-together word splitting, and smart single-key undo recovery directly across all applications with minimal CPU and memory footprint (<5 MB RAM, ~0.0% idle CPU).
+A high-performance, ultra-lightweight native Windows system tray autocorrect engine built in C++20, Qt6, and low-level Win32 APIs (`WH_KEYBOARD_LL`, `SendInput`). **Inline** provides instant, sub-millisecond typo correction, context-aware disambiguation (e.g., `helo` → `help` vs `hello`), run-together word splitting, and smart single-key undo recovery directly across all Windows applications with minimal CPU and memory footprint (<5 MB RAM, ~0.0% idle CPU).
+
+> **Looking for macOS?** The native macOS version (`CGEventTap`, Menu Bar) is maintained on the [**`mac-branch`**](https://github.com/LaxExe/Inline-mac-c/tree/mac-branch).
 
 ---
 
@@ -10,110 +12,111 @@ A high-performance, ultra-lightweight native system tray / menu bar autocorrect 
 - 🧠 **Context-Aware Bigram Disambiguation**: Intelligently scores candidates against preceding conversational context via a 240,000+ bigram corpus (e.g. typing `helo` naturally becomes `help` after "need" or "please", but `hello` after "say" or at the start of a sentence).
 - 🧩 **Run-Together Word Splitting**: Automatically detects and splits concatenated words (e.g. `theclass` → `the class`, `ofevening` → `of evening`, `timerighte` → `time right`).
 - 🔄 **Single-Key Revert on Backspace**: If a word is autocorrected and you press Backspace, Inline seamlessly reverts the word back to your exact typed input.
-- 🚀 **1-Click Native Installers**: One command build & installation scripts for both macOS (`./install_mac.sh`) and Windows (`install_win.bat`).
-- 🔐 **First-Run Permission Handling**: Interactive permission guide ensuring Accessibility and Input Monitoring permissions are active on macOS.
-- 🧹 **Automatic & Manual Buffer Purging**: Automatically clears all keystroke buffers after 30 seconds of inactivity, on menu bar/tray interaction, via manual menu action, and on application quit.
-- 🛡️ **Zero Keystroke Dumps on Teardown**: Ensures clean event queue draining and immediate hook disabling on quit, preventing any buffered keystrokes from dumping to active apps.
+- 🚀 **1-Click Native Installer**: Automated batch and PowerShell build scripts (`install_win.bat` / `install_win.ps1`).
+- 🧹 **Automatic & Manual Buffer Purging**: Automatically clears all keystroke buffers after 30 seconds of inactivity, on system tray interaction, via manual tray action, and on application quit.
+- 🛡️ **Zero Keystroke Dumps on Teardown**: Ensures clean event queue draining and immediate hook unhooking on quit, preventing any buffered keystrokes from dumping to active apps.
 - 🔒 **Privacy & Secure Field Protection**: Password and credential fields are automatically excluded from logging, buffering, and corrections.
-- 🎛️ **Minimal Native UI**: Sits discreetly in the macOS Menu Bar or Windows System Tray with status indicators, settings, and a live testing playground.
+- 🎛️ **Minimal Native UI**: Sits discreetly in the Windows System Tray with status indicators, settings dialog, and a live testing playground.
 - 🧪 **100% Test Coverage**: Complete GoogleTest unit test suite covering hooks, injectors, buffers, priority queues, and undo state machines.
 
 ---
 
-## Branches & Download Matrix
+## Prerequisites & Installation Guide
 
-Inline is organized across dedicated branches optimized for each operating system:
+### 1. Install Prerequisites
 
-| Platform | Branch | Native Hook / API | Installer Script | Target Output |
-| :--- | :--- | :--- | :--- | :--- |
-| **🍎 macOS** | [**`mac-branch`**](https://github.com/LaxExe/Inline-MacOS-Win32Build/tree/mac-branch) | `CGEventTap`, Cocoa, Ad-Hoc Sign | `./install_mac.sh` | `/Applications/Inline.app` |
-| **🪟 Windows** | [**`windows-branch`**](https://github.com/LaxExe/Inline-MacOS-Win32Build/tree/windows-branch) | `WH_KEYBOARD_LL`, `SendInput` | `install_win.bat` | `Inline.exe` (System Tray) |
+#### A. C++ Compiler & Build Tools
+- **Visual Studio 2022** (or 2019):
+  - Download the free [Visual Studio Community Edition](https://visualstudio.microsoft.com/vs/community/).
+  - In the installer, select the **Desktop development with C++** workload.
+- **CMake** (3.20 or newer):
+  - Download from [cmake.org](https://cmake.org/download/) or install via Windows Terminal / PowerShell:
+    ```powershell
+    winget install Kitware.CMake
+    ```
 
----
+#### B. Qt 6 (Free & Open Source)
+> [!IMPORTANT]
+> **Qt is Free and Open Source (LGPLv3)**. The main Qt landing page often redirects users toward commercial trials and paid subscriptions, which creates confusion. **You do NOT need to buy a license.**
 
-## Installation & Setup Instructions
+Choose one of the three free installation methods:
 
-### 🍎 macOS Installation
+* **Method 1: Official Free Open-Source Online Installer (GUI - Recommended)**
+  1. Open the [Qt Open-Source Download Portal](https://www.qt.io/download-open-source).
+  2. Scroll down to the bottom and download the **Qt Online Installer for Windows**.
+  3. Run the installer. Create or log into a free personal community account.
+  4. When prompted about licensing, check the box confirming you are using Qt under the **LGPLv3 open-source license**.
+  5. Under component selection, expand **Qt 6.x** and select the build matching your compiler (e.g., **MSVC 2022 64-bit** or **MinGW 64-bit**).
+  6. Add the Qt `bin` directory (e.g. `C:\Qt\6.6.2\msvc2022_64\bin`) to your system `PATH` (or let CMake detect `CMAKE_PREFIX_PATH=C:\Qt\6.6.2\msvc2022_64`).
 
-#### 1. Prerequisites
-Install Xcode Command Line Tools, CMake, and Qt6 (e.g. via Homebrew):
-```bash
-# Install Xcode Command Line Tools if not already installed
-xcode-select --install
+* **Method 2: Using vcpkg (No Qt Account Needed)**
+  Open Command Prompt or PowerShell:
+  ```powershell
+  git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+  cd C:\vcpkg
+  .\bootstrap-vcpkg.bat
+  .\vcpkg.exe install qtbase:x64-windows
+  ```
 
-# Install CMake and Qt6 via Homebrew
-brew install cmake qt6
-```
-
-#### 2. Clone and Switch to `mac-branch`
-```bash
-git clone https://github.com/LaxExe/Inline-MacOS-Win32Build.git
-cd Inline-MacOS-Win32Build
-git checkout mac-branch
-```
-
-#### 3. Run 1-Click Installer
-```bash
-chmod +x install_mac.sh
-./install_mac.sh
-```
-This script will:
-1. Verify Clang, CMake, and Qt6 paths.
-2. Build the optimized Release bundle.
-3. Install the application to `/Applications/Inline.app` (or `~/Applications/Inline.app`).
-4. Ad-hoc codesign the `.app` bundle.
-5. Prompt you to launch Inline into your menu bar immediately.
-
-#### 4. macOS Permissions
-On first launch, macOS requires two permissions for system-wide autocorrection:
-- **Accessibility** (`System Settings > Privacy & Security > Accessibility`)
-- **Input Monitoring** (`System Settings > Privacy & Security > Input Monitoring`)
-
-Toggle **Inline** to **ON** in both sections when prompted.
+* **Method 3: aqtinstall (Fast CLI Open-Source Qt Downloader)**
+  If you have Python installed:
+  ```powershell
+  pip install aqtinstall
+  aqt install-qt windows desktop 6.6.2 win64_msvc2022_64
+  ```
 
 ---
 
-### 🪟 Windows Installation
+### 2. Clone and Switch to `windows-branch`
 
-#### 1. Prerequisites
-- **Visual Studio 2019/2022** (with "Desktop development with C++" workload) or MinGW-w64.
-- **CMake** (3.20 or newer): [Download from cmake.org](https://cmake.org/download/) or via `winget install Kitware.CMake`.
-- **Qt6** (Qt 6.2+ MinGW or MSVC): [Download Qt](https://www.qt.io/download).
-
-#### 2. Clone and Switch to `windows-branch`
 Open Command Prompt (`cmd.exe`) or PowerShell:
 ```cmd
-git clone https://github.com/LaxExe/Inline-MacOS-Win32Build.git
-cd Inline-MacOS-Win32Build
+git clone https://github.com/LaxExe/Inline-mac-c.git
+cd Inline-mac-c
 git checkout windows-branch
 ```
 
-#### 3. Run 1-Click Installer
-Double-click `install_win.bat` in File Explorer, or run in Command Prompt:
+---
+
+### 3. Run 1-Click Installer
+
+Double-click `install_win.bat` in File Explorer, or execute in Command Prompt:
 ```cmd
 install_win.bat
 ```
 *(Or in PowerShell: `.\install_win.ps1`)*
 
-The script builds `Inline.exe` in Release mode using available CPU cores and allows you to launch it straight into your System Tray.
+The installer will:
+1. Detect Visual Studio environment (`vcvarsall.bat`), CMake, and Qt6 installation.
+2. Configure a Release build using CMake.
+3. Compile `Inline.exe` using all available CPU threads.
+4. Run `windeployqt` to bundle required Qt runtime DLLs.
+5. Launch `Inline.exe` directly into your Windows System Tray.
 
 ---
 
-## Manual Build Instructions
+## Manual Build & Run Instructions
 
-### macOS
-```bash
-cmake -B build_release -DCMAKE_BUILD_TYPE=Release
-cmake --build build_release -j$(sysctl -n hw.ncpu)
-ctest --test-dir build_release --output-on-failure
-open build_release/gui/Inline.app
-```
+If you prefer building manually from the command line:
 
-### Windows
 ```cmd
-cmake -B build_win -DBUILD_WINDOWS=ON -DCMAKE_BUILD_TYPE=Release
+:: 1. Open the "x64 Native Tools Command Prompt for VS 2022"
+:: 2. Navigate to project root:
+cd C:\path\to\Inline-mac-c
+
+:: 3. Configure Release build (specify Qt prefix if not on PATH):
+cmake -B build_win -DBUILD_WINDOWS=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="C:\Qt\6.6.2\msvc2022_64"
+
+:: 4. Build Release binary:
 cmake --build build_win --config Release -j%NUMBER_OF_PROCESSORS%
+
+:: 5. Run test suite:
 ctest --test-dir build_win --output-on-failure
+
+:: 6. Deploy Qt dependencies to the output folder:
+windeployqt build_win\gui\Release\Inline.exe
+
+:: 7. Run Inline:
 build_win\gui\Release\Inline.exe
 ```
 
@@ -124,8 +127,7 @@ build_win\gui\Release\Inline.exe
 ```
                                   +-----------------------+
                                   | Global Keyboard Hook  |
-                                  |  (Mac CGEventTap /    |
-                                  |   Win WH_KEYBOARD_LL) |
+                                  | (Win WH_KEYBOARD_LL)  |
                                   +-----------+-----------+
                                               |
                                               v
@@ -145,26 +147,18 @@ build_win\gui\Release\Inline.exe
                                               |
                                               v
                                   +-----------+-----------+
-                                  |    Injection Queue    |  (Atomic text replacement)
+                                  |    Injection Queue    |  (Atomic SendInput replacement)
                                   +-----------+-----------+
 ```
 
 ---
 
-## Removing Old Installed Versions
+## Stopping or Uninstalling
 
-### macOS
-To cleanly remove old installations before reinstalling:
-```bash
-killall Inline 2>/dev/null || true
-rm -rf /Applications/Inline.app ~/Applications/Inline.app
-```
-
-### Windows
-To exit and remove:
+To terminate running instances and clean up:
 ```cmd
 taskkill /IM Inline.exe /F 2>nul
-rem Delete the compiled build folder or installed executable directory
+rmdir /s /q build_win
 ```
 
 ---
