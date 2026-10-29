@@ -830,7 +830,7 @@ QWidget* SettingsDialog::createGeneralPage() {
 
     auto* feedbackBtn = new QPushButton(tr("Send feedback"), card3);
     connect(feedbackBtn, &QPushButton::clicked, this, []() {
-        QDesktopServices::openUrl(QUrl("https://github.com/LaxExe/Inline-mac-c/issues"));
+        QDesktopServices::openUrl(QUrl("https://github.com/LaxExe/Inline-MacOS-Win32Build/issues"));
     });
     card3Layout->addWidget(createSettingRow(IconType::Message, tr("Feedback"), tr("Send a bug report or feature idea directly to the person who maintains Inline."), feedbackBtn, true));
     layout->addWidget(card3);

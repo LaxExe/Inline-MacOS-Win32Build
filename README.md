@@ -2,7 +2,7 @@
 
 A high-performance, ultra-lightweight native macOS menu bar autocorrect engine built with C++20, Qt6, and native macOS APIs (`CGEventTap`). **Inline** delivers instant, sub-millisecond typo correction, context-aware disambiguation, run-together word splitting, and smart single-key undo recovery directly across macOS applications with minimal CPU and memory footprint (<5 MB RAM, ~0.0% idle CPU).
 
-> **Looking for Windows?** The native Windows version (`WH_KEYBOARD_LL`, `SendInput`) is maintained on the [**`windows-branch`**](https://github.com/LaxExe/Inline-mac-c/tree/windows-branch).
+> **Looking for Windows?** The native Windows version (`WH_KEYBOARD_LL`, `SendInput`) is maintained on the [**`windows-branch`**](https://github.com/LaxExe/Inline-MacOS-Win32Build/tree/windows-branch).
 
 ---
 
@@ -25,7 +25,7 @@ A high-performance, ultra-lightweight native macOS menu bar autocorrect engine b
 ### Option 1: Direct DMG Download (Recommended)
 
 1. Download the latest installer package:
-   - [**Download Inline for macOS (.dmg)**](https://github.com/LaxExe/Inline-mac-c/releases/latest)
+   - [**Download Inline for macOS (.dmg)**](https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/latest)
 2. Open the downloaded `.dmg` file.
 3. Drag **Inline.app** into your **Applications** folder.
 4. Launch **Inline** from `/Applications` or via Spotlight (`Cmd + Space` -> `Inline`).
@@ -35,8 +35,8 @@ A high-performance, ultra-lightweight native macOS menu bar autocorrect engine b
 If you have Xcode and Homebrew installed:
 
 ```bash
-git clone https://github.com/LaxExe/Inline-mac-c.git
-cd Inline-mac-c
+git clone https://github.com/LaxExe/Inline-MacOS-Win32Build.git
+cd Inline-MacOS-Win32Build
 git checkout mac-branch
 chmod +x install_mac.sh
 ./install_mac.sh
