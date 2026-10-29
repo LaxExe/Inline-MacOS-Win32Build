@@ -22,8 +22,8 @@ jobs:
 
       - name: Install Build Dependencies
         run: |
-          brew update
           brew install qt ninja
+          echo "CMAKE_PREFIX_PATH=$(brew --prefix qt)" >> $GITHUB_ENV
 
       - name: Build and Package DMG
         run: |
