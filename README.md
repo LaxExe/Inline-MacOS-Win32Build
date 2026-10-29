@@ -8,7 +8,7 @@ A high-performance, ultra-lightweight native macOS menu bar autocorrect engine b
 
 ## Table of Contents
 
-- [Download & Installation](#download--installation)
+- [Installation](#installation)
 - [System Requirements & Permissions](#system-requirements--permissions)
 - [How to Use Inline](#how-to-use-inline)
 - [How It Works](#how-it-works)
@@ -20,19 +20,42 @@ A high-performance, ultra-lightweight native macOS menu bar autocorrect engine b
 
 ---
 
-## Download & Installation
+## Installation
 
-### Option 1: Direct DMG Download (Recommended)
+To ensure macOS allows Inline to run smoothly without Gatekeeper quarantine warnings, install Inline directly via Terminal using **Homebrew** or the **one-line installer**.
 
-1. Download the latest installer package:
-   - [**Download Inline for macOS (.dmg)**](https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/latest)
-2. Open the downloaded `.dmg` file.
-3. Drag **Inline.app** into your **Applications** folder.
-4. Launch **Inline** from `/Applications` or via Spotlight (`Cmd + Space` -> `Inline`).
+### Option 1: Install with Homebrew (Recommended)
 
-### Option 2: Build and Install from Source
+Run the following command in Terminal:
 
-If you have Xcode and Homebrew installed:
+```bash
+brew install --cask https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/Casks/inline.rb
+```
+
+*(If you have tapped `LaxExe/tap`, you can also run `brew install --cask inline`)*
+
+To update Inline in the future:
+```bash
+brew upgrade --cask inline
+```
+
+---
+
+### Option 2: One-Line Terminal Installer (No Homebrew Required)
+
+If you do not have Homebrew installed, copy and paste this command into Terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/install.sh | bash
+```
+
+This script automatically downloads the latest release, installs it to `/Applications`, clears the macOS quarantine flag, and launches the app.
+
+---
+
+### Option 3: Build from Source
+
+If you prefer building from source with Xcode and CMake:
 
 ```bash
 git clone https://github.com/LaxExe/Inline-MacOS-Win32Build.git

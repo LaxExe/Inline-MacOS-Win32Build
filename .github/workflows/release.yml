@@ -53,6 +53,14 @@ jobs:
             - **Run-Together Word Splitting**: Intelligently splits concatenated words (`whenI` -> `when I`, `twowords` -> `two words`).
 
             #### Installation:
-            1. Download `Inline-v1.1-macOS.dmg` below.
-            2. Double-click to open, then drag `Inline.app` into your `Applications` folder.
-            3. Open `Inline` from `/Applications` and follow the two one-click permission prompts.
+            Install via Terminal so macOS runs without Gatekeeper quarantine warnings:
+
+            **Homebrew:**
+            ```bash
+            brew install --cask https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/Casks/inline.rb
+            ```
+
+            **Or One-Line Installer:**
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/install.sh | bash
+            ```
