@@ -8,3 +8,4 @@ build*/
 *.dylib
 tools/generate_app_icon
 tools/live_e2e_test
+dist/

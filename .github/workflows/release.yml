@@ -1,0 +1,58 @@
+name: Release macOS DMG
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build macOS DMG & Publish Release
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Build Dependencies
+        run: |
+          brew update
+          brew install qt ninja
+
+      - name: Build and Package DMG
+        run: |
+          chmod +x tools/create_dmg.sh
+          ./tools/create_dmg.sh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Inline ${{ github.ref_name }} (macOS)"
+          files: dist/Inline-*.dmg
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ### Inline macOS Release ${{ github.ref_name }}
+            
+            Lightweight, instantaneous on-device autocorrect engine with macOS System Settings styling.
+
+            #### What's New in v1.1:
+            - **No Autocorrect on Enter**: Pressing Enter commits text untouched without modifying your words.
+            - **Single-Key Undo on Backspace**: Pressing Backspace right after an autocorrection instantly reverts to your raw input.
+            - **Menu Bar Dynamic Contrast**: Adaptive white vertical bar on dark/black menu bars; dark charcoal on light menu bars.
+            - **Modern System Settings GUI**: Redesigned System Settings dialog with full responsive layout, custom vocabulary, and real-time live feed.
+            - **Redesigned Permissions Dialog**: Modern native macOS card interface with live status pills for Input Monitoring and Accessibility.
+            - **Slang & Tech Term Whitelist**: Native protection for chat acronyms (`gng`, `brb`, `ttyl`, `idk`, `ngl`, `tbh`) and developer jargon (`repo`, `pr`, `cli`, `sdk`, `api`, `async`).
+            - **Run-Together Word Splitting**: Intelligently splits concatenated words (`whenI` -> `when I`, `twowords` -> `two words`).
+
+            #### Installation:
+            1. Download `Inline-v1.1-macOS.dmg` below.
+            2. Double-click to open, then drag `Inline.app` into your `Applications` folder.
+            3. Open `Inline` from `/Applications` and follow the two one-click permission prompts.

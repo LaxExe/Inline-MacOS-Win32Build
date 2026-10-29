@@ -629,7 +629,7 @@ void SettingsDialog::setupUi() {
     sidebarLayout->addWidget(sidebarList_);
 
     // Version label at bottom
-    auto* versionLabel = new QLabel(tr("Inline macOS • v1.2"), sidebarContainer);
+    auto* versionLabel = new QLabel(tr("Inline macOS • v1.1"), sidebarContainer);
     versionLabel->setStyleSheet("font-size: 10px; color: #9CA3AF; padding: 4px 6px; font-weight: 500;");
     sidebarLayout->addWidget(versionLabel);
 
