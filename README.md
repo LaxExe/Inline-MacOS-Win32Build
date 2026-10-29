@@ -78,7 +78,33 @@ Toggle **Inline** to **ON** in both sections when prompted.
 #### 1. Prerequisites
 - **Visual Studio 2019/2022** (with "Desktop development with C++" workload) or MinGW-w64.
 - **CMake** (3.20 or newer): [Download from cmake.org](https://cmake.org/download/) or via `winget install Kitware.CMake`.
-- **Qt6** (Qt 6.2+ MinGW or MSVC): [Download Qt](https://www.qt.io/download).
+- **Qt6** (Qt 6.2+ MinGW or MSVC):
+  > **Note on Qt Licensing & Free Download:**
+  > Qt is dual-licensed under both commercial and **free open-source (LGPLv3)** licenses. The main Qt website homepage frequently directs users to commercial trials or paid subscriptions. **You do NOT need to pay for Qt.**
+  > 
+  > Choose one of the free methods below:
+  >
+  > - **Option A: Official Free Open-Source Installer (Recommended GUI)**
+  >   1. Go to the [Official Qt Open-Source Download Page](https://www.qt.io/download-open-source).
+  >   2. Scroll to the bottom and click **Download the Qt Online Installer**.
+  >   3. During setup, create or sign into a free personal Qt Community account.
+  >   4. When prompted, check the box confirming you are using Qt under the **LGPLv3 open-source license**.
+  >   5. Select the Qt 6 version matching your compiler (e.g. `MSVC 2022 64-bit` if using Visual Studio, or `MinGW 64-bit`).
+  >
+  > - **Option B: Using Package Managers (No Account Required)**
+  >   - **vcpkg** (Command Prompt / PowerShell):
+  >     ```cmd
+  >     vcpkg install qtbase:x64-windows
+  >     ```
+  >   - **MSYS2** (for MinGW GCC environments):
+  >     ```bash
+  >     pacman -S mingw-w64-x86_64-qt6-base
+  >     ```
+  >   - **aqtinstall** (Fast command-line open-source Qt installer via Python):
+  >     ```cmd
+  >     pip install aqtinstall
+  >     aqt install-qt windows desktop 6.6.2 win64_msvc2022_64
+  >     ```
 
 #### 2. Clone and Switch to `windows-branch`
 Open Command Prompt (`cmd.exe`) or PowerShell:
