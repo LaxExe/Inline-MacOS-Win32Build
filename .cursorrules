@@ -1,0 +1,9 @@
+# Refer to AGENTS.md for full command reference and architecture guidelines.
+# Core rules:
+# 1. Zero emojis in the entire application, UI strings, dialogs, and logs.
+# 2. Modern System Settings visual design language (monochrome badges #F3F4F6, 12px rounded cards #FFFFFF).
+# 3. Enter/Return key never autocorrects; passes through raw keystrokes cleanly.
+# 4. Single-key undo on Backspace reverts to raw typed word immediately after correction.
+# 5. Always maintain sub-2us keystroke latency; never perform blocking IO on the hook thread.
+# 6. Build command: ./install_mac.sh or cmake -B build_release -G Ninja && cmake --build build_release --target Inline
+# 7. Release DMG packaging: ./tools/create_dmg.sh
