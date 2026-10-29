@@ -455,6 +455,7 @@ void SettingsDialog::updateStatusInfo(bool hookRunning, size_t dictWords) {
 }
 
 void SettingsDialog::refreshPermissions() {
+    if (!isVisible()) return;
     bool ax = checkAccessibilityPermission(false);
     bool im = checkInputMonitoringPermission();
 

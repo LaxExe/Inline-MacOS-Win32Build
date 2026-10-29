@@ -25,6 +25,8 @@ using PlatformInjector = WinInjector;
 #include "core/reliability/privacy_logger.h"
 #include <memory>
 #include <atomic>
+#include <mutex>
+#include <chrono>
 
 class MainTrayApp : public QObject {
     Q_OBJECT
@@ -68,13 +70,18 @@ private:
 
     int currentWordToken_ = 0;
     bool isSentenceStart_ = true;
+    AppConfig cachedConfig_;
     QTimer* idleClearTimer_ = nullptr;
+    std::atomic<int64_t> lastKeyTimeNs_{0};
+    std::atomic<bool> hasBufferedData_{false};
+    std::atomic<bool> clearRequested_{false};
 
     void setupTray();
-    void onRawKeyEvent(const RawKeyEvent& ev);
-    void handleWordBoundary(wchar_t delimiter);
+    bool onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap = false);
+    bool handleWordBoundary(wchar_t delimiter, bool isActiveTap);
     void handleCharacter(wchar_t ch);
-    void handleBackspace();
+    bool handleBackspace(bool isActiveTap);
     void onIdleTimeout();
+    void onIdleCheck();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
 };

@@ -39,6 +39,9 @@ private:
     std::unordered_map<std::wstring, std::vector<uint32_t>> deletes_;
     std::unordered_map<std::string, int64_t> bigrams_;
 
+    mutable std::vector<uint32_t> seenStamp_;
+    mutable uint32_t currentStamp_ = 0;
+
     void createDeletes(uint32_t wordId);
     void getDeletes(const std::wstring& word, int editDistance, std::unordered_set<std::wstring>& result) const;
 };

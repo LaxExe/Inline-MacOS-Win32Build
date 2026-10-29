@@ -4,6 +4,7 @@
 #include "core/reliability/privacy_logger.h"
 #include <iostream>
 #include <chrono>
+#include <pthread/qos.h>
 
 MacKeyboardHook::MacKeyboardHook() = default;
 
@@ -14,7 +15,6 @@ MacKeyboardHook::~MacKeyboardHook() {
 bool MacKeyboardHook::start() {
     if (running_) return true;
     running_ = true;
-    workerThread_ = std::thread(&MacKeyboardHook::workerThreadFunc, this);
     hookThread_ = std::thread(&MacKeyboardHook::hookThreadFunc, this);
     return true;
 }
@@ -28,14 +28,7 @@ void MacKeyboardHook::stop() {
         CGEventTapEnable(tap_, false);
     }
 
-    // 2. Clear pending events and wake worker
-    {
-        std::lock_guard<std::mutex> lock(queueMutex_);
-        eventQueue_.clear();
-    }
-    queueCv_.notify_all();
-
-    // 3. Detach run loop source and stop runloop
+    // 2. Detach run loop source and stop runloop
     if (runLoop_) {
         if (runLoopSource_) {
             CFRunLoopRemoveSource(runLoop_, runLoopSource_, kCFRunLoopCommonModes);
@@ -43,15 +36,12 @@ void MacKeyboardHook::stop() {
         CFRunLoopStop(runLoop_);
     }
 
-    // 4. Wait for threads to join
+    // 3. Wait for hook thread to join
     if (hookThread_.joinable()) {
         hookThread_.join();
     }
-    if (workerThread_.joinable()) {
-        workerThread_.join();
-    }
 
-    // 5. Release CoreGraphics handles
+    // 4. Release CoreGraphics handles
     if (runLoopSource_) {
         CFRelease(runLoopSource_);
         runLoopSource_ = nullptr;
@@ -72,15 +62,15 @@ void MacKeyboardHook::setKeyCallback(std::function<void(const RawKeyEvent&)> cb)
 }
 
 void MacKeyboardHook::clearQueue() {
-    std::lock_guard<std::mutex> lock(queueMutex_);
-    eventQueue_.clear();
+    // Queue eliminated: events are processed directly on the dedicated real-time hook thread
 }
 
 CGEventRef MacKeyboardHook::eventTapCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void* userInfo) {
+    (void)proxy;
     auto* self = static_cast<MacKeyboardHook*>(userInfo);
     if (!self) return event;
 
-    // 1. Handle tap disable immediately and re-enable
+    // 1. Handle tap disable immediately and re-enable (<0.001ms)
     if (shouldReenableTap(type)) {
         if (self->tap_) {
             CGEventTapEnable(self->tap_, true);
@@ -94,57 +84,58 @@ CGEventRef MacKeyboardHook::eventTapCallback(CGEventTapProxy proxy, CGEventType 
         return event;
     }
 
-    // 3. Tag, timestamp, and push to worker queue (<0.005ms)
+    // 3. Zero-allocation, lock-free direct execution on QOS_CLASS_USER_INTERACTIVE hook thread
     RawKeyEvent raw;
     raw.keyCode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
     raw.flags = CGEventGetFlags(event);
     raw.type = static_cast<uint32_t>(type);
     raw.timestampNs = CGEventGetTimestamp(event);
 
-    bool interceptTab = (type == kCGEventKeyDown && raw.keyCode == 48 /* kVK_Tab */ &&
-                         self->shouldInterceptTab_ && self->shouldInterceptTab_());
+    const bool activeTap = self->isActiveTap_.load(std::memory_order_relaxed);
+    bool swallow = (type == kCGEventKeyDown && raw.keyCode == 48 /* kVK_Tab */ &&
+                    self->shouldInterceptTab_ && self->shouldInterceptTab_());
 
-    {
-        std::lock_guard<std::mutex> lock(self->queueMutex_);
-        self->eventQueue_.push_back(raw);
+    if (self->filterCallback_) {
+        if (self->filterCallback_(raw, activeTap)) {
+            swallow = true;
+        }
+    } else if (self->callback_) {
+        self->callback_(raw);
     }
-    self->queueCv_.notify_one();
 
-    if (interceptTab) {
-        return nullptr; // Consume Tab key event so host app does not insert tab or switch focus
+    if (swallow && activeTap) {
+        return nullptr; // Swallow event before host app sees it
     }
 
     return event;
 }
 
-void MacKeyboardHook::workerThreadFunc() {
-    while (running_) {
-        RawKeyEvent raw;
-        {
-            std::unique_lock<std::mutex> lock(queueMutex_);
-            queueCv_.wait(lock, [this]() {
-                return !running_ || !eventQueue_.empty();
-            });
-            if (!running_) break;
-            raw = eventQueue_.front();
-            eventQueue_.pop_front();
-        }
-
-        if (callback_) {
-            callback_(raw);
-        }
-    }
-}
-
 void MacKeyboardHook::hookThreadFunc() {
+    pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+
+    // Subscribe ONLY to KeyDown and MouseDown (ignoring KeyUp & FlagsChanged cuts tap volume by >50%)
     CGEventMask mask = CGEventMaskBit(kCGEventKeyDown)
-                     | CGEventMaskBit(kCGEventKeyUp)
-                     | CGEventMaskBit(kCGEventFlagsChanged)
                      | CGEventMaskBit(kCGEventLeftMouseDown)
                      | CGEventMaskBit(kCGEventRightMouseDown)
                      | CGEventMaskBit(kCGEventOtherMouseDown);
 
     while (running_ && !tap_) {
+        // Step 1: Prefer active tap at tail of session chain so typo delimiters can be swallowed
+        // before the target app renders the wrong word + space.
+        tap_ = CGEventTapCreate(
+            kCGSessionEventTap,
+            kCGTailAppendEventTap,
+            kCGEventTapOptionDefault,
+            mask,
+            MacKeyboardHook::eventTapCallback,
+            this
+        );
+        if (tap_) {
+            isActiveTap_.store(true, std::memory_order_relaxed);
+            break;
+        }
+
+        // Fallback to listen-only if Accessibility is not yet granted
         tap_ = CGEventTapCreate(
             kCGSessionEventTap,
             kCGHeadInsertEventTap,
@@ -173,19 +164,11 @@ void MacKeyboardHook::hookThreadFunc() {
                 this
             );
         }
-        if (!tap_) {
-            tap_ = CGEventTapCreate(
-                kCGSessionEventTap,
-                kCGHeadInsertEventTap,
-                kCGEventTapOptionDefault,
-                mask,
-                MacKeyboardHook::eventTapCallback,
-                this
-            );
+        if (tap_) {
+            isActiveTap_.store(false, std::memory_order_relaxed);
+            break;
         }
-        if (!tap_) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     }
 
     if (!running_ || !tap_) {

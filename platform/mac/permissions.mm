@@ -18,22 +18,17 @@ PermissionAction decidePermissionAction(bool inputMonitoringGranted, bool access
     return PermissionAction::DirectToAccessibilitySettings;
 }
 
-bool checkInputMonitoringPermission() {
-    // Attempt dummy tap creation with listen-only
-    CGEventMask mask = CGEventMaskBit(kCGEventKeyDown);
-    CFMachPortRef tap = CGEventTapCreate(
-        kCGSessionEventTap,
-        kCGHeadInsertEventTap,
-        kCGEventTapOptionListenOnly,
-        mask,
-        [](CGEventTapProxy, CGEventType, CGEventRef event, void*) -> CGEventRef { return event; },
-        nullptr
-    );
-    if (!tap) {
-        return false;
+static id gAppNapActivity = nil;
+
+void disableAppNap() {
+    if (!gAppNapActivity) {
+        gAppNapActivity = [[NSProcessInfo processInfo] beginActivityWithOptions:(NSActivityUserInitiatedAllowingIdleSystemSleep | NSActivityLatencyCritical)
+                                                                         reason:@"Realtime keystroke correction"];
     }
-    CFRelease(tap);
-    return true;
+}
+
+bool checkInputMonitoringPermission() {
+    return CGPreflightListenEventAccess();
 }
 
 bool checkAccessibilityPermission(bool prompt) {

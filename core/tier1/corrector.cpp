@@ -173,13 +173,19 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
     result.didCorrect = false;
     result.corrected = typed;
 
-    if (typed.empty()) return result;
+    if (typed.empty() || typed.size() > 24) return result;
 
     std::wstring lowerTyped = toLower(typed);
     for (const auto& ign : cfg.ignoreWords) {
-        std::wstring wign(ign.begin(), ign.end());
-        if (toLower(wign) == lowerTyped) {
-            return result;
+        if (ign.size() == lowerTyped.size()) {
+            bool match = true;
+            for (size_t i = 0; i < ign.size(); ++i) {
+                if (static_cast<wchar_t>(std::tolower(static_cast<unsigned char>(ign[i]))) != lowerTyped[i]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) return result;
         }
     }
 
@@ -240,7 +246,10 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
         }
     }
 
-    auto suggestions = dict.lookup(lowerTyped, cfg.maxDictionaryEditDistance);
+    int effectiveMaxDist = (typed.size() <= 4)
+        ? std::min(1, cfg.maxDictionaryEditDistance)
+        : cfg.maxDictionaryEditDistance;
+    auto suggestions = dict.lookup(lowerTyped, effectiveMaxDist);
 
     // Rank candidates by log frequency penalizing edit distance
     const Suggestion* best = nullptr;
@@ -265,15 +274,26 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
         if (s.count <= 0) continue;
 
         double logCount = std::log10(static_cast<double>(s.count));
-        
-        // Compute character overlap bonus
+
+        // Confidence threshold based on distance:
+        // Dist 1 requires logCount >= 4.0 (10,000+ count in 82K dictionary)
+        // Dist 2 requires logCount >= 4.8 (60,000+ count in 82K dictionary)
+        double minRequiredLogCount = (s.distance == 1) ? 4.0 : 4.8;
+        if (logCount < minRequiredLogCount) {
+            continue;
+        }
+
+        // Compute character overlap bonus using a register bitmask (zero heap allocations)
         int matchingChars = 0;
-        std::wstring sTerm = s.term;
+        uint32_t usedMask = 0;
+        const size_t termLen = std::min<size_t>(s.term.size(), 32);
         for (wchar_t tc : lowerTyped) {
-            auto pos = sTerm.find(tc);
-            if (pos != std::wstring::npos) {
-                matchingChars++;
-                sTerm.erase(pos, 1);
+            for (size_t k = 0; k < termLen; ++k) {
+                if (!(usedMask & (1u << k)) && s.term[k] == tc) {
+                    usedMask |= (1u << k);
+                    matchingChars++;
+                    break;
+                }
             }
         }
         double overlapRatio = static_cast<double>(matchingChars) / std::max(lowerTyped.size(), s.term.size());
@@ -290,14 +310,6 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
             }
         }
 
-        // Confidence threshold based on distance:
-        // Dist 1 requires logCount >= 4.0 (10,000+ count in 82K dictionary)
-        // Dist 2 requires logCount >= 4.8 (60,000+ count in 82K dictionary)
-        double minRequiredLogCount = (s.distance == 1) ? 4.0 : 4.8;
-        if (logCount < minRequiredLogCount) {
-            continue;
-        }
-
         if (score > bestScore) {
             bestScore = score;
             best = &s;
@@ -305,11 +317,12 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
     }
 
     // 3. Check for run-together words & compound typos (e.g. "theclass" -> "the class", "timerighte" -> "time right", "ofevening" -> "of evening")
+    // Skip when a distance-1 candidate already matched (preferSplit only applies when best == nullptr or best->distance == 2)
     std::wstring bestSplitWord;
     double bestSplitScore = -1e9;
     int bestSplitDist = 1;
 
-    if (isAllAlpha && lowerTyped.size() >= 5) {
+    if (isAllAlpha && lowerTyped.size() >= 5 && (!best || best->distance == 2)) {
         for (size_t split = 2; split <= lowerTyped.size() - 2; ++split) {
             std::wstring w1 = lowerTyped.substr(0, split);
             std::wstring w2 = lowerTyped.substr(split);
@@ -327,8 +340,8 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
                     }
                 }
             }
-            // Case B: w1 is exact word, w2 has trailing extra letter typo (e.g. "time" + "righte" -> "time right")
-            else if (cfg.maxDictionaryEditDistance >= 2 && w1.size() >= 3 && w2.size() >= 3 && dict.hasWord(w1)) {
+            // Case B: w1 is exact word, w2 has trailing extra letter typo (only evaluated when no single-word candidate exists)
+            else if (!best && cfg.maxDictionaryEditDistance >= 2 && w1.size() >= 3 && w2.size() >= 3 && dict.hasWord(w1)) {
                 int64_t c1 = dict.getFrequency(w1);
                 if (c1 >= 10000) {
                     auto s2_list = dict.lookup(w2, 1);

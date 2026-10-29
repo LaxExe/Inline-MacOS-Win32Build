@@ -17,6 +17,7 @@ public:
     void start() override;
     void stop() override;
     void enqueue(const InjectionOp& op) override;
+    void executeImmediate(const InjectionOp& op);
     void setValidToken(InjectionOp::Source source, int token) override;
     void clearQueue();
 
@@ -33,13 +34,14 @@ private:
     std::condition_variable cv_;
     std::deque<InjectionOp> queue_;
 
-    std::mutex tokenMutex_;
-    std::unordered_map<int, int> validTokens_;
+    std::atomic<int> validTokens_[4]{{0}, {0}, {0}, {0}};
 
-    int paceMs_ = 6;
-
-    int getValidToken(InjectionOp::Source source);
+    int getValidToken(InjectionOp::Source source) const;
     void run();
 
     CGEventSourceRef eventSource_ = nullptr;
+    CGEventRef backspaceDownEvent_ = nullptr;
+    CGEventRef backspaceUpEvent_ = nullptr;
+    CGEventRef unicodeDownEvent_ = nullptr;
+    CGEventRef unicodeUpEvent_ = nullptr;
 };

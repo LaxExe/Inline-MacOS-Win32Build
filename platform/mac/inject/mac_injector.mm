@@ -6,14 +6,98 @@
 #include <algorithm>
 #include <string>
 #include <vector>
+#include <atomic>
+#include <pthread/qos.h>
+#import <Cocoa/Cocoa.h>
 #include <Carbon/Carbon.h>
 
+static std::atomic<pid_t> gFrontmostPid{0};
+
+@interface FrontAppWatcher : NSObject
+@end
+
+@implementation FrontAppWatcher
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        NSRunningApplication* front = [[NSWorkspace sharedWorkspace] frontmostApplication];
+        if (front) {
+            gFrontmostPid.store([front processIdentifier]);
+        }
+        [[[NSWorkspace sharedWorkspace] notificationCenter] addObserver:self
+                                                               selector:@selector(appActivated:)
+                                                                   name:NSWorkspaceDidActivateApplicationNotification
+                                                                 object:nil];
+    }
+    return self;
+}
+- (void)appActivated:(NSNotification*)note {
+    NSRunningApplication* app = note.userInfo[NSWorkspaceApplicationKey];
+    if (app) {
+        gFrontmostPid.store([app processIdentifier]);
+    }
+}
+@end
+
+static FrontAppWatcher* gWatcher = nil;
+
+static void ensureFrontAppWatcher() {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        gWatcher = [[FrontAppWatcher alloc] init];
+    });
+}
+
+static void postEvent(CGEventRef e) {
+    pid_t targetPid = gFrontmostPid.load();
+    if (targetPid <= 0) {
+        NSRunningApplication* front = [[NSWorkspace sharedWorkspace] frontmostApplication];
+        if (front) {
+            targetPid = [front processIdentifier];
+            gFrontmostPid.store(targetPid);
+        }
+    }
+    if (targetPid > 0 && targetPid != getpid()) {
+        CGEventPostToPid(targetPid, e);
+    } else {
+        CGEventPost(kCGSessionEventTap, e);
+    }
+}
+
 MacInjector::MacInjector() {
-    eventSource_ = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
+    ensureFrontAppWatcher();
+    eventSource_ = CGEventSourceCreate(kCGEventSourceStatePrivate);
+
+    // Pre-allocate and warm up reusable CGEventRef handles at startup to eliminate
+    // CoreGraphics/HIToolbox ~64ms lazy initialization on first fix and avoid per-event allocations.
+    backspaceDownEvent_ = CGEventCreateKeyboardEvent(eventSource_, kVK_Delete, true);
+    if (backspaceDownEvent_) {
+        CGEventSetFlags(backspaceDownEvent_, 0);
+        CGEventSetIntegerValueField(backspaceDownEvent_, kCGEventSourceUserData, kOurAppMagicTagValue);
+    }
+    backspaceUpEvent_ = CGEventCreateKeyboardEvent(eventSource_, kVK_Delete, false);
+    if (backspaceUpEvent_) {
+        CGEventSetFlags(backspaceUpEvent_, 0);
+        CGEventSetIntegerValueField(backspaceUpEvent_, kCGEventSourceUserData, kOurAppMagicTagValue);
+    }
+    unicodeDownEvent_ = CGEventCreateKeyboardEvent(eventSource_, 0, true);
+    if (unicodeDownEvent_) {
+        CGEventSetFlags(unicodeDownEvent_, 0);
+        CGEventSetIntegerValueField(unicodeDownEvent_, kCGEventSourceUserData, kOurAppMagicTagValue);
+    }
+    unicodeUpEvent_ = CGEventCreateKeyboardEvent(eventSource_, 0, false);
+    if (unicodeUpEvent_) {
+        CGEventSetFlags(unicodeUpEvent_, 0);
+        CGEventSetIntegerValueField(unicodeUpEvent_, kCGEventSourceUserData, kOurAppMagicTagValue);
+    }
 }
 
 MacInjector::~MacInjector() {
     stop();
+    if (backspaceDownEvent_) { CFRelease(backspaceDownEvent_); backspaceDownEvent_ = nullptr; }
+    if (backspaceUpEvent_) { CFRelease(backspaceUpEvent_); backspaceUpEvent_ = nullptr; }
+    if (unicodeDownEvent_) { CFRelease(unicodeDownEvent_); unicodeDownEvent_ = nullptr; }
+    if (unicodeUpEvent_) { CFRelease(unicodeUpEvent_); unicodeUpEvent_ = nullptr; }
     if (eventSource_) {
         CFRelease(eventSource_);
         eventSource_ = nullptr;
@@ -55,15 +139,35 @@ void MacInjector::clearQueue() {
 }
 
 void MacInjector::setValidToken(InjectionOp::Source source, int token) {
-    std::lock_guard<std::mutex> lock(tokenMutex_);
-    validTokens_[static_cast<int>(source)] = token;
+    const int idx = static_cast<int>(source);
+    if (idx >= 0 && idx < 4) {
+        validTokens_[idx].store(token, std::memory_order_release);
+    }
 }
 
-int MacInjector::getValidToken(InjectionOp::Source source) {
-    std::lock_guard<std::mutex> lock(tokenMutex_);
-    auto it = validTokens_.find(static_cast<int>(source));
-    if (it != validTokens_.end()) return it->second;
+int MacInjector::getValidToken(InjectionOp::Source source) const {
+    const int idx = static_cast<int>(source);
+    if (idx >= 0 && idx < 4) {
+        return validTokens_[idx].load(std::memory_order_acquire);
+    }
     return 0;
+}
+
+void MacInjector::executeImmediate(const InjectionOp& op) {
+    switch (op.type) {
+        case InjectionOp::BACKSPACE_N:
+            postBackspaces(op.count);
+            break;
+        case InjectionOp::TYPE_TEXT:
+            postTaggedUnicodeString(op.text);
+            break;
+        case InjectionOp::REPLACE_TEXT:
+            postBackspaces(op.count);
+            postTaggedUnicodeString(op.text);
+            break;
+        case InjectionOp::MOVE_CARET:
+            break;
+    }
 }
 
 static CGKeyCode charToKeyCode(wchar_t ch) {
@@ -127,7 +231,7 @@ void MacInjector::postTaggedKeyEvent(CGKeyCode key, bool keyDown) {
     if (!e) return;
     CGEventSetFlags(e, 0);
     CGEventSetIntegerValueField(e, kCGEventSourceUserData, kOurAppMagicTagValue);
-    CGEventPost(kCGSessionEventTap, e);
+    postEvent(e);
     CFRelease(e);
 }
 
@@ -139,7 +243,7 @@ void MacInjector::postTaggedUnicodeEvent(wchar_t ch) {
         CGEventSetFlags(eDown, 0);
         CGEventKeyboardSetUnicodeString(eDown, 1, &u);
         CGEventSetIntegerValueField(eDown, kCGEventSourceUserData, kOurAppMagicTagValue);
-        CGEventPost(kCGSessionEventTap, eDown);
+        postEvent(eDown);
         CFRelease(eDown);
     }
 
@@ -148,7 +252,7 @@ void MacInjector::postTaggedUnicodeEvent(wchar_t ch) {
         CGEventSetFlags(eUp, 0);
         CGEventKeyboardSetUnicodeString(eUp, 1, &u);
         CGEventSetIntegerValueField(eUp, kCGEventSourceUserData, kOurAppMagicTagValue);
-        CGEventPost(kCGSessionEventTap, eUp);
+        postEvent(eUp);
         CFRelease(eUp);
     }
 }
@@ -174,35 +278,77 @@ static void toUtf16(const std::wstring& in, std::vector<UniChar>& out) {
 }
 
 void MacInjector::postTaggedUnicodeString(const std::wstring& text) {
-    std::vector<UniChar> units;
-    toUtf16(text, units);
+    if (text.empty()) return;
 
-    for (size_t off = 0; off < units.size(); off += kMaxUnicodeChunk) {
-        size_t n = std::min(kMaxUnicodeChunk, units.size() - off);
+    // Fast stack buffer for words <= 64 UTF-16 units (zero heap allocations)
+    UniChar stackUnits[64];
+    size_t totalUnits = 0;
+    std::vector<UniChar> heapUnits;
+    UniChar* buf = stackUnits;
+
+    if (text.size() * 2 <= 64) {
+        for (wchar_t wc : text) {
+            uint32_t cp = static_cast<uint32_t>(wc);
+            if (cp > 0xFFFF) {
+                cp -= 0x10000;
+                stackUnits[totalUnits++] = static_cast<UniChar>(0xD800 + (cp >> 10));
+                stackUnits[totalUnits++] = static_cast<UniChar>(0xDC00 + (cp & 0x3FF));
+            } else {
+                stackUnits[totalUnits++] = static_cast<UniChar>(cp);
+            }
+        }
+    } else {
+        toUtf16(text, heapUnits);
+        buf = heapUnits.data();
+        totalUnits = heapUnits.size();
+    }
+
+    for (size_t off = 0; off < totalUnits; off += kMaxUnicodeChunk) {
+        size_t n = std::min(kMaxUnicodeChunk, totalUnits - off);
         // Never split a surrogate pair across two events.
-        if (n > 0 && off + n < units.size() && (units[off + n - 1] & 0xFC00) == 0xD800) {
+        if (n > 0 && off + n < totalUnits && (buf[off + n - 1] & 0xFC00) == 0xD800) {
             --n;
         }
-        for (int down = 1; down >= 0; --down) {
-            CGEventRef e = CGEventCreateKeyboardEvent(eventSource_, 0, down != 0);
-            if (!e) continue;
-            CGEventSetFlags(e, 0);
-            CGEventKeyboardSetUnicodeString(e, n, &units[off]);
-            CGEventSetIntegerValueField(e, kCGEventSourceUserData, kOurAppMagicTagValue);
-            CGEventPost(kCGSessionEventTap, e);
-            CFRelease(e);
+        if (unicodeDownEvent_ && unicodeUpEvent_) {
+            CGEventSetFlags(unicodeDownEvent_, 0);
+            CGEventKeyboardSetUnicodeString(unicodeDownEvent_, n, &buf[off]);
+            postEvent(unicodeDownEvent_);
+
+            CGEventSetFlags(unicodeUpEvent_, 0);
+            CGEventKeyboardSetUnicodeString(unicodeUpEvent_, n, &buf[off]);
+            postEvent(unicodeUpEvent_);
+        } else {
+            for (int down = 1; down >= 0; --down) {
+                CGEventRef e = CGEventCreateKeyboardEvent(eventSource_, 0, down != 0);
+                if (!e) continue;
+                CGEventSetFlags(e, 0);
+                CGEventKeyboardSetUnicodeString(e, n, &buf[off]);
+                CGEventSetIntegerValueField(e, kCGEventSourceUserData, kOurAppMagicTagValue);
+                postEvent(e);
+                CFRelease(e);
+            }
         }
     }
 }
 
 void MacInjector::postBackspaces(int count) {
-    for (int i = 0; i < count; ++i) {
-        postTaggedKeyEvent(kVK_Delete, true);
-        postTaggedKeyEvent(kVK_Delete, false);
+    if (backspaceDownEvent_ && backspaceUpEvent_) {
+        for (int i = 0; i < count; ++i) {
+            CGEventSetFlags(backspaceDownEvent_, 0);
+            postEvent(backspaceDownEvent_);
+            CGEventSetFlags(backspaceUpEvent_, 0);
+            postEvent(backspaceUpEvent_);
+        }
+    } else {
+        for (int i = 0; i < count; ++i) {
+            postTaggedKeyEvent(kVK_Delete, true);
+            postTaggedKeyEvent(kVK_Delete, false);
+        }
     }
 }
 
 void MacInjector::run() {
+    pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
     while (running_) {
         InjectionOp op;
         {

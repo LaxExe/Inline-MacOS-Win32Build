@@ -50,10 +50,12 @@ static QIcon createStatusIcon(bool active) {
 
 
 MainTrayApp::MainTrayApp(QObject* parent) : QObject(parent) {
+    currentWord_.chars.reserve(64);
+    lastKeyTimeNs_.store(std::chrono::steady_clock::now().time_since_epoch().count(), std::memory_order_relaxed);
     idleClearTimer_ = new QTimer(this);
-    idleClearTimer_->setSingleShot(true);
-    idleClearTimer_->setInterval(30000); // 30 seconds
-    connect(idleClearTimer_, &QTimer::timeout, this, &MainTrayApp::onIdleTimeout);
+    idleClearTimer_->setInterval(2000); // Poll every 2s for 30s inactivity
+    connect(idleClearTimer_, &QTimer::timeout, this, &MainTrayApp::onIdleCheck);
+    idleClearTimer_->start();
 
     setupTray();
 }
@@ -65,10 +67,8 @@ MainTrayApp::~MainTrayApp() {
 }
 
 void MainTrayApp::clearAllBuffers() {
-    currentWord_.chars.clear();
-    contextWindow_.words.clear();
-    sentenceBuffer_.words.clear();
-    undoSM_.reset();
+    clearRequested_.store(true, std::memory_order_release);
+    hasBufferedData_.store(false, std::memory_order_relaxed);
     hook_.clearQueue();
     injector_.clearQueue();
 
@@ -78,12 +78,25 @@ void MainTrayApp::clearAllBuffers() {
     }
 }
 
+void MainTrayApp::onIdleCheck() {
+    if (!hasBufferedData_.load(std::memory_order_relaxed)) return;
+    int64_t nowNs = std::chrono::steady_clock::now().time_since_epoch().count();
+    int64_t lastNs = lastKeyTimeNs_.load(std::memory_order_relaxed);
+    constexpr int64_t kThirtySecondsNs = 30LL * 1000000000LL;
+    if ((nowNs - lastNs) >= kThirtySecondsNs) {
+        hasBufferedData_.store(false, std::memory_order_relaxed);
+        clearRequested_.store(true, std::memory_order_release);
+        hook_.clearQueue();
+        injector_.clearQueue();
+        if (settingsDialog_ && settingsDialog_->isVisible()) {
+            QString msg = QString("[IDLE_TIMEOUT] Inactivity elapsed (>30s). Buffer purged.");
+            QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
+        }
+    }
+}
+
 void MainTrayApp::onIdleTimeout() {
     clearAllBuffers();
-    if (settingsDialog_ && settingsDialog_->isVisible()) {
-        QString msg = QString("[IDLE_TIMEOUT] Inactivity elapsed (>30s). Buffer purged.");
-        QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
-    }
 }
 
 void MainTrayApp::onTrayActivated(QSystemTrayIcon::ActivationReason reason) {
@@ -211,10 +224,16 @@ bool MainTrayApp::initEngine() {
         std::cerr << "[TypingAssistant] Warning: Failed to load bigram dictionary from: " << bigramPath << std::endl;
     }
 
+    {
+        std::lock_guard<std::mutex> lock(configMutex);
+        cachedConfig_ = sharedConfig;
+    }
+
+    hook_.setKeyFilterCallback([this](const RawKeyEvent& ev, bool isActiveTap) {
+        return this->onRawKeyEvent(ev, isActiveTap);
+    });
     hook_.setKeyCallback([this](const RawKeyEvent& ev) {
-        QMetaObject::invokeMethod(this, [this, ev]() {
-            this->onRawKeyEvent(ev);
-        }, Qt::QueuedConnection);
+        this->onRawKeyEvent(ev, false);
     });
 
     injector_.start();
@@ -290,38 +309,54 @@ static wchar_t keyCodeToChar(int64_t keycode, uint64_t flags) {
     }
 }
 
-void MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev) {
-    // A click can move the caret anywhere, so whatever we buffered no longer sits before the caret.
+bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
+    // 1. Handle lock-free buffer clear request from UI / idle timer
+    if (clearRequested_.exchange(false, std::memory_order_acquire)) {
+        currentWord_.chars.clear();
+        contextWindow_.words.clear();
+        sentenceBuffer_.words.clear();
+        undoSM_.reset();
+    }
+
+    // 2. A click can move the caret anywhere, so whatever we buffered no longer sits before the caret.
     // CGEventType values: LeftMouseDown=1, RightMouseDown=3, OtherMouseDown=25.
     if (ev.type == 1 || ev.type == 3 || ev.type == 25) {
         currentWord_.chars.clear();
         undoSM_.onOtherKey();
-        return;
+        currentWordToken_++;
+        injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
+        return false;
     }
 
-    if (ev.type != kCGEventKeyDown) return;
+    if (ev.type != kCGEventKeyDown) return false;
 
-    if (idleClearTimer_) {
-        idleClearTimer_->start(30000);
+    lastKeyTimeNs_.store(std::chrono::steady_clock::now().time_since_epoch().count(), std::memory_order_relaxed);
+    hasBufferedData_.store(true, std::memory_order_relaxed);
+
+    // 3. Non-blocking config read: never stall the real-time hook thread if UI is writing config
+    if (configMutex.try_lock()) {
+        cachedConfig_.masterEnabled = sharedConfig.masterEnabled;
+        cachedConfig_.sentenceCorrectionEnabled = sharedConfig.sentenceCorrectionEnabled;
+        cachedConfig_.maxDictionaryEditDistance = sharedConfig.maxDictionaryEditDistance;
+        if (cachedConfig_.ignoreWords.size() != sharedConfig.ignoreWords.size()) {
+            cachedConfig_.ignoreWords = sharedConfig.ignoreWords;
+        }
+        configMutex.unlock();
     }
+    if (!cachedConfig_.masterEnabled) return false;
 
-    bool enabled = false;
-    {
-        std::lock_guard<std::mutex> lock(configMutex);
-        enabled = sharedConfig.masterEnabled;
-    }
-    if (!enabled) return;
-
-    // Ignore keyboard shortcuts with Command (⌘) or Control (⌃) modifiers
+    // 4. Ignore keyboard shortcuts with Command (⌘) or Control (⌃) modifiers
     constexpr uint64_t kCmdMask = (1ULL << 20); // kCGEventFlagMaskCommand
     constexpr uint64_t kCtrlMask = (1ULL << 18); // kCGEventFlagMaskControl
     if ((ev.flags & (kCmdMask | kCtrlMask)) != 0) {
         currentWord_.chars.clear();
         undoSM_.onOtherKey();
-        return;
+        currentWordToken_++;
+        injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
+        return false;
     }
 
-    // Navigation and escape keys reset the current word buffer
+    // 5. Navigation and escape keys reset the current word buffer
     if (ev.keyCode == kVK_LeftArrow || ev.keyCode == kVK_RightArrow ||
         ev.keyCode == kVK_UpArrow || ev.keyCode == kVK_DownArrow ||
         ev.keyCode == kVK_Escape || ev.keyCode == kVK_Home ||
@@ -329,30 +364,34 @@ void MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev) {
         ev.keyCode == kVK_PageDown) {
         currentWord_.chars.clear();
         undoSM_.onOtherKey();
-        return;
+        currentWordToken_++;
+        injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
+        return false;
     }
 
     if (ev.keyCode == kVK_Delete) {
-        handleBackspace();
-        return;
+        return handleBackspace(isActiveTap);
     }
 
     wchar_t ch = keyCodeToChar(ev.keyCode, ev.flags);
     if (ch == L'\0') {
         undoSM_.onOtherKey();
-        return;
+        return false;
     }
 
     if (isWordBoundary(ch)) {
-        handleWordBoundary(ch);
+        return handleWordBoundary(ch, isActiveTap);
     } else {
         handleCharacter(ch);
+        return false;
     }
 }
 
 void MainTrayApp::handleCharacter(wchar_t ch) {
     currentWord_.chars.push_back(ch);
     undoSM_.onOtherKey();
+    currentWordToken_++;
+    injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
 
     if (settingsDialog_ && settingsDialog_->isVisible()) {
         QString msg = QString("Key typed: '%1'  |  Current word buffer: \"%2\"")
@@ -362,25 +401,30 @@ void MainTrayApp::handleCharacter(wchar_t ch) {
     }
 }
 
-void MainTrayApp::handleBackspace() {
+bool MainTrayApp::handleBackspace(bool isActiveTap) {
     // 1. Check if an auto-correction just occurred right before this backspace
     UndoActionResult undoAction = undoSM_.onBackspace();
     if (undoAction.type == UndoAction::RevertCorrection) {
         currentWordToken_++;
         injector_.setValidToken(InjectionOp::UNDO_CORRECTION, currentWordToken_);
 
-        // Physical backspace already removed the trailing delimiter in the active app.
-        // We now atomically backspace the corrected word and retype the original word.
-        int backspaces = static_cast<int>(undoAction.correctedText.size());
+        // Common prefix optimization: only backspace the divergent suffix of correctedText
+        // (plus trailing delimiter if physical backspace is swallowed by active tap),
+        // then retype the divergent suffix of revertedText.
+        size_t p = commonPrefixLength(undoAction.correctedText, undoAction.revertedText);
+
+        int backspaces = static_cast<int>(undoAction.correctedText.size() - p) + (isActiveTap ? 1 : 0);
+        std::wstring retype = undoAction.revertedText.substr(p);
+
         InjectionOp replaceOp{
             .type = InjectionOp::REPLACE_TEXT,
             .count = backspaces,
-            .text = undoAction.revertedText,
+            .text = retype,
             .generation_token = currentWordToken_,
             .source = InjectionOp::UNDO_CORRECTION
         };
 
-        injector_.enqueue(replaceOp);
+        injector_.executeImmediate(replaceOp);
 
         currentWord_.chars = undoAction.revertedText;
 
@@ -389,18 +433,21 @@ void MainTrayApp::handleBackspace() {
         }
 
         if (settingsDialog_ && settingsDialog_->isVisible()) {
-            QString msg = QString("↺ [REVERT] \"%1\" -> \"%2\" (Injected %3 Backspaces + \"%4\")")
+            QString msg = QString("↺ [REVERT] \"%1\" -> \"%2\" (Common prefix \"%3\", Injected %4 Backspaces + \"%5\")")
                 .arg(QString::fromStdWString(undoAction.correctedText))
                 .arg(QString::fromStdWString(undoAction.revertedText))
+                .arg(QString::fromStdWString(undoAction.correctedText.substr(0, p)))
                 .arg(backspaces)
-                .arg(QString::fromStdWString(undoAction.revertedText));
+                .arg(QString::fromStdWString(retype));
             QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
         }
-        return;
+        return isActiveTap; // Swallow physical backspace when active tap is used
     }
 
     // 2. Normal backspace: pop last character from the current active word
     undoSM_.onOtherKey();
+    currentWordToken_++;
+    injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
     if (!currentWord_.chars.empty()) {
         currentWord_.chars.pop_back();
     }
@@ -409,27 +456,23 @@ void MainTrayApp::handleBackspace() {
         QString msg = QString("⌫ [BACKSPACE] Current word buffer: \"%1\"").arg(QString::fromStdWString(currentWord_.chars));
         QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
     }
+    return false;
 }
 
-void MainTrayApp::handleWordBoundary(wchar_t delimiter) {
-    std::wstring word = currentWord_.chars;
-    currentWord_.chars.clear();
-
-    if (word.empty()) {
+bool MainTrayApp::handleWordBoundary(wchar_t delimiter, bool isActiveTap) {
+    if (currentWord_.chars.empty()) {
         undoSM_.onOtherKey();
         if (delimiter == L'.' || delimiter == L'!' || delimiter == L'?' || delimiter == L'\n') {
             isSentenceStart_ = true;
         } else if (delimiter == L',' || delimiter == L';' || delimiter == L':') {
             isSentenceStart_ = false;
         }
-        return;
+        return false;
     }
 
-    AppConfig cfg;
-    {
-        std::lock_guard<std::mutex> lock(configMutex);
-        cfg = sharedConfig;
-    }
+    std::wstring word = std::move(currentWord_.chars);
+    currentWord_.chars.clear();
+    currentWord_.chars.reserve(64);
 
     std::wstring wordForContext = word;
     std::wstring prevWord = L"";
@@ -437,16 +480,21 @@ void MainTrayApp::handleWordBoundary(wchar_t delimiter) {
         prevWord = contextWindow_.words.back();
     }
 
-    auto correction = correctWord(word, dict_, cfg, isSentenceStart_, prevWord);
+    bool swallowedDelimiter = false;
+    auto correction = correctWord(word, dict_, cachedConfig_, isSentenceStart_, prevWord);
     if (correction.didCorrect) {
         auto check = undoSM_.onWordCorrected(word, correction.corrected);
         if (!check.suppressed) {
             currentWordToken_++;
             injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
 
-            // Backspace word + delimiter, retype corrected + delimiter atomically
-            int backspaces = static_cast<int>(word.size()) + 1;
-            std::wstring retype = correction.corrected + delimiter;
+            // Common prefix optimization + Step 1 (delimiter swallowed before app sees it):
+            // If isActiveTap is true, the delimiter has NOT reached the app yet, so we only delete
+            // (word.size() - p) characters (0 backspaces when a missing letter is at the end!)
+            size_t p = commonPrefixLength(word, correction.corrected);
+
+            int backspaces = static_cast<int>(word.size() - p) + (isActiveTap ? 0 : 1);
+            std::wstring retype = correction.corrected.substr(p) + delimiter;
 
             InjectionOp replaceOp{
                 .type = InjectionOp::REPLACE_TEXT,
@@ -456,12 +504,14 @@ void MainTrayApp::handleWordBoundary(wchar_t delimiter) {
                 .source = InjectionOp::TIER1
             };
 
-            injector_.enqueue(replaceOp);
+            injector_.executeImmediate(replaceOp);
+            swallowedDelimiter = isActiveTap;
 
             if (settingsDialog_ && settingsDialog_->isVisible()) {
-                QString msg = QString("✨ FIXED: \"%1\" -> \"%2\" (Injected %3 Backspaces + \"%4\")")
+                QString msg = QString("✨ FIXED: \"%1\" -> \"%2\" (Common prefix \"%3\", Injected %4 Backspaces + \"%5\")")
                     .arg(QString::fromStdWString(word))
                     .arg(QString::fromStdWString(correction.corrected))
+                    .arg(QString::fromStdWString(word.substr(0, p)))
                     .arg(backspaces)
                     .arg(QString::fromStdWString(retype));
                 QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
@@ -484,9 +534,10 @@ void MainTrayApp::handleWordBoundary(wchar_t delimiter) {
         isSentenceStart_ = false;
     }
 
-    contextWindow_.words.push_back(wordForContext);
+    contextWindow_.words.push_back(std::move(wordForContext));
     if (contextWindow_.words.size() > 5) {
         contextWindow_.words.pop_front();
     }
+    return swallowedDelimiter;
 }
 

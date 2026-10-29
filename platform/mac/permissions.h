@@ -14,3 +14,4 @@ bool checkInputMonitoringPermission();
 bool checkAccessibilityPermission(bool prompt);
 void openInputMonitoringSettings();
 void openAccessibilitySettings();
+void disableAppNap();

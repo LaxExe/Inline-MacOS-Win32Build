@@ -1,7 +1,10 @@
 #include <QApplication>
 #include <QMessageBox>
+#include <QLockFile>
+#include <QDir>
 #include <fstream>
 #include <filesystem>
+#include <iostream>
 #include "gui/main_tray_app.h"
 #include "gui/permission_dialog.h"
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
@@ -36,6 +39,17 @@ static void loadInitialConfig() {
 }
 
 int main(int argc, char *argv[]) {
+    QLockFile lockFile(QDir::tempPath() + "/com.inline.mac.lock");
+    lockFile.setStaleLockTime(0);
+    if (!lockFile.tryLock()) {
+        std::cerr << "Inline is already running. Exiting duplicate instance." << std::endl;
+        return 0;
+    }
+
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    disableAppNap();
+#endif
+
     QApplication app(argc, argv);
     app.setQuitOnLastWindowClosed(false);
 
