@@ -26,11 +26,20 @@ if [ ! -d "$APP_SRC" ]; then
     exit 1
 fi
 
-# 2. Codesign with explicit bundle identifier
+# 2. Bundle Qt frameworks via macdeployqt
+echo -e "\n${BOLD}Deploying Qt dependencies via macdeployqt...${NC}"
+MACDEPLOYQT=$(which macdeployqt || find /opt/homebrew /usr/local -name macdeployqt 2>/dev/null | head -n 1)
+if [ -n "$MACDEPLOYQT" ]; then
+    "$MACDEPLOYQT" "$APP_SRC" -always-overwrite || true
+else
+    echo -e "${RED}Warning: macdeployqt not found. App bundle may lack embedded Qt frameworks.${NC}"
+fi
+
+# 3. Codesign with explicit bundle identifier
 echo -e "\n${BOLD}Codesigning Inline.app...${NC}"
 codesign --force --deep --sign - -i com.inline.mac "$APP_SRC"
 
-# 3. Prepare DMG Staging
+# 4. Prepare DMG Staging
 DIST_DIR="$ROOT_DIR/dist"
 STAGING_DIR="$ROOT_DIR/build_release/dmg_staging"
 mkdir -p "$DIST_DIR"
@@ -41,7 +50,7 @@ echo -e "\n${BOLD}Staging application and Applications symlink...${NC}"
 cp -R "$APP_SRC" "$STAGING_DIR/"
 ln -s /Applications "$STAGING_DIR/Applications"
 
-# 4. Generate Compressed DMG
+# 5. Generate Compressed DMG
 DMG_NAME="Inline-v1.1-macOS.dmg"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 rm -f "$DMG_PATH"
