@@ -39,6 +39,9 @@ elif [ -d "/usr/local/opt/qt6" ]; then
 fi
 
 CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release"
+if command -v ninja >/dev/null 2>&1; then
+    CMAKE_FLAGS="$CMAKE_FLAGS -G Ninja"
+fi
 if [ -n "$QT_PATH" ]; then
     echo -e "Found Qt6 at: ${GREEN}$QT_PATH${NC}"
     CMAKE_FLAGS="$CMAKE_FLAGS -DCMAKE_PREFIX_PATH=$QT_PATH"
@@ -74,8 +77,8 @@ echo -e "\nInstalling to: ${GREEN}$DEST_APP${NC}"
 rm -rf "$DEST_APP"
 cp -R "$APP_SRC" "$DEST_APP"
 
-# 7. Ad-hoc codesign
-codesign --force --deep --sign - "$DEST_APP" 2>/dev/null || true
+# 7. Ad-hoc codesign with bundle identifier
+codesign --force --deep --sign - -i com.inline.mac "$DEST_APP" 2>/dev/null || true
 
 echo -e "\n${BOLD}${GREEN}✔ Installation successful!${NC}"
 echo -e "Inline is installed at: ${BOLD}$DEST_APP${NC}\n"

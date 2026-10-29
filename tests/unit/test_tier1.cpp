@@ -71,12 +71,34 @@ TEST_F(Tier1Test, FixesDistanceTwoVocabularyTypos) {
     EXPECT_EQ(correctWord(L"th", dict, cfg).corrected, L"the");
 }
 
+TEST_F(Tier1Test, FixesOgToOf) {
+    EXPECT_EQ(correctWord(L"og", dict, cfg).corrected, L"of");
+    EXPECT_EQ(correctWord(L"Og", dict, cfg).corrected, L"Of");
+    // All-caps "OG" should be preserved as an acronym
+    EXPECT_EQ(correctWord(L"OG", dict, cfg).corrected, L"OG");
+    EXPECT_FALSE(correctWord(L"OG", dict, cfg).didCorrect);
+}
+
 TEST_F(Tier1Test, FixesRunTogetherWords) {
     EXPECT_EQ(correctWord(L"theclass", dict, cfg).corrected, L"the class");
     EXPECT_EQ(correctWord(L"ofevening", dict, cfg).corrected, L"of evening");
     EXPECT_EQ(correctWord(L"timerighte", dict, cfg).corrected, L"time right");
     EXPECT_EQ(correctWord(L"ths", dict, cfg).corrected, L"this");
     EXPECT_EQ(correctWord(L"intdo", dict, cfg).corrected, L"into");
+    EXPECT_EQ(correctWord(L"twowords", dict, cfg).corrected, L"two words");
+    EXPECT_EQ(correctWord(L"twoWords", dict, cfg).corrected, L"two words");
+    EXPECT_EQ(correctWord(L"Twowords", dict, cfg).corrected, L"Two words");
+    EXPECT_EQ(correctWord(L"whenI", dict, cfg).corrected, L"when I");
+    EXPECT_EQ(correctWord(L"WhenI", dict, cfg).corrected, L"When I");
+    EXPECT_EQ(correctWord(L"wheni", dict, cfg).corrected, L"when I");
+    EXPECT_EQ(correctWord(L"thatI", dict, cfg).corrected, L"that I");
+    EXPECT_EQ(correctWord(L"ifI", dict, cfg).corrected, L"if I");
+    EXPECT_EQ(correctWord(L"whatI", dict, cfg).corrected, L"what I");
+    EXPECT_EQ(correctWord(L"andI", dict, cfg).corrected, L"and I");
+    EXPECT_EQ(correctWord(L"atleast", dict, cfg).corrected, L"at least");
+    EXPECT_EQ(correctWord(L"eachother", dict, cfg).corrected, L"each other");
+    EXPECT_EQ(correctWord(L"ofcourse", dict, cfg).corrected, L"of course");
+    EXPECT_EQ(correctWord(L"ogcourse", dict, cfg).corrected, L"of course");
 }
 
 TEST_F(Tier1Test, ContextDisambiguatesHeloToHelpOrHello) {
@@ -101,6 +123,49 @@ TEST_F(Tier1Test, ContextDisambiguatesHomophonesAndConfusions) {
     EXPECT_EQ(correctWord(L"frm", dict, cfg, false, L"away").corrected, L"from");
     EXPECT_EQ(correctWord(L"frm", dict, cfg, false, L"application").corrected, L"form");
 }
+
+TEST_F(Tier1Test, PreservesSlangAndTechWords) {
+    // Slang acronyms must NOT be corrupted or corrected to arbitrary English words
+    EXPECT_FALSE(correctWord(L"gng", dict, cfg).didCorrect);
+    EXPECT_EQ(correctWord(L"gng", dict, cfg).corrected, L"gng");
+
+    EXPECT_FALSE(correctWord(L"brb", dict, cfg).didCorrect);
+    EXPECT_EQ(correctWord(L"brb", dict, cfg).corrected, L"brb");
+
+    EXPECT_FALSE(correctWord(L"ttyl", dict, cfg).didCorrect);
+    EXPECT_EQ(correctWord(L"ttyl", dict, cfg).corrected, L"ttyl");
+
+    EXPECT_FALSE(correctWord(L"idk", dict, cfg).didCorrect);
+    EXPECT_EQ(correctWord(L"idk", dict, cfg).corrected, L"idk");
+
+    EXPECT_FALSE(correctWord(L"ngl", dict, cfg).didCorrect);
+    EXPECT_EQ(correctWord(L"ngl", dict, cfg).corrected, L"ngl");
+
+    EXPECT_FALSE(correctWord(L"tbh", dict, cfg).didCorrect);
+    EXPECT_EQ(correctWord(L"tbh", dict, cfg).corrected, L"tbh");
+
+    // Developer terminology must be preserved as valid words
+    EXPECT_FALSE(correctWord(L"repo", dict, cfg).didCorrect);
+    EXPECT_EQ(correctWord(L"repo", dict, cfg).corrected, L"repo");
+
+    EXPECT_FALSE(correctWord(L"dev", dict, cfg).didCorrect);
+    EXPECT_EQ(correctWord(L"dev", dict, cfg).corrected, L"dev");
+
+    EXPECT_FALSE(correctWord(L"pr", dict, cfg).didCorrect);
+    EXPECT_EQ(correctWord(L"pr", dict, cfg).corrected, L"pr");
+
+    EXPECT_FALSE(correctWord(L"cli", dict, cfg).didCorrect);
+    EXPECT_EQ(correctWord(L"cli", dict, cfg).corrected, L"cli");
+}
+
+TEST_F(Tier1Test, ContextDisambiguatesRepoAndSlang) {
+    // In developer contexts, typos like "reop" disambiguate to "repo" using bigrams
+    EXPECT_EQ(correctWord(L"reop", dict, cfg, false, L"clone").corrected, L"repo");
+    EXPECT_EQ(correctWord(L"reop", dict, cfg, false, L"git").corrected, L"repo");
+    EXPECT_EQ(correctWord(L"reop", dict, cfg, false, L"this").corrected, L"repo");
+    EXPECT_EQ(correctWord(L"reop", dict, cfg, false, L"the").corrected, L"repo");
+}
+
 
 
 

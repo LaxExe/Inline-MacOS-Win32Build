@@ -165,7 +165,8 @@ static const std::unordered_map<std::wstring, std::wstring> kCommonExpansions = 
     {L"asw", L"as"},
     {L"wors", L"words"},
     {L"alot", L"a lot"},   // one word -> two words, SymSpell cannot produce this
-    {L"fo", L"of"}         // <=2 chars are skipped by the fuzzy path, so handle the common transposition here
+    {L"fo", L"of"},        // <=2 chars are skipped by the fuzzy path, so handle the common transposition here
+    {L"og", L"of"}         // common QWERTY adjacent-key slip (g next to f)
 };
 
 CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict, const AppConfig& cfg, bool isSentenceStart, const std::wstring& prevWord) {
@@ -200,6 +201,9 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
     // 1. Check contractions and explicit auto-cleanups
     auto expIt = kCommonExpansions.find(lowerTyped);
     if (expIt != kCommonExpansions.end()) {
+        if (lowerTyped == L"og" && isAllUpper(typed)) {
+            return result; // Preserve all-caps "OG" (acronym/slang)
+        }
         std::wstring exp = expIt->second;
         if ((cfg.sentenceCorrectionEnabled && isSentenceStart) || isCapitalized(typed)) {
             if (!exp.empty()) exp[0] = std::towupper(exp[0]);
@@ -316,31 +320,72 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
         }
     }
 
-    // 3. Check for run-together words & compound typos (e.g. "theclass" -> "the class", "timerighte" -> "time right", "ofevening" -> "of evening")
-    // Skip when a distance-1 candidate already matched (preferSplit only applies when best == nullptr or best->distance == 2)
-    std::wstring bestSplitWord;
+    // 3. Check for run-together words & compound typos (e.g. "theclass" -> "the class", "twowords" -> "two words", "whenI" -> "when I", "timerighte" -> "time right")
+    size_t camelCaseSplit = 0;
+    bool hasCamelCase = false;
+    for (size_t i = 1; i < typed.size(); ++i) {
+        if (std::iswlower(typed[i - 1]) && std::iswupper(typed[i])) {
+            hasCamelCase = true;
+            camelCaseSplit = i;
+            break;
+        }
+    }
+
+    std::wstring bestSplitW1;
+    std::wstring bestSplitW2;
     double bestSplitScore = -1e9;
     int bestSplitDist = 1;
+    int64_t bestSplitBiFreq = 0;
+    bool bestSplitIsCamel = false;
 
-    if (isAllAlpha && lowerTyped.size() >= 5 && (!best || best->distance == 2)) {
-        for (size_t split = 2; split <= lowerTyped.size() - 2; ++split) {
+    if (cfg.splitRunTogetherWords && isAllAlpha && lowerTyped.size() >= 3) {
+        for (size_t split = 1; split < lowerTyped.size(); ++split) {
+            // Disallow 1-letter fragments unless they are valid English 1-letter words ('a' or 'i')
+            if (split == 1 && lowerTyped[0] != L'a' && lowerTyped[0] != L'i') continue;
+            if (split == lowerTyped.size() - 1 && lowerTyped[split] != L'a' && lowerTyped[split] != L'i') continue;
+
             std::wstring w1 = lowerTyped.substr(0, split);
             std::wstring w2 = lowerTyped.substr(split);
+
+            // Handle common slips inside compounds (e.g. "og" -> "of")
+            if (w1 == L"og") w1 = L"of";
+            if (w2 == L"og") w2 = L"of";
+
+            bool isCamelAtSplit = (hasCamelCase && split == camelCaseSplit);
 
             // Case A: Both w1 and w2 are exact dictionary words
             if (dict.hasWord(w1) && dict.hasWord(w2)) {
                 int64_t c1 = dict.getFrequency(w1);
                 int64_t c2 = dict.getFrequency(w2);
-                if (c1 >= 10000 && c2 >= 10000) {
-                    double splitScore = std::log10(static_cast<double>(c1)) + std::log10(static_cast<double>(c2));
-                    if (splitScore > bestSplitScore) {
-                        bestSplitScore = splitScore;
-                        bestSplitWord = w1 + L" " + w2;
-                        bestSplitDist = 1;
-                    }
+                int64_t biFreq = dict.getBigramFrequency(w1, w2);
+
+                // Multi-letter words must meet the 10,000 unigram frequency threshold
+                if (w1.size() >= 2 && c1 < 10000) continue;
+                if (w2.size() >= 2 && c2 < 10000) continue;
+
+                // Single-letter words ('a' or 'i') require high confidence:
+                // either explicit CamelCase at the boundary, or an established bigram >= 100,000 count
+                if (w1.size() == 1 && !isCamelAtSplit && biFreq < 100000) continue;
+                if (w2.size() == 1 && !isCamelAtSplit && biFreq < 100000) continue;
+
+                double splitScore = std::log10(static_cast<double>(c1)) + std::log10(static_cast<double>(c2));
+                if (biFreq > 0) {
+                    splitScore += std::log10(static_cast<double>(biFreq)) * 1.5;
+                }
+                if (isCamelAtSplit) {
+                    splitScore += 6.0; // explicit user CamelCase capitalization bonus
+                }
+
+                if (splitScore > bestSplitScore) {
+                    bestSplitScore = splitScore;
+                    bestSplitW1 = w1;
+                    bestSplitW2 = w2;
+                    bestSplitDist = 1;
+                    bestSplitBiFreq = biFreq;
+                    bestSplitIsCamel = isCamelAtSplit;
                 }
             }
-            // Case B: w1 is exact word, w2 has trailing extra letter typo (only evaluated when no single-word candidate exists)
+            // Case B: w1 is exact word, w2 has trailing extra letter typo (e.g. "timerighte" -> "time right")
             else if (!best && cfg.maxDictionaryEditDistance >= 2 && w1.size() >= 3 && w2.size() >= 3 && dict.hasWord(w1)) {
                 int64_t c1 = dict.getFrequency(w1);
                 if (c1 >= 10000) {
@@ -349,11 +394,18 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
                         if (s2.distance == 1 && s2.count >= 50000) {
                             bool isTrailingExtra = (w2.size() > s2.term.size() && w2.substr(0, s2.term.size()) == s2.term);
                             if (isTrailingExtra) {
+                                int64_t biFreq = dict.getBigramFrequency(w1, s2.term);
                                 double splitScore = std::log10(static_cast<double>(c1)) + std::log10(static_cast<double>(s2.count)) - 1.0;
+                                if (biFreq > 0) {
+                                    splitScore += std::log10(static_cast<double>(biFreq)) * 1.5;
+                                }
                                 if (splitScore > bestSplitScore) {
                                     bestSplitScore = splitScore;
-                                    bestSplitWord = w1 + L" " + s2.term;
+                                    bestSplitW1 = w1;
+                                    bestSplitW2 = s2.term;
                                     bestSplitDist = 2;
+                                    bestSplitBiFreq = biFreq;
+                                    bestSplitIsCamel = false;
                                 }
                             }
                         }
@@ -363,30 +415,67 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
         }
     }
 
-    if (best) {
-        bool preferSplit = (!bestSplitWord.empty() && bestSplitDist == 1 && best->distance == 2 && bestSplitScore > 13.0);
-        if (!preferSplit) {
-            result.didCorrect = true;
-            result.corrected = applyCasing(best->term, typed);
-            if (cfg.sentenceCorrectionEnabled && isSentenceStart && !result.corrected.empty()) {
-                result.corrected[0] = std::towupper(result.corrected[0]);
+    bool preferSplit = false;
+    if (!bestSplitW1.empty() && bestSplitDist <= cfg.maxDictionaryEditDistance) {
+        if (!best) {
+            preferSplit = (bestSplitScore >= 10.0);
+        } else if (best->distance >= 2) {
+            preferSplit = (bestSplitDist == 1 && bestSplitScore >= 12.0);
+        } else if (best->distance == 1) {
+            // Distance-1 single-word candidate: only split when HIGHLY CONFIDENT
+            // 1. Explicit CamelCase boundary typed by user (e.g. "whenI", "twoWords", "thatI"), OR
+            // 2. High-frequency bigram (>= 500,000 count) where w1 is at least 2 chars (e.g. "when i", "that i"),
+            //    preventing words like "adress" -> "address" from erroneously splitting into "a dress".
+            if (bestSplitIsCamel) {
+                preferSplit = true;
+            } else if (bestSplitBiFreq >= 500000 && bestSplitScore >= 20.0 && bestSplitW1.size() >= 2) {
+                preferSplit = true;
             }
-            result.editDistance = best->distance;
-            return result;
         }
     }
 
-    if (!bestSplitWord.empty() && bestSplitDist <= cfg.maxDictionaryEditDistance && bestSplitScore >= 10.0) {
+    if (preferSplit) {
         result.didCorrect = true;
-        size_t sp = bestSplitWord.find(L' ');
-        std::wstring p1 = bestSplitWord.substr(0, sp);
-        std::wstring p2 = (sp != std::wstring::npos) ? bestSplitWord.substr(sp) : L"";
-        std::wstring c1 = isCapitalized(typed) ? applyCasing(p1, typed.substr(0, std::min(typed.size(), p1.size()))) : p1;
-        result.corrected = c1 + p2;
+        result.editDistance = bestSplitDist;
+
+        std::wstring c1 = bestSplitW1;
+        std::wstring c2 = bestSplitW2;
+
+        // Clean up word 1
+        if (c1 == L"i") {
+            c1 = L"I";
+        } else if (isAllUpper(typed)) {
+            for (auto& c : c1) c = std::towupper(c);
+        } else if ((cfg.sentenceCorrectionEnabled && isSentenceStart) || isCapitalized(typed)) {
+            if (!c1.empty()) c1[0] = std::towupper(c1[0]);
+        }
+
+        // Clean up word 2
+        if (c2 == L"i") {
+            c2 = L"I";
+        } else if (c2 == L"im") {
+            c2 = L"I'm";
+        } else if (c2 == L"ive") {
+            c2 = L"I've";
+        } else if (c2 == L"id") {
+            c2 = L"I'd";
+        } else if (c2 == L"ill") {
+            c2 = L"I'll";
+        } else if (isAllUpper(typed)) {
+            for (auto& c : c2) c = std::towupper(c);
+        }
+
+        result.corrected = c1 + L" " + c2;
+        return result;
+    }
+
+    if (best) {
+        result.didCorrect = true;
+        result.corrected = applyCasing(best->term, typed);
         if (cfg.sentenceCorrectionEnabled && isSentenceStart && !result.corrected.empty()) {
             result.corrected[0] = std::towupper(result.corrected[0]);
         }
-        result.editDistance = bestSplitDist;
+        result.editDistance = best->distance;
         return result;
     }
 

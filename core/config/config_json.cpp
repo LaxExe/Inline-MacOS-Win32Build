@@ -27,6 +27,9 @@ std::string serializeConfig(const AppConfig& cfg) {
     ss << "{\n";
     ss << "  \"masterEnabled\": " << (cfg.masterEnabled ? "true" : "false") << ",\n";
     ss << "  \"launchAtLogin\": " << (cfg.launchAtLogin ? "true" : "false") << ",\n";
+    ss << "  \"singleKeyUndoEnabled\": " << (cfg.singleKeyUndoEnabled ? "true" : "false") << ",\n";
+    ss << "  \"splitRunTogetherWords\": " << (cfg.splitRunTogetherWords ? "true" : "false") << ",\n";
+    ss << "  \"appTheme\": " << cfg.appTheme << ",\n";
     ss << "  \"toggleHotkey\": " << static_cast<uint32_t>(cfg.toggleHotkey) << ",\n";
     ss << "  \"correctionAggressiveness\": " << cfg.correctionAggressiveness << ",\n";
     ss << "  \"maxDictionaryEditDistance\": " << cfg.maxDictionaryEditDistance << ",\n";
@@ -105,6 +108,9 @@ AppConfig deserializeConfig(const std::string& jsonStr, bool& outOk) {
 
     parseBool("masterEnabled", cfg.masterEnabled);
     parseBool("launchAtLogin", cfg.launchAtLogin);
+    parseBool("singleKeyUndoEnabled", cfg.singleKeyUndoEnabled);
+    parseBool("splitRunTogetherWords", cfg.splitRunTogetherWords);
+    parseInt("appTheme", cfg.appTheme);
     int hotkeyInt = 0;
     parseInt("toggleHotkey", hotkeyInt);
     if (hotkeyInt > 0) cfg.toggleHotkey = static_cast<KeyCode>(hotkeyInt);

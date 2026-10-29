@@ -70,6 +70,7 @@ private:
 
     int currentWordToken_ = 0;
     bool isSentenceStart_ = true;
+    bool lastKnownDarkMode_ = false;
     AppConfig cachedConfig_;
     QTimer* idleClearTimer_ = nullptr;
     std::atomic<int64_t> lastKeyTimeNs_{0};

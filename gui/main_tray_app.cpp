@@ -6,17 +6,19 @@
 #include "core/tier1/corrector.h"
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
 #include "platform/mac/hotkey/global_hotkey.h"
+#include "platform/mac/permissions.h"
 #include <Carbon/Carbon.h>
 #else
 #include "platform/win/hotkey/global_hotkey.h"
 #endif
 #include <QApplication>
+#include <QStyleHints>
 #include <QPainter>
 #include <QPixmap>
 #include <QTimer>
 #include <iostream>
 
-static QIcon createStatusIcon(bool active) {
+static QIcon createStatusIcon(bool active, bool isDark = false) {
     // 36x36 px @ 2x = 18x18 pt Retina display tray icon
     QPixmap pixmap(36, 36);
     pixmap.fill(Qt::transparent);
@@ -25,27 +27,22 @@ static QIcon createStatusIcon(bool active) {
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    if (active) {
-        // High-contrast industrial glyph: crisp vertical rule + precision tick
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(QColor(24, 24, 27)); // Ink black
-        painter.drawRect(QRectF(5.5, 3.0, 2.0, 12.0));
+    // On dark menu bar/black screen: vertical line is white (#FFFFFF).
+    // On light menu bar/light screen: vertical line is black (#18181B).
+    QColor barColor = isDark ? QColor(255, 255, 255) : QColor(24, 24, 27);
+    QColor dotColor = active ? QColor(34, 197, 94) : QColor(245, 158, 11);
 
-        // Precision status square
-        painter.setBrush(QColor(21, 128, 61)); // Forest green
-        painter.drawRect(QRectF(9.5, 7.5, 3.0, 3.0));
-    } else {
-        // Paused outline state
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(QColor(161, 161, 170)); // Muted zinc
-        painter.drawRect(QRectF(5.5, 3.0, 2.0, 12.0));
+    painter.setPen(Qt::NoPen);
 
-        painter.setBrush(QColor(180, 83, 9)); // Amber
-        painter.drawRect(QRectF(9.5, 7.5, 3.0, 3.0));
-    }
+    // Vertical line (I)
+    painter.setBrush(barColor);
+    painter.drawRoundedRect(QRectF(5.0, 3.0, 2.2, 12.0), 0.5, 0.5);
 
-    QIcon icon(pixmap);
-    return icon;
+    // Precision status dot next to it near bottom
+    painter.setBrush(dotColor);
+    painter.drawRoundedRect(QRectF(9.5, 9.8, 3.2, 3.2), 0.6, 0.6);
+
+    return QIcon(pixmap);
 }
 
 
@@ -53,7 +50,7 @@ MainTrayApp::MainTrayApp(QObject* parent) : QObject(parent) {
     currentWord_.chars.reserve(64);
     lastKeyTimeNs_.store(std::chrono::steady_clock::now().time_since_epoch().count(), std::memory_order_relaxed);
     idleClearTimer_ = new QTimer(this);
-    idleClearTimer_->setInterval(2000); // Poll every 2s for 30s inactivity
+    idleClearTimer_->setInterval(1000); // 1s interval for idle check and background contrast check
     connect(idleClearTimer_, &QTimer::timeout, this, &MainTrayApp::onIdleCheck);
     idleClearTimer_->start();
 
@@ -79,6 +76,17 @@ void MainTrayApp::clearAllBuffers() {
 }
 
 void MainTrayApp::onIdleCheck() {
+    bool isDark = false;
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    isDark = isSystemInDarkMode();
+#else
+    isDark = QGuiApplication::palette().color(QPalette::Window).lightness() < 128;
+#endif
+    if (isDark != lastKnownDarkMode_) {
+        lastKnownDarkMode_ = isDark;
+        updateTrayIcon();
+    }
+
     if (!hasBufferedData_.load(std::memory_order_relaxed)) return;
     int64_t nowNs = std::chrono::steady_clock::now().time_since_epoch().count();
     int64_t lastNs = lastKeyTimeNs_.load(std::memory_order_relaxed);
@@ -120,14 +128,29 @@ void MainTrayApp::setupTray() {
     trayMenu_->addSeparator();
 
     permAction_ = trayMenu_->addAction(tr("System Permissions..."), this, &MainTrayApp::openPermissions);
-    prefsAction_ = trayMenu_->addAction(tr("Settings & Diagnostics..."), this, &MainTrayApp::openPreferences);
+    prefsAction_ = trayMenu_->addAction(tr("System Settings..."), this, &MainTrayApp::openPreferences);
     quitAction_ = trayMenu_->addAction(tr("Quit Inline"), this, &MainTrayApp::quitApp);
 
     trayIcon_->setContextMenu(trayMenu_);
     connect(trayIcon_, &QSystemTrayIcon::activated, this, &MainTrayApp::onTrayActivated);
     connect(trayMenu_, &QMenu::aboutToShow, this, &MainTrayApp::clearAllBuffers);
 
+    if (QGuiApplication::styleHints()) {
+        connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this, [this](Qt::ColorScheme) {
+            updateTrayIcon();
+        });
+    }
+
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    registerAppearanceNotifications([this]() {
+        QMetaObject::invokeMethod(this, [this]() {
+            updateTrayIcon();
+        }, Qt::QueuedConnection);
+    });
+#endif
+
     updateTrayIcon();
+    trayIcon_->setVisible(true);
     trayIcon_->show();
 }
 
@@ -140,8 +163,20 @@ void MainTrayApp::updateTrayIcon() {
         sentenceEnabled = sharedConfig.sentenceCorrectionEnabled;
     }
 
+    bool isDark = false;
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    isDark = isSystemInDarkMode();
+#else
+    isDark = QGuiApplication::palette().color(QPalette::Window).lightness() < 128;
+#endif
+
     TrayIconState state = iconStateFor(enabled);
-    trayIcon_->setIcon(createStatusIcon(state == TrayIconState::Active));
+    trayIcon_->setIcon(createStatusIcon(state == TrayIconState::Active, isDark));
+    trayIcon_->setVisible(true);
+
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    updateNativeStatusBarIcon(state == TrayIconState::Active);
+#endif
 
     if (enabled) {
         statusAction_->setText(tr("Inline: Active"));
@@ -335,12 +370,7 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
 
     // 3. Non-blocking config read: never stall the real-time hook thread if UI is writing config
     if (configMutex.try_lock()) {
-        cachedConfig_.masterEnabled = sharedConfig.masterEnabled;
-        cachedConfig_.sentenceCorrectionEnabled = sharedConfig.sentenceCorrectionEnabled;
-        cachedConfig_.maxDictionaryEditDistance = sharedConfig.maxDictionaryEditDistance;
-        if (cachedConfig_.ignoreWords.size() != sharedConfig.ignoreWords.size()) {
-            cachedConfig_.ignoreWords = sharedConfig.ignoreWords;
-        }
+        cachedConfig_ = sharedConfig;
         configMutex.unlock();
     }
     if (!cachedConfig_.masterEnabled) return false;
@@ -379,6 +409,16 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
         return false;
     }
 
+    // Never autocorrect on Enter / Return: commit raw text as-is and pass Enter through directly
+    if (ev.keyCode == kVK_Return || ev.keyCode == 0x4C /* kVK_ANSI_KeypadEnter */ || ch == L'\n' || ch == L'\r') {
+        currentWord_.chars.clear();
+        undoSM_.onOtherKey();
+        currentWordToken_++;
+        injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
+        isSentenceStart_ = true;
+        return false;
+    }
+
     if (isWordBoundary(ch)) {
         return handleWordBoundary(ch, isActiveTap);
     } else {
@@ -403,7 +443,7 @@ void MainTrayApp::handleCharacter(wchar_t ch) {
 
 bool MainTrayApp::handleBackspace(bool isActiveTap) {
     // 1. Check if an auto-correction just occurred right before this backspace
-    UndoActionResult undoAction = undoSM_.onBackspace();
+    UndoActionResult undoAction = cachedConfig_.singleKeyUndoEnabled ? undoSM_.onBackspace() : UndoActionResult{};
     if (undoAction.type == UndoAction::RevertCorrection) {
         currentWordToken_++;
         injector_.setValidToken(InjectionOp::UNDO_CORRECTION, currentWordToken_);
@@ -433,7 +473,7 @@ bool MainTrayApp::handleBackspace(bool isActiveTap) {
         }
 
         if (settingsDialog_ && settingsDialog_->isVisible()) {
-            QString msg = QString("↺ [REVERT] \"%1\" -> \"%2\" (Common prefix \"%3\", Injected %4 Backspaces + \"%5\")")
+            QString msg = QString("[UNDO_REVERT] \"%1\" -> \"%2\" (Common prefix \"%3\", Injected %4 Backspaces + \"%5\")")
                 .arg(QString::fromStdWString(undoAction.correctedText))
                 .arg(QString::fromStdWString(undoAction.revertedText))
                 .arg(QString::fromStdWString(undoAction.correctedText.substr(0, p)))
@@ -453,7 +493,7 @@ bool MainTrayApp::handleBackspace(bool isActiveTap) {
     }
 
     if (settingsDialog_ && settingsDialog_->isVisible()) {
-        QString msg = QString("⌫ [BACKSPACE] Current word buffer: \"%1\"").arg(QString::fromStdWString(currentWord_.chars));
+        QString msg = QString("[BACKSPACE] Current word buffer: \"%1\"").arg(QString::fromStdWString(currentWord_.chars));
         QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
     }
     return false;
@@ -508,7 +548,7 @@ bool MainTrayApp::handleWordBoundary(wchar_t delimiter, bool isActiveTap) {
             swallowedDelimiter = isActiveTap;
 
             if (settingsDialog_ && settingsDialog_->isVisible()) {
-                QString msg = QString("✨ FIXED: \"%1\" -> \"%2\" (Common prefix \"%3\", Injected %4 Backspaces + \"%5\")")
+                QString msg = QString("[CORRECTED] \"%1\" -> \"%2\" (Common prefix \"%3\", Injected %4 Backspaces + \"%5\")")
                     .arg(QString::fromStdWString(word))
                     .arg(QString::fromStdWString(correction.corrected))
                     .arg(QString::fromStdWString(word.substr(0, p)))

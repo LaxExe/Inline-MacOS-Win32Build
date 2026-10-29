@@ -6,6 +6,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+#ifdef __APPLE__
+#include <mach/mach.h>
+#endif
 
 int main(int argc, char** argv) {
     SymSpellDict dict;
@@ -76,6 +79,57 @@ int main(int argc, char** argv) {
         }
     }
     std::cout << "missed " << missed << " / " << cases.size() << "\n";
-    std::cout << "avg lookup: " << totalUs / cases.size() << " us, worst: " << worstUs << " us\n";
+    std::cout << "avg typo correction lookup: " << totalUs / cases.size() << " us, worst: " << worstUs << " us\n";
+
+    // Microbenchmark valid words, slang, and expansions
+    const std::vector<std::wstring> validWords = {
+        L"the", L"repo", L"gng", L"brb", L"ttyl", L"idk", L"ngl", L"tbh",
+        L"apple", L"system", L"program", L"keyboard", L"computer"
+    };
+
+    double validTotalUs = 0;
+    const int kIterations = 50000;
+    for (int i = 0; i < kIterations; ++i) {
+        const auto& w = validWords[i % validWords.size()];
+        auto a = std::chrono::steady_clock::now();
+        auto r = correctWord(w, dict, cfg);
+        auto b = std::chrono::steady_clock::now();
+        validTotalUs += std::chrono::duration<double, std::micro>(b - a).count();
+    }
+    std::cout << "valid words / slang lookup avg: " << (validTotalUs / kIterations) << " us\n";
+
+    // Microbenchmark expansions like "og" -> "of", "fo" -> "of", "dont" -> "don't"
+    const std::vector<std::wstring> expansionWords = { L"og", L"fo", L"dont", L"cant", L"im", L"alot" };
+    double expTotalUs = 0;
+    for (int i = 0; i < kIterations; ++i) {
+        const auto& w = expansionWords[i % expansionWords.size()];
+        auto a = std::chrono::steady_clock::now();
+        auto r = correctWord(w, dict, cfg);
+        auto b = std::chrono::steady_clock::now();
+        expTotalUs += std::chrono::duration<double, std::micro>(b - a).count();
+    }
+    std::cout << "expansion / QWERTY slip ('og', 'dont') lookup avg: " << (expTotalUs / kIterations) << " us\n";
+
+    // Microbenchmark run-together splitting
+    const std::vector<std::wstring> runTogetherWords = { L"whenI", L"twowords", L"theclass", L"ofevening" };
+    double splitTotalUs = 0;
+    for (int i = 0; i < kIterations; ++i) {
+        const auto& w = runTogetherWords[i % runTogetherWords.size()];
+        auto a = std::chrono::steady_clock::now();
+        auto r = correctWord(w, dict, cfg);
+        auto b = std::chrono::steady_clock::now();
+        splitTotalUs += std::chrono::duration<double, std::micro>(b - a).count();
+    }
+    std::cout << "run-together split ('whenI', 'twowords') lookup avg: " << (splitTotalUs / kIterations) << " us\n";
+
+#ifdef __APPLE__
+    mach_task_basic_info info;
+    mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
+    if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) == KERN_SUCCESS) {
+        double rssMb = static_cast<double>(info.resident_size) / (1024.0 * 1024.0);
+        std::cout << "resident memory footprint (RSS): " << rssMb << " MB\n";
+    }
+#endif
+
     return 0;
 }

@@ -20,7 +20,6 @@ public slots:
     void onOpenAccessibilityClicked();
 
 private:
-    QLabel* categoryLabel_ = nullptr;
     QLabel* titleLabel_ = nullptr;
     QLabel* descriptionLabel_ = nullptr;
 
@@ -39,7 +38,8 @@ private:
 
     void setupUi();
     void applyTheme();
-    QWidget* createSubsystemRow(const QString& name, const QString& purpose,
-                                QLabel*& statusLabel, QPushButton*& actionButton,
-                                const char* slot);
+    QWidget* createPermissionCard();
+    QWidget* createPermissionRow(int iconType, const QString& title, const QString& subtitle,
+                                 QLabel*& statusLabel, QPushButton*& actionButton,
+                                 const char* slot, bool isLast = false);
 };

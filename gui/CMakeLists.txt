@@ -44,7 +44,7 @@ add_custom_command(TARGET Inline POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:Inline>/../Resources/dictionaries"
     COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../dictionaries" "$<TARGET_FILE_DIR:Inline>/../Resources/dictionaries"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../resources/AppIcon.icns" "$<TARGET_FILE_DIR:Inline>/../Resources/AppIcon.icns"
-    COMMAND /usr/bin/codesign --force --deep --sign - "$<TARGET_FILE_DIR:Inline>/../.."
+    COMMAND /usr/bin/codesign --force --deep --sign - -i com.inline.mac "$<TARGET_FILE_DIR:Inline>/../.."
 )
 
 
