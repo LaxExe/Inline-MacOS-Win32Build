@@ -20,6 +20,13 @@ A high-performance, ultra-lightweight native macOS menu bar autocorrect engine b
 
 ---
 
+## Website & Direct DMG Download
+
+Visit the official landing page to download the `.dmg` installer or explore features:
+- [**https://laxexe.github.io/Inline-MacOS-Win32Build/**](https://laxexe.github.io/Inline-MacOS-Win32Build/)
+
+---
+
 ## Installation
 
 To ensure macOS allows Inline to run smoothly without Gatekeeper quarantine warnings, install Inline directly via Terminal using **Homebrew** or the **one-line installer**.
