@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inline for macOS - Fast, On-Device Autocorrect</title>
+  <meta name="description" content="Ultra-lightweight native macOS menu bar autocorrect engine in C++20. Sub-millisecond latency, intelligent bigram context, run-together splitting, and single-key undo.">
+  
+  <meta property="og:title" content="Inline for macOS">
+  <meta property="og:description" content="Ultra-lightweight native macOS autocorrect engine in C++20. Sub-millisecond latency, on-device privacy, and single-key undo.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/icon_256x256.png">
+  
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icon_32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/icon_16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icon_256x256.png">
+
+  <style>
+    :root {
+      --bg: #09090b;
+      --bg-card: rgba(24, 24, 27, 0.7);
+      --bg-card-hover: rgba(39, 39, 42, 0.75);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-strong: rgba(255, 255, 255, 0.16);
+      --text: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --text-subtle: #71717a;
+      --primary: #ffffff;
+      --primary-inverse: #09090b;
+      --accent-green: #10b981;
+      --accent-green-bg: rgba(16, 185, 129, 0.12);
+      --code-bg: #121214;
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      selection-background-color: #27272a;
+    }
+
+    .ambient-glow {
+      position: absolute;
+      top: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 720px;
+      height: 480px;
+      background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, rgba(255, 255, 255, 0.04) 40%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header Nav */
+    header {
+      padding: 24px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.92rem;
+      transition: color 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .nav-link:hover {
+      color: var(--text);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 80px 0 40px;
+      text-align: center;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 6vw, 4.2rem);
+      font-weight: 700;
+      letter-spacing: -0.035em;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+
+    .tagline {
+      font-size: clamp(1.05rem, 2.5vw, 1.3rem);
+      color: var(--text-muted);
+      max-width: 680px;
+      margin: 0 auto 36px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+    }
+
+    /* CTA Section */
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: var(--primary);
+      color: var(--primary-inverse);
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 4px 20px rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-download:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(255, 255, 255, 0.18);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-strong);
+      color: var(--text);
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-weight: 500;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: background 0.15s ease;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .hero-meta {
+      font-size: 0.82rem;
+      color: var(--text-subtle);
+    }
+
+    /* Notice Card */
+    .gatekeeper-card {
+      margin: 40px auto 0;
+      max-width: 760px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 20px;
+      text-align: left;
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .gatekeeper-icon {
+      width: 22px;
+      height: 22px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .gatekeeper-content {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .gatekeeper-content strong {
+      color: var(--text);
+    }
+
+    .gatekeeper-code {
+      display: inline-block;
+      font-family: var(--font-mono);
+      background: rgba(0, 0, 0, 0.4);
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 0.82rem;
+      color: #e4e4e7;
+      border: 1px solid var(--border);
+      margin-top: 4px;
+    }
+
+    /* Terminal Install Section */
+    .install-section {
+      padding: 60px 0;
+    }
+
+    .section-title {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .section-subtitle {
+      font-size: 1rem;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto 40px;
+    }
+
+    .install-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .install-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: border-color 0.2s ease;
+    }
+
+    .install-card:hover {
+      border-color: var(--border-strong);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .card-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-tag {
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-tag.rec {
+      background: var(--accent-green-bg);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .badge-tag.std {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+    }
+
+    .card-desc {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+
+    .command-box {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      color: #fafafa;
+    }
+
+    .command-text {
+      overflow-x: auto;
+      white-space: nowrap;
+      user-select: all;
+    }
+
+    .copy-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: none;
+      color: var(--text-muted);
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+      color: #ffffff;
+    }
+
+    .card-footer-note {
+      font-size: 0.8rem;
+      color: var(--text-subtle);
+    }
+
+    .card-footer-note a {
+      color: var(--text-muted);
+      text-decoration: underline;
+    }
+
+    /* Features Grid */
+    .features-section {
+      padding: 60px 0;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .feature-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-strong);
+    }
+
+    .feature-icon-wrap {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+      color: var(--text);
+    }
+
+    .feature-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-text {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* Architecture Visual */
+    .pipeline-section {
+      padding: 60px 0;
+    }
+
+    .pipeline-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 28px;
+    }
+
+    .pipeline-steps {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 28px;
+    }
+
+    .pipeline-step {
+      flex: 1;
+      min-width: 140px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .step-num {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent-green);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .step-title {
+      font-size: 0.92rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .step-desc {
+      font-size: 0.78rem;
+      color: var(--text-subtle);
+    }
+
+    .pipeline-arrow {
+      color: var(--text-subtle);
+      font-size: 1.1rem;
+    }
+
+    @media (max-width: 768px) {
+      .pipeline-arrow {
+        display: none;
+      }
+    }
+
+    /* Footer */
+    footer {
+      padding: 60px 0 40px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-subtle);
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 16px;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    .footer-links a:hover {
+      color: var(--text);
+    }
+
+    /* SVG icon styles */
+    .svg-icon {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="ambient-glow"></div>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <a href="#" class="brand">
+        <img src="assets/icon_128x128.png" alt="Inline Icon" class="brand-icon">
+        <span>Inline</span>
+      </a>
+      <div class="nav-links">
+        <a href="#install" class="nav-link">Install</a>
+        <a href="#features" class="nav-link">Features</a>
+        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" target="_blank" rel="noopener noreferrer" class="nav-link">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+          </svg>
+          GitHub
+        </a>
+      </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="badge-pill">
+        <span class="status-dot"></span>
+        <span>Inline macOS v1.1 • Ready for macOS 12+</span>
+      </div>
+
+      <h1>Zero Latency.<br>Native Autocorrect for Mac.</h1>
+      
+      <p class="tagline">
+        An ultra-lightweight, on-device typing companion built in C++20. Sub-millisecond typo replacement, context-aware bigram intelligence, and effortless single-key undo directly across all your macOS apps.
+      </p>
+
+      <div class="hero-actions">
+        <!-- Direct DMG Download Link -->
+        <a id="dmgDownloadBtn" href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/latest/download/Inline-v1.1-macOS.dmg" class="btn-download">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Download Inline (.dmg)</span>
+        </a>
+
+        <a href="#install" class="btn-secondary">
+          <svg class="svg-icon" viewBox="0 0 24 24">
+            <polyline points="4 17 10 11 4 5"></polyline>
+            <line x1="12" y1="19" x2="20" y2="19"></line>
+          </svg>
+          <span>Install via Terminal</span>
+        </a>
+      </div>
+
+      <p class="hero-meta">
+        macOS 12+ • Apple Silicon & Intel Universal • ~42 MB • MIT License
+      </p>
+
+      <!-- Gatekeeper notice card -->
+      <div class="gatekeeper-card">
+        <svg class="gatekeeper-icon svg-icon" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <div class="gatekeeper-content">
+          <strong>Direct DMG Notice:</strong> Because Inline is an independent open-source project without a paid corporate certificate, macOS Gatekeeper may prompt you on first launch. If prompted, simply <strong>Right-Click Inline.app → Open</strong>, or clear the download quarantine flag via Terminal:
+          <div><span class="gatekeeper-code">xattr -cr /Applications/Inline.app</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Terminal & Homebrew Install Section -->
+    <section id="install" class="install-section">
+      <h2 class="section-title">Terminal Installation</h2>
+      <p class="section-subtitle">Install cleanly in seconds without browser Gatekeeper quarantine warnings.</p>
+
+      <div class="install-grid">
+        <!-- Homebrew Card -->
+        <div class="install-card">
+          <div>
+            <div class="card-header">
+              <div class="card-title-group">
+                <span class="card-title">Homebrew</span>
+                <span class="badge-tag rec">Recommended</span>
+              </div>
+            </div>
+            <p class="card-desc">
+              Install and manage Inline via the official Homebrew Tap. Automatically updates and stays cleanly managed by brew.
+            </p>
+            <div class="command-box">
+              <span class="command-text" id="cmd-brew">brew install LaxExe/tap/inline</span>
+              <button class="copy-btn" onclick="copyCommand('cmd-brew', this)">Copy</button>
+            </div>
+          </div>
+          <div class="card-footer-note">
+            Tap repository: <a href="https://github.com/LaxExe/homebrew-tap" target="_blank" rel="noopener noreferrer">LaxExe/homebrew-tap</a>. Upgrade anytime with <code>brew upgrade --cask inline</code>.
+          </div>
+        </div>
+
+        <!-- One-Line Curl Installer -->
+        <div class="install-card">
+          <div>
+            <div class="card-header">
+              <div class="card-title-group">
+                <span class="card-title">One-Line Script</span>
+                <span class="badge-tag std">No Brew Needed</span>
+              </div>
+            </div>
+            <p class="card-desc">
+              For users without Homebrew. Downloads the latest release, places it into /Applications, and launches immediately.
+            </p>
+            <div class="command-box">
+              <span class="command-text" id="cmd-curl">curl -fsSL https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/install.sh | bash</span>
+              <button class="copy-btn" onclick="copyCommand('cmd-curl', this)">Copy</button>
+            </div>
+          </div>
+          <div class="card-footer-note">
+            Inspect source script on <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/blob/mac-branch/install.sh" target="_blank" rel="noopener noreferrer">GitHub</a>.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section id="features" class="features-section">
+      <h2 class="section-title">Engineered for Performance</h2>
+      <p class="section-subtitle">No web views. No heavy models. Instant native speed in C++20.</p>
+
+      <div class="features-grid">
+        <!-- Sub-millisecond -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <svg class="svg-icon" viewBox="0 0 24 24">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </div>
+          <h3 class="feature-title">Sub-Millisecond Interception</h3>
+          <p class="feature-text">
+            Native <code>CGEventTap</code> evaluates keystrokes in under 2 microseconds. Unigram dictionary and frequency lookups complete in &lt;100 µs with ~0% idle CPU and minimal RAM footprint.
+          </p>
+        </div>
+
+        <!-- Single-Key Undo -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <svg class="svg-icon" viewBox="0 0 24 24">
+              <path d="M3 7v6h6"></path>
+              <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+            </svg>
+          </div>
+          <h3 class="feature-title">Single-Key Undo</h3>
+          <p class="feature-text">
+            If Inline corrects a word you intended to keep, simply press Backspace once. It seamlessly reverts the word back to your exact typed input.
+          </p>
+        </div>
+
+        <!-- Bigram Intelligence -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <svg class="svg-icon" viewBox="0 0 24 24">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+            </svg>
+          </div>
+          <h3 class="feature-title">Context Bigrams</h3>
+          <p class="feature-text">
+            Scores candidate words against conversational context using a 240,000+ bigram corpus. "helo" naturally becomes "help" after "need", but "hello" after "say".
+          </p>
+        </div>
+
+        <!-- Run-Together Splitting -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <svg class="svg-icon" viewBox="0 0 24 24">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+          </div>
+          <h3 class="feature-title">Run-Together Splitting</h3>
+          <p class="feature-text">
+            Accidentally skip a space while typing quickly? Inline automatically detects and splits fused words (e.g., <code>theclass</code> → <code>the class</code>).
+          </p>
+        </div>
+
+        <!-- Strict Privacy -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <svg class="svg-icon" viewBox="0 0 24 24">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <h3 class="feature-title">100% On-Device Privacy</h3>
+          <p class="feature-text">
+            Zero telemetry. No network requests. Volatile ephemeral memory buffer is automatically cleared after 30 seconds of inactivity. Password fields are strictly excluded.
+          </p>
+        </div>
+
+        <!-- Slang & Tech Protection -->
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <svg class="svg-icon" viewBox="0 0 24 24">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+          </div>
+          <h3 class="feature-title">Slang & Developer Whitelist</h3>
+          <p class="feature-text">
+            Built-in protection for 180+ internet acronyms (<code>gng</code>, <code>brb</code>, <code>idk</code>, <code>ngl</code>, <code>tbh</code>) and developer keywords (<code>repo</code>, <code>pr</code>, <code>cli</code>, <code>sdk</code>, <code>api</code>, <code>async</code>).
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Architecture Pipeline -->
+    <section class="pipeline-section">
+      <div class="pipeline-card">
+        <h2 class="section-title" style="text-align: left; margin-bottom: 8px;">How It Works</h2>
+        <p class="section-subtitle" style="text-align: left; margin: 0;">An atomic event pipeline ensuring non-blocking typing and zero dropped keystrokes.</p>
+
+        <div class="pipeline-steps">
+          <div class="pipeline-step">
+            <div class="step-num">Step 1</div>
+            <div class="step-title">Event Tap</div>
+            <div class="step-desc">Intercepts raw keystrokes at hardware level via CGEventTap</div>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step">
+            <div class="step-num">Step 2</div>
+            <div class="step-title">Loopback Filter</div>
+            <div class="step-desc">Discards self-generated replacement events</div>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step">
+            <div class="step-num">Step 3</div>
+            <div class="step-title">Ephemeral Buffer</div>
+            <div class="step-desc">Tracks current word; auto-purges after 30s</div>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step">
+            <div class="step-num">Step 4</div>
+            <div class="step-title">Tier 1 Engine</div>
+            <div class="step-desc">SymSpell unigrams + 243K bigram language model</div>
+          </div>
+          <div class="pipeline-arrow">→</div>
+          <div class="pipeline-step">
+            <div class="step-num">Step 5</div>
+            <div class="step-title">Atomic Inject</div>
+            <div class="step-desc">Backspaces typo and injects replacement characters</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-links">
+        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
+        <a href="https://github.com/LaxExe/homebrew-tap" target="_blank" rel="noopener noreferrer">Homebrew Tap</a>
+        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases" target="_blank" rel="noopener noreferrer">Releases</a>
+        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/blob/mac-branch/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>
+      </div>
+      <p>Inline for macOS. Lightweight, native, and completely on-device.</p>
+    </footer>
+  </div>
+
+  <script>
+    // Copy command text with visual feedback
+    function copyCommand(elementId, btn) {
+      const text = document.getElementById(elementId).innerText;
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = "Copied!";
+        btn.style.color = "#10b981";
+        setTimeout(() => {
+          btn.innerText = originalText;
+          btn.style.color = "";
+        }, 2000);
+      });
+    }
+
+    // Dynamic resolution of latest DMG asset
+    fetch("https://api.github.com/repos/LaxExe/Inline-MacOS-Win32Build/releases/latest")
+      .then(res => res.json())
+      .then(data => {
+        if (data.assets && data.assets.length > 0) {
+          const dmgAsset = data.assets.find(a => a.name.endsWith(".dmg"));
+          if (dmgAsset && dmgAsset.browser_download_url) {
+            document.getElementById("dmgDownloadBtn").href = dmgAsset.browser_download_url;
+          }
+        }
+      })
+      .catch(() => {
+        // Fallback already baked into the static href
+      });
+  </script>
+</body>
+</html>
