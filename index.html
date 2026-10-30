@@ -202,6 +202,158 @@
       border-bottom: 1px solid var(--border);
     }
 
+    /* Walkthrough Slide Show */
+    .slideshow-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+    }
+
+    .slide-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .slide-step {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .slide-dots {
+      display: flex;
+      gap: 6px;
+    }
+
+    .slide-dot {
+      width: 24px;
+      height: 6px;
+      border-radius: 3px;
+      border: 1px solid var(--border);
+      background: var(--code-bg);
+      cursor: pointer;
+    }
+
+    .slide-dot.active {
+      background: var(--text);
+      border-color: var(--text);
+    }
+
+    .slide-panel {
+      display: none;
+    }
+
+    .slide-panel.active {
+      display: block;
+    }
+
+    .slide-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .slide-subtitle {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      margin-bottom: 18px;
+    }
+
+    .slide-rows {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--code-bg);
+      overflow: hidden;
+    }
+
+    .slide-row {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .slide-row:last-child {
+      border-bottom: none;
+    }
+
+    .slide-row-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+
+    .slide-row-desc {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .slide-row-desc code {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 1px 5px;
+      border-radius: 3px;
+      color: var(--text);
+    }
+
+    .slide-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .slide-counter {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+    }
+
+    .slide-nav-btns {
+      display: flex;
+      gap: 8px;
+    }
+
+    .slide-btn {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      font-family: var(--font);
+      cursor: pointer;
+    }
+
+    .slide-btn:hover:not(:disabled) {
+      border-color: var(--border-hover);
+    }
+
+    .slide-btn:disabled {
+      color: var(--text-dim);
+      cursor: default;
+      opacity: 0.5;
+    }
+
+    .slide-btn-primary {
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      border-color: var(--btn-bg);
+      font-weight: 600;
+    }
+
     /* Terminal Command Boxes */
     .command-group {
       margin-bottom: 20px;
@@ -430,9 +582,114 @@
       </div>
     </section>
 
+    <!-- Interactive Walkthrough Slide Show -->
+    <section>
+      <h2>How It Works & Feature Walkthrough</h2>
+
+      <div class="slideshow-card">
+        <div class="slide-top">
+          <span class="slide-step" id="slideStepLabel">STEP 1 OF 4 • CORE ENGINE</span>
+          <div class="slide-dots">
+            <button class="slide-dot active" onclick="setSlide(0)" aria-label="Slide 1"></button>
+            <button class="slide-dot" onclick="setSlide(1)" aria-label="Slide 2"></button>
+            <button class="slide-dot" onclick="setSlide(2)" aria-label="Slide 3"></button>
+            <button class="slide-dot" onclick="setSlide(3)" aria-label="Slide 4"></button>
+          </div>
+        </div>
+
+        <!-- Slide 1 -->
+        <div class="slide-panel active" id="slide-0">
+          <div class="slide-title">Real-Time Typing Engine</div>
+          <div class="slide-subtitle">How Inline detects and fixes typos across every macOS application in under a millisecond:</div>
+          <div class="slide-rows">
+            <div class="slide-row">
+              <div class="slide-row-title">Sub-Millisecond Hardware Hook</div>
+              <div class="slide-row-desc">Intercepts keystrokes at the macOS <code>CGEventTap</code> layer in under 2 microseconds with ~0% idle CPU and under 120 MB RAM.</div>
+            </div>
+            <div class="slide-row">
+              <div class="slide-row-title">Space Evaluates • Enter Never Autocorrects</div>
+              <div class="slide-row-desc">Pressing <code>Space</code> evaluates the word you just typed. Pressing <code>Enter / Return</code> commits your exact raw text untouched so terminal commands and code never get corrupted.</div>
+            </div>
+            <div class="slide-row">
+              <div class="slide-row-title">Single-Key Undo on Backspace</div>
+              <div class="slide-row-desc">Didn't want a correction? Press <code>Backspace</code> once right after any replacement to revert to your exact original letters and temporarily suppress re-correction.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 2 -->
+        <div class="slide-panel" id="slide-1">
+          <div class="slide-title">Context-Aware Intelligence</div>
+          <div class="slide-subtitle">Built for natural writing, fast messaging, and software engineering:</div>
+          <div class="slide-rows">
+            <div class="slide-row">
+              <div class="slide-row-title">240,000+ Contextual Bigrams</div>
+              <div class="slide-row-desc">Uses the preceding word to disambiguate typos accurately — for example, <code>helo</code> becomes <code>help</code> after "need", but <code>hello</code> after "say".</div>
+            </div>
+            <div class="slide-row">
+              <div class="slide-row-title">Run-Together Word Splitting & Capitalization</div>
+              <div class="slide-row-desc">Automatically splits accidentally joined words (<code>whenI</code> → <code>when I</code>, <code>twowords</code> → <code>two words</code>) and capitalizes sentence starts.</div>
+            </div>
+            <div class="slide-row">
+              <div class="slide-row-title">Slang & Developer Whitelist</div>
+              <div class="slide-row-desc">Protects 180+ chat acronyms (<code>gng</code>, <code>brb</code>, <code>idk</code>, <code>ngl</code>, <code>tbh</code>) and developer terms (<code>repo</code>, <code>pr</code>, <code>cli</code>, <code>sdk</code>, <code>api</code>, <code>async</code>).</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 3 -->
+        <div class="slide-panel" id="slide-2">
+          <div class="slide-title">On-Device Privacy & Controls</div>
+          <div class="slide-subtitle">Everything stays strictly on your Mac with instant control from the window or menu bar:</div>
+          <div class="slide-rows">
+            <div class="slide-row">
+              <div class="slide-row-title">100% Local & Zero Network Activity</div>
+              <div class="slide-row-desc">No cloud calls or telemetry. Secure password inputs are ignored automatically, and the volatile word buffer purges after 30 seconds of inactivity.</div>
+            </div>
+            <div class="slide-row">
+              <div class="slide-row-title">System Settings Window & Menu Bar Control</div>
+              <div class="slide-row-desc">Opens immediately when launched so you can test corrections in the live Playground, exclude specific apps, or add custom vocabulary. Also accessible via the <code>|▪</code> menu bar icon or <code>Cmd+Opt+Shift+K</code>.</div>
+            </div>
+            <div class="slide-row">
+              <div class="slide-row-title">Custom Vocabulary & App Exclusions</div>
+              <div class="slide-row-desc">Add project-specific jargon to the ignore list or pause Inline automatically inside specific IDEs and terminals.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 4 -->
+        <div class="slide-panel" id="slide-3">
+          <div class="slide-title">macOS Permissions & Quick Setup</div>
+          <div class="slide-subtitle">How first-launch permissions work on macOS 12+:</div>
+          <div class="slide-rows">
+            <div class="slide-row">
+              <div class="slide-row-title">1. Input Monitoring</div>
+              <div class="slide-row-desc">Allows Inline to detect word boundaries locally as you type. Click <code>Open Settings</code> in the setup walkthrough and toggle Inline ON.</div>
+            </div>
+            <div class="slide-row">
+              <div class="slide-row-title">2. Accessibility</div>
+              <div class="slide-row-desc">Allows Inline to send backspaces and replacement text into active text fields. Toggle Inline ON in <code>System Settings → Privacy & Security → Accessibility</code>.</div>
+            </div>
+            <div class="slide-row">
+              <div class="slide-row-title">3. Automatic Live Detection</div>
+              <div class="slide-row-desc">Once both switches are toggled ON in macOS System Settings, Inline automatically attaches its keyboard hook and opens the Settings window.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="slide-controls">
+          <span class="slide-counter" id="slideCounter">Slide 1 of 4</span>
+          <div class="slide-nav-btns">
+            <button class="slide-btn" id="prevSlideBtn" onclick="changeSlide(-1)" disabled>Previous</button>
+            <button class="slide-btn slide-btn-primary" id="nextSlideBtn" onclick="changeSlide(1)">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Key Features -->
     <section>
-      <h2>Features</h2>
+      <h2>Features Summary</h2>
 
       <ul class="features-list">
         <li class="feature-item">
@@ -519,6 +776,36 @@
           btn.innerText = originalText;
         }, 1800);
       });
+    }
+
+    let currentSlide = 0;
+    const stepLabels = [
+      "STEP 1 OF 4 • CORE ENGINE",
+      "STEP 2 OF 4 • CONTEXT & SLANG",
+      "STEP 3 OF 4 • PRIVACY & CONTROLS",
+      "STEP 4 OF 4 • PERMISSIONS & SETUP"
+    ];
+
+    function setSlide(index) {
+      currentSlide = Math.max(0, Math.min(3, index));
+      for (let i = 0; i < 4; i++) {
+        const panel = document.getElementById("slide-" + i);
+        if (panel) panel.classList.toggle("active", i === currentSlide);
+      }
+      const dots = document.querySelectorAll(".slide-dot");
+      dots.forEach((d, idx) => d.classList.toggle("active", idx === currentSlide));
+      document.getElementById("slideStepLabel").innerText = stepLabels[currentSlide];
+      document.getElementById("slideCounter").innerText = "Slide " + (currentSlide + 1) + " of 4";
+      document.getElementById("prevSlideBtn").disabled = (currentSlide === 0);
+      document.getElementById("nextSlideBtn").innerText = (currentSlide === 3) ? "Restart Tour" : "Next";
+    }
+
+    function changeSlide(delta) {
+      if (currentSlide === 3 && delta > 0) {
+        setSlide(0);
+      } else {
+        setSlide(currentSlide + delta);
+      }
     }
 
     // Resolve latest DMG release URL dynamically
