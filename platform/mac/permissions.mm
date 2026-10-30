@@ -1,6 +1,30 @@
 #include "platform/mac/permissions.h"
 #import <Cocoa/Cocoa.h>
 #import <ApplicationServices/ApplicationServices.h>
+#include <atomic>
+#include <chrono>
+#include <mutex>
+#include <algorithm>
+#include <cctype>
+
+static std::atomic<bool> gLiveEventTapAttached{false};
+static std::atomic<bool> gInputMonitoringLatched{false};
+static std::atomic<int64_t> gLastImProbeNs{0};
+
+void setLiveEventTapAttached(bool attached) {
+    gLiveEventTapAttached.store(attached, std::memory_order_relaxed);
+    if (attached) {
+        gInputMonitoringLatched.store(true, std::memory_order_relaxed);
+    }
+}
+
+bool isLiveEventTapAttached() {
+    return gLiveEventTapAttached.load(std::memory_order_relaxed);
+}
+
+static CGEventRef passiveProbeCallback(CGEventTapProxy, CGEventType, CGEventRef event, void*) {
+    return event;
+}
 
 PermissionAction decidePermissionAction(bool inputMonitoringGranted, bool accessibilityGranted, bool isFirstRun) {
     if (inputMonitoringGranted && accessibilityGranted) {
@@ -28,7 +52,42 @@ void disableAppNap() {
 }
 
 bool checkInputMonitoringPermission() {
-    return CGPreflightListenEventAccess();
+    if (gInputMonitoringLatched.load(std::memory_order_relaxed)) {
+        return true;
+    }
+    if (CGPreflightListenEventAccess() || isLiveEventTapAttached()) {
+        gInputMonitoringLatched.store(true, std::memory_order_relaxed);
+        return true;
+    }
+    // Throttled live check (at most once every 2 seconds) because CGPreflightListenEventAccess()
+    // caches initial false for the process lifetime until restarted. Once granted, latches permanently.
+    int64_t nowNs = std::chrono::steady_clock::now().time_since_epoch().count();
+    int64_t lastNs = gLastImProbeNs.load(std::memory_order_relaxed);
+    if (nowNs - lastNs < 2000000000LL) {
+        return false;
+    }
+    gLastImProbeNs.store(nowNs, std::memory_order_relaxed);
+
+    CFMachPortRef tap = CGEventTapCreate(
+        kCGHIDEventTap,
+        kCGHeadInsertEventTap,
+        kCGEventTapOptionListenOnly,
+        CGEventMaskBit(kCGEventKeyDown),
+        passiveProbeCallback,
+        nullptr
+    );
+    if (tap) {
+        CFRelease(tap);
+        gInputMonitoringLatched.store(true, std::memory_order_relaxed);
+        return true;
+    }
+    return false;
+}
+
+void requestInputMonitoringPermission() {
+    if (!CGPreflightListenEventAccess()) {
+        CGRequestListenEventAccess();
+    }
 }
 
 bool checkAccessibilityPermission(bool prompt) {
@@ -37,13 +96,23 @@ bool checkAccessibilityPermission(bool prompt) {
 }
 
 void openInputMonitoringSettings() {
+    if (!CGPreflightListenEventAccess()) {
+        CGRequestListenEventAccess();
+    }
     NSURL *url = [NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"];
     [[NSWorkspace sharedWorkspace] openURL:url];
 }
 
 void openAccessibilitySettings() {
+    if (!checkAccessibilityPermission(false)) {
+        checkAccessibilityPermission(true);
+    }
     NSURL *url = [NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"];
     [[NSWorkspace sharedWorkspace] openURL:url];
+}
+
+void bringAppToFront() {
+    [NSApp activateIgnoringOtherApps:YES];
 }
 
 bool isSystemInDarkMode() {
@@ -65,31 +134,7 @@ bool isSystemInDarkMode() {
         }
     }
 
-    // 2. Query status bar button drawing appearance
-    @try {
-        NSStatusBar *bar = [NSStatusBar systemStatusBar];
-        NSStatusItem *item = [bar statusItemWithLength:0.0];
-        NSStatusBarButton *btn = [item button];
-        __block bool isDark = false;
-        if (btn) {
-            NSAppearance *appr = btn.effectiveAppearance ?: (btn.window ? btn.window.effectiveAppearance : nil);
-            if (appr) {
-                [appr performAsCurrentDrawingAppearance:^{
-                    NSColor *c = [[NSColor labelColor] colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
-                    if (c && ((0.299 * c.redComponent + 0.587 * c.greenComponent + 0.114 * c.blueComponent) > 0.5)) {
-                        isDark = true;
-                    }
-                }];
-                if (!isDark && [appr.name containsString:@"Dark"]) {
-                    isDark = true;
-                }
-            }
-        }
-        [bar removeStatusItem:item];
-        if (isDark) return true;
-    } @catch (id) {}
-
-    // 3. Check Global macOS Interface Style preference
+    // 2. Check Global macOS Interface Style preference
     CFStringRef style = (CFStringRef)CFPreferencesCopyAppValue(CFSTR("AppleInterfaceStyle"), kCFPreferencesAnyApplication);
     if (style) {
         bool isDark = [(__bridge NSString*)style isEqualToString:@"Dark"];
@@ -97,7 +142,7 @@ bool isSystemInDarkMode() {
         if (isDark) return true;
     }
 
-    // 4. Check application effective appearance
+    // 3. Check application effective appearance
     NSAppearance *appAppearance = [NSApp effectiveAppearance];
     if (appAppearance && [appAppearance.name containsString:@"Dark"]) {
         return true;
@@ -134,6 +179,103 @@ void registerAppearanceNotifications(std::function<void()> callback) {
                                                   usingBlock:^(NSNotification * _Nonnull note) {
         if (gAppearanceCallback) gAppearanceCallback();
     }];
+}
+
+@interface InlineReopenHandler : NSObject
+@property (nonatomic, copy) void (^reopenBlock)(void);
+- (void)handleReopen:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
+@end
+
+@implementation InlineReopenHandler
+- (void)handleReopen:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent {
+    (void)event;
+    (void)replyEvent;
+    if (self.reopenBlock) {
+        self.reopenBlock();
+    }
+}
+@end
+
+static InlineReopenHandler *gReopenHandler = nil;
+
+void registerAppReopenCallback(std::function<void()> callback) {
+    if (!gReopenHandler) {
+        gReopenHandler = [[InlineReopenHandler alloc] init];
+    }
+    gReopenHandler.reopenBlock = ^{
+        if (callback) callback();
+    };
+    [[NSAppleEventManager sharedAppleEventManager] setEventHandler:gReopenHandler
+                                                       andSelector:@selector(handleReopen:withReplyEvent:)
+                                                     forEventClass:kCoreEventClass
+                                                        andEventID:kAEReopenApplication];
+}
+
+static std::mutex gFrontAppMutex;
+static std::string gFrontBundleId;
+static std::string gFrontAppName;
+static id gGlobalMouseMonitor = nil;
+static id gLocalMouseMonitor = nil;
+static std::function<void()> gCaretResetCallback = nullptr;
+
+static std::string toLowerAscii(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return s;
+}
+
+static void updateFrontmostAppInfo(NSRunningApplication *app) {
+    if (!app) return;
+    std::string bundleId = app.bundleIdentifier ? toLowerAscii([app.bundleIdentifier UTF8String]) : "";
+    std::string appName = app.localizedName ? toLowerAscii([app.localizedName UTF8String]) : "";
+    std::lock_guard<std::mutex> lock(gFrontAppMutex);
+    gFrontBundleId = std::move(bundleId);
+    gFrontAppName = std::move(appName);
+}
+
+void registerPassiveCaretResetMonitors(std::function<void()> onReset) {
+    gCaretResetCallback = std::move(onReset);
+    updateFrontmostAppInfo([[NSWorkspace sharedWorkspace] frontmostApplication]);
+
+    if (!gGlobalMouseMonitor) {
+        NSEventMask mask = NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown | NSEventMaskOtherMouseDown;
+        gGlobalMouseMonitor = [NSEvent addGlobalMonitorForEventsMatchingMask:mask handler:^(NSEvent * _Nonnull) {
+            if (gCaretResetCallback) gCaretResetCallback();
+        }];
+        gLocalMouseMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:mask handler:^NSEvent * _Nullable(NSEvent * _Nonnull ev) {
+            if (gCaretResetCallback) gCaretResetCallback();
+            return ev;
+        }];
+    }
+
+    [[[NSWorkspace sharedWorkspace] notificationCenter] addObserverForName:NSWorkspaceDidActivateApplicationNotification
+                                                                    object:nil
+                                                                     queue:[NSOperationQueue mainQueue]
+                                                                usingBlock:^(NSNotification * _Nonnull note) {
+        NSRunningApplication *app = note.userInfo[NSWorkspaceApplicationKey];
+        updateFrontmostAppInfo(app);
+        if (gCaretResetCallback) gCaretResetCallback();
+    }];
+}
+
+bool isFrontmostAppExcluded(const std::vector<std::string>& disabledApps) {
+    if (disabledApps.empty()) return false;
+    if (!gFrontAppMutex.try_lock()) return false;
+    std::string bundleId = gFrontBundleId;
+    std::string appName = gFrontAppName;
+    gFrontAppMutex.unlock();
+
+    if (bundleId.empty() && appName.empty()) return false;
+    for (const auto& raw : disabledApps) {
+        if (raw.empty()) continue;
+        std::string entry = toLowerAscii(raw);
+        if ((!bundleId.empty() && bundleId.find(entry) != std::string::npos) ||
+            (!appName.empty() && (appName == entry || appName.find(entry) != std::string::npos))) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void updateNativeStatusBarIcon(bool active) {

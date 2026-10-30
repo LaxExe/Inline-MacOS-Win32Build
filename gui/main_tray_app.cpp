@@ -76,9 +76,20 @@ void MainTrayApp::clearAllBuffers() {
 }
 
 void MainTrayApp::onIdleCheck() {
+    std::string showTriggerPath = "/tmp/com.inline.mac.show";
+    if (std::filesystem::exists(showTriggerPath)) {
+        std::error_code ec;
+        std::filesystem::remove(showTriggerPath, ec);
+        openPreferences();
+    }
+
     bool isDark = false;
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
     isDark = isSystemInDarkMode();
+    if (isLiveEventTapAttached() && !hook_.isActiveTap() && checkAccessibilityPermission(false)) {
+        hook_.stop();
+        hook_.start();
+    }
 #else
     isDark = QGuiApplication::palette().color(QPalette::Window).lightness() < 128;
 #endif
@@ -127,6 +138,7 @@ void MainTrayApp::setupTray() {
 
     trayMenu_->addSeparator();
 
+    walkthroughAction_ = trayMenu_->addAction(tr("Feature Walkthrough..."), this, &MainTrayApp::openWalkthrough);
     permAction_ = trayMenu_->addAction(tr("System Permissions..."), this, &MainTrayApp::openPermissions);
     prefsAction_ = trayMenu_->addAction(tr("System Settings..."), this, &MainTrayApp::openPreferences);
     quitAction_ = trayMenu_->addAction(tr("Quit Inline"), this, &MainTrayApp::quitApp);
@@ -146,6 +158,14 @@ void MainTrayApp::setupTray() {
         QMetaObject::invokeMethod(this, [this]() {
             updateTrayIcon();
         }, Qt::QueuedConnection);
+    });
+    registerAppReopenCallback([this]() {
+        QMetaObject::invokeMethod(this, [this]() {
+            openPreferences();
+        }, Qt::QueuedConnection);
+    });
+    registerPassiveCaretResetMonitors([this]() {
+        clearRequested_.store(true, std::memory_order_release);
     });
 #endif
 
@@ -195,6 +215,9 @@ void MainTrayApp::toggleMasterEnabled() {
         sharedConfig.masterEnabled = !sharedConfig.masterEnabled;
     }
     updateTrayIcon();
+    if (settingsDialog_ && settingsDialog_->isVisible()) {
+        settingsDialog_->loadFromConfig();
+    }
 }
 
 void MainTrayApp::toggleSentenceCorrection() {
@@ -203,10 +226,33 @@ void MainTrayApp::toggleSentenceCorrection() {
         sharedConfig.sentenceCorrectionEnabled = !sharedConfig.sentenceCorrectionEnabled;
     }
     updateTrayIcon();
+    if (settingsDialog_ && settingsDialog_->isVisible()) {
+        settingsDialog_->loadFromConfig();
+    }
+}
+
+void MainTrayApp::openWalkthrough() {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    bringAppToFront();
+#endif
+    PermissionDialog dlg(nullptr, 0);
+    dlg.show();
+    dlg.raise();
+    dlg.activateWindow();
+    dlg.exec();
+    if (settingsDialog_ && settingsDialog_->isVisible()) {
+        settingsDialog_->refreshPermissions();
+    }
 }
 
 void MainTrayApp::openPermissions() {
-    PermissionDialog dlg;
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    bringAppToFront();
+#endif
+    PermissionDialog dlg(nullptr, 3);
+    dlg.show();
+    dlg.raise();
+    dlg.activateWindow();
     dlg.exec();
     if (settingsDialog_ && settingsDialog_->isVisible()) {
         settingsDialog_->refreshPermissions();
@@ -214,6 +260,9 @@ void MainTrayApp::openPermissions() {
 }
 
 void MainTrayApp::openPreferences() {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    bringAppToFront();
+#endif
     if (!settingsDialog_) {
         settingsDialog_ = std::make_unique<SettingsDialog>();
     }
@@ -374,6 +423,17 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
         configMutex.unlock();
     }
     if (!cachedConfig_.masterEnabled) return false;
+
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    // 3b. Never buffer or autocorrect inside secure password inputs or excluded applications
+    if (IsSecureEventInputEnabled() || isFrontmostAppExcluded(cachedConfig_.disabledApps)) {
+        currentWord_.chars.clear();
+        undoSM_.onOtherKey();
+        currentWordToken_++;
+        injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
+        return false;
+    }
+#endif
 
     // 4. Ignore keyboard shortcuts with Command (⌘) or Control (⌃) modifiers
     constexpr uint64_t kCmdMask = (1ULL << 20); // kCGEventFlagMaskCommand

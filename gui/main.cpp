@@ -15,7 +15,7 @@
 #include "core/config/config_json.h"
 #include "core/reliability/privacy_logger.h"
 
-static void loadInitialConfig() {
+static bool loadInitialConfig() {
     std::string path;
 #ifdef _WIN32
     const char* appData = getenv("APPDATA");
@@ -35,14 +35,21 @@ static void loadInitialConfig() {
                 sharedConfig = loaded;
             }
         }
+        return true;
     }
+    return false;
 }
 
 int main(int argc, char *argv[]) {
     QLockFile lockFile(QDir::tempPath() + "/com.inline.mac.lock");
     lockFile.setStaleLockTime(0);
     if (!lockFile.tryLock()) {
-        std::cerr << "Inline is already running. Exiting duplicate instance." << std::endl;
+        std::ofstream trigger("/tmp/com.inline.mac.show");
+        if (trigger.is_open()) {
+            trigger << "1";
+            trigger.close();
+        }
+        std::cerr << "Inline is already running. Signaling active instance to show window." << std::endl;
         return 0;
     }
 
@@ -54,17 +61,19 @@ int main(int argc, char *argv[]) {
     app.setQuitOnLastWindowClosed(false);
 
     PrivacyLogger::instance().init("Inline");
-    loadInitialConfig();
-
-    // If permissions are missing, show the onboarding & permission explanation dialog
-    if (!PermissionDialog::areAllPermissionsGranted()) {
-        PermissionDialog permDialog;
-        permDialog.exec();
-    }
-
+    bool hasExistingConfig = loadInitialConfig();
 
     MainTrayApp trayApp;
     trayApp.initEngine();
+
+    QTimer::singleShot(0, [&trayApp, hasExistingConfig]() {
+        // On first launch or when permissions are missing, present the 4-slide Walkthrough & Setup guide first,
+        // then immediately open the main Settings window on screen.
+        if (!hasExistingConfig || !PermissionDialog::areAllPermissionsGranted()) {
+            trayApp.openWalkthrough();
+        }
+        trayApp.openPreferences();
+    });
 
     return app.exec();
 }

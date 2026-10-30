@@ -1,6 +1,6 @@
 cask "inline" do
   version "1.1"
-  sha256 "d2ecef3a6e4fedb8aeb66b3b4ac7c1197ea6c903ad6d0da81d304367d8801645"
+  sha256 "5b6c07246f64c88e32f48a494b4bbf10cc3c3ec2663486ed4b877a40e0af2724"
 
   url "https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v#{version}/Inline-v#{version}-macOS.dmg"
   name "Inline"

@@ -109,6 +109,7 @@ private:
     void applyTheme(ThemePreviewCard::ThemeMode mode = ThemePreviewCard::ThemeMode::System);
     ThemePreviewCard::ThemeMode currentTheme_ = ThemePreviewCard::ThemeMode::System;
     bool isDarkTheme_ = false;
+    bool isLoadingConfig_ = false;
     // Navigation & Layout
     QLineEdit* searchEdit_ = nullptr;
     QListWidget* sidebarList_ = nullptr;

@@ -1,6 +1,7 @@
 #include "platform/mac/hook/mac_keyboard_hook.h"
 #include "platform/mac/hook/synthetic_filter.h"
 #include "platform/mac/hook/tap_recovery.h"
+#include "platform/mac/permissions.h"
 #include "core/reliability/privacy_logger.h"
 #include <iostream>
 #include <chrono>
@@ -22,6 +23,7 @@ bool MacKeyboardHook::start() {
 void MacKeyboardHook::stop() {
     if (!running_) return;
     running_ = false;
+    setLiveEventTapAttached(false);
 
     // 1. Immediately disable tap so WindowServer stops routing events
     if (tap_) {
@@ -113,11 +115,8 @@ CGEventRef MacKeyboardHook::eventTapCallback(CGEventTapProxy proxy, CGEventType 
 void MacKeyboardHook::hookThreadFunc() {
     pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
 
-    // Subscribe ONLY to KeyDown and MouseDown (ignoring KeyUp & FlagsChanged cuts tap volume by >50%)
-    CGEventMask mask = CGEventMaskBit(kCGEventKeyDown)
-                     | CGEventMaskBit(kCGEventLeftMouseDown)
-                     | CGEventMaskBit(kCGEventRightMouseDown)
-                     | CGEventMaskBit(kCGEventOtherMouseDown);
+    // Subscribe ONLY to KeyDown so mouse clicks across macOS are never routed through an active tap
+    CGEventMask mask = CGEventMaskBit(kCGEventKeyDown);
 
     while (running_ && !tap_) {
         // Step 1: Prefer active tap at tail of session chain so typo delimiters can be swallowed
@@ -168,13 +167,16 @@ void MacKeyboardHook::hookThreadFunc() {
             isActiveTap_.store(false, std::memory_order_relaxed);
             break;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        for (int i = 0; i < 10 && running_; ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
     }
 
     if (!running_ || !tap_) {
         return;
     }
 
+    setLiveEventTapAttached(true);
     runLoop_ = CFRunLoopGetCurrent();
     runLoopSource_ = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap_, 0);
     CFRunLoopAddSource(runLoop_, runLoopSource_, kCFRunLoopCommonModes);
@@ -183,4 +185,5 @@ void MacKeyboardHook::hookThreadFunc() {
     PrivacyLogger::instance().logEvent("CGEventTapAttached", 0, 0);
 
     CFRunLoopRun();
+    setLiveEventTapAttached(false);
 }

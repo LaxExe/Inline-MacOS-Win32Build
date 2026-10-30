@@ -652,6 +652,9 @@ void SettingsDialog::setupUi() {
 }
 
 void SettingsDialog::buildSidebar() {
+    int prevRow = sidebarList_ ? sidebarList_->currentRow() : 1;
+    if (prevRow < 0) prevRow = 1;
+    QSignalBlocker blocker(sidebarList_);
     sidebarList_->clear();
 
     struct NavItem {
@@ -693,6 +696,7 @@ void SettingsDialog::buildSidebar() {
         }
         sidebarList_->addItem(listItem);
     }
+    sidebarList_->setCurrentRow(prevRow);
 }
 
 void SettingsDialog::onSidebarItemChanged(int index) {
@@ -785,7 +789,7 @@ QWidget* SettingsDialog::createGeneralPage() {
     layout->setSpacing(16);
 
     auto* header = new QLabel(tr("General"), content);
-    header->setStyleSheet("font-size: 22px; font-weight: 700; color: #111827;");
+    header->setObjectName("pageHeader");
     layout->addWidget(header);
 
     // Card 1: Core System Integration
@@ -822,11 +826,15 @@ QWidget* SettingsDialog::createGeneralPage() {
     card2Layout->addWidget(createSettingRow(IconType::Undo, tr("Single-Key Undo on Backspace"), tr("Pressing Backspace right after a correction reverts the word back to your exact input."), singleKeyUndoToggle_, true));
     layout->addWidget(card2);
 
-    // Card 3: Feedback
+    // Card 3: Walkthrough & Feedback
     auto* card3 = createSettingCard();
     auto* card3Layout = new QVBoxLayout(card3);
     card3Layout->setContentsMargins(0, 0, 0, 0);
     card3Layout->setSpacing(0);
+
+    auto* walkthroughBtn = new QPushButton(tr("Open Walkthrough"), card3);
+    connect(walkthroughBtn, &QPushButton::clicked, this, &SettingsDialog::openWizard);
+    card3Layout->addWidget(createSettingRow(IconType::Book, tr("Feature Walkthrough & Setup"), tr("View the interactive 4-step slide show covering how Inline works, features, and permissions."), walkthroughBtn, false));
 
     auto* feedbackBtn = new QPushButton(tr("Send feedback"), card3);
     connect(feedbackBtn, &QPushButton::clicked, this, []() {
@@ -852,11 +860,11 @@ QWidget* SettingsDialog::createFeaturesPage() {
     layout->setSpacing(16);
 
     auto* header = new QLabel(tr("Features"), content);
-    header->setStyleSheet("font-size: 22px; font-weight: 700; color: #111827;");
+    header->setObjectName("pageHeader");
     layout->addWidget(header);
 
     auto* sec1 = new QLabel(tr("INTELLIGENT CORRECTIONS"), content);
-    sec1->setStyleSheet("font-size: 11px; font-weight: 700; color: #6B7280; letter-spacing: 0.05em;");
+    sec1->setObjectName("sectionHeader");
     layout->addWidget(sec1);
 
     auto* card1 = createSettingCard();
@@ -880,7 +888,7 @@ QWidget* SettingsDialog::createFeaturesPage() {
     layout->addWidget(card1);
 
     auto* sec2 = new QLabel(tr("TUNING & THRESHOLDS"), content);
-    sec2->setStyleSheet("font-size: 11px; font-weight: 700; color: #6B7280; letter-spacing: 0.05em;");
+    sec2->setObjectName("sectionHeader");
     layout->addWidget(sec2);
 
     auto* card2 = createSettingCard();
@@ -921,7 +929,7 @@ QWidget* SettingsDialog::createAppearancePage() {
     layout->setSpacing(16);
 
     auto* header = new QLabel(tr("Appearance"), content);
-    header->setStyleSheet("font-size: 22px; font-weight: 700; color: #111827;");
+    header->setObjectName("pageHeader");
     layout->addWidget(header);
 
     auto* themeCard = createSettingCard();
@@ -930,7 +938,7 @@ QWidget* SettingsDialog::createAppearancePage() {
     themeLayout->setSpacing(12);
 
     auto* themeTitle = new QLabel(tr("Interface Theme"), themeCard);
-    themeTitle->setStyleSheet("font-size: 13px; font-weight: 600; color: #111827;");
+    themeTitle->setObjectName("settingRowTitle");
     themeLayout->addWidget(themeTitle);
 
     auto* cardRow = new QHBoxLayout();
@@ -953,7 +961,7 @@ QWidget* SettingsDialog::createAppearancePage() {
     themeLayout->addLayout(cardRow);
 
     auto* themeSub = new QLabel(tr("Applies to Inline's own windows and panels, not to the whole Mac."), themeCard);
-    themeSub->setStyleSheet("font-size: 11px; color: #6B7280;");
+    themeSub->setObjectName("settingRowSubtitle");
     themeLayout->addWidget(themeSub);
     layout->addWidget(themeCard);
 
@@ -983,7 +991,7 @@ QWidget* SettingsDialog::createVocabularyPage() {
     layout->setSpacing(16);
 
     auto* header = new QLabel(tr("Custom Vocabulary"), content);
-    header->setStyleSheet("font-size: 22px; font-weight: 700; color: #111827;");
+    header->setObjectName("pageHeader");
     layout->addWidget(header);
 
     auto* card = createSettingCard();
@@ -993,11 +1001,11 @@ QWidget* SettingsDialog::createVocabularyPage() {
     cardLayout->setSpacing(10);
 
     auto* titleLabel = new QLabel(tr("Ignored Words & Technical Jargon"), card);
-    titleLabel->setStyleSheet("font-size: 13px; font-weight: 600; color: #111827;");
+    titleLabel->setObjectName("settingRowTitle");
     cardLayout->addWidget(titleLabel);
 
     auto* subLabel = new QLabel(tr("Words entered here will never be touched, modified, or flagged by Inline. Separate words by commas or new lines."), card);
-    subLabel->setStyleSheet("font-size: 11px; color: #6B7280;");
+    subLabel->setObjectName("settingRowSubtitle");
     cardLayout->addWidget(subLabel);
 
     ignoreWordsEdit_ = new QPlainTextEdit(card);
@@ -1028,7 +1036,7 @@ QWidget* SettingsDialog::createExcludedAppsPage() {
     layout->setSpacing(16);
 
     auto* header = new QLabel(tr("Excluded Apps"), content);
-    header->setStyleSheet("font-size: 22px; font-weight: 700; color: #111827;");
+    header->setObjectName("pageHeader");
     layout->addWidget(header);
 
     auto* card = createSettingCard();
@@ -1038,11 +1046,11 @@ QWidget* SettingsDialog::createExcludedAppsPage() {
     cardLayout->setSpacing(10);
 
     auto* titleLabel = new QLabel(tr("Disabled Applications"), card);
-    titleLabel->setStyleSheet("font-size: 13px; font-weight: 600; color: #111827;");
+    titleLabel->setObjectName("settingRowTitle");
     cardLayout->addWidget(titleLabel);
 
     auto* subLabel = new QLabel(tr("Inline automatically pauses autocorrection when typing in these applications (enter bundle identifiers or application names)."), card);
-    subLabel->setStyleSheet("font-size: 11px; color: #6B7280;");
+    subLabel->setObjectName("settingRowSubtitle");
     cardLayout->addWidget(subLabel);
 
     disabledAppsEdit_ = new QPlainTextEdit(card);
@@ -1069,7 +1077,7 @@ QWidget* SettingsDialog::createPlaygroundPage() {
     layout->setSpacing(16);
 
     auto* header = new QLabel(tr("Playground"), content);
-    header->setStyleSheet("font-size: 22px; font-weight: 700; color: #111827;");
+    header->setObjectName("pageHeader");
     layout->addWidget(header);
 
     auto* card1 = createSettingCard();
@@ -1078,16 +1086,15 @@ QWidget* SettingsDialog::createPlaygroundPage() {
     card1Layout->setSpacing(10);
 
     auto* testTitle = new QLabel(tr("Live Typing Sandbox"), card1);
-    testTitle->setStyleSheet("font-size: 13px; font-weight: 600; color: #111827;");
+    testTitle->setObjectName("settingRowTitle");
     card1Layout->addWidget(testTitle);
 
     auto* testSub = new QLabel(tr("Test typing 'og', 'whenI', 'twowords', 'brb', or 'teh' here to verify real-time corrections."), card1);
-    testSub->setStyleSheet("font-size: 11px; color: #6B7280;");
+    testSub->setObjectName("settingRowSubtitle");
     card1Layout->addWidget(testSub);
 
     testInputEdit_ = new QLineEdit(card1);
     testInputEdit_->setPlaceholderText(tr("Type here to test live autocorrection..."));
-    testInputEdit_->setStyleSheet("background-color: #F9FAFB; border: 1px solid #D1D5DB; border-radius: 8px; padding: 10px 12px; font-size: 14px;");
     card1Layout->addWidget(testInputEdit_);
     layout->addWidget(card1);
 
@@ -1099,7 +1106,7 @@ QWidget* SettingsDialog::createPlaygroundPage() {
 
     auto* logHeaderLayout = new QHBoxLayout();
     auto* logTitle = new QLabel(tr("Live Correction Feed"), card2);
-    logTitle->setStyleSheet("font-size: 13px; font-weight: 600; color: #111827;");
+    logTitle->setObjectName("settingRowTitle");
     logHeaderLayout->addWidget(logTitle);
     logHeaderLayout->addStretch();
 
@@ -1136,11 +1143,11 @@ QWidget* SettingsDialog::createPermissionsPage() {
     layout->setSpacing(16);
 
     auto* header = new QLabel(tr("Permissions & Health"), content);
-    header->setStyleSheet("font-size: 22px; font-weight: 700; color: #111827;");
+    header->setObjectName("pageHeader");
     layout->addWidget(header);
 
     auto* sec1 = new QLabel(tr("SYSTEM PERMISSIONS"), content);
-    sec1->setStyleSheet("font-size: 11px; font-weight: 700; color: #6B7280; letter-spacing: 0.05em;");
+    sec1->setObjectName("sectionHeader");
     layout->addWidget(sec1);
 
     auto* card1 = createSettingCard();
@@ -1172,7 +1179,7 @@ QWidget* SettingsDialog::createPermissionsPage() {
     layout->addWidget(card1);
 
     auto* sec2 = new QLabel(tr("ENGINE STATUS"), content);
-    sec2->setStyleSheet("font-size: 11px; font-weight: 700; color: #6B7280; letter-spacing: 0.05em;");
+    sec2->setObjectName("sectionHeader");
     layout->addWidget(sec2);
 
     auto* card2 = createSettingCard();
@@ -1259,6 +1266,7 @@ void SettingsDialog::appendLog(const QString& msg) {
 }
 
 void SettingsDialog::loadFromConfig() {
+    isLoadingConfig_ = true;
     AppConfig cfg;
     std::string configPath = getConfigFilePath();
     std::ifstream file(configPath);
@@ -1272,7 +1280,9 @@ void SettingsDialog::loadFromConfig() {
     }
 
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
-    cfg.launchAtLogin = isLaunchAtLoginEnabled();
+    if (cfg.launchAtLogin && !isLaunchAtLoginEnabled()) {
+        setLaunchAtLogin(true);
+    }
 #endif
 
     if (masterEnabledToggle_) masterEnabledToggle_->setChecked(cfg.masterEnabled);
@@ -1315,10 +1325,12 @@ void SettingsDialog::loadFromConfig() {
         disabledAppsEdit_->setPlainText(text.trimmed());
     }
 
+    isLoadingConfig_ = false;
     refreshPermissions();
 }
 
 void SettingsDialog::saveToConfig() {
+    if (isLoadingConfig_) return;
     AppConfig cfg;
     {
         std::lock_guard<std::mutex> lock(configMutex);

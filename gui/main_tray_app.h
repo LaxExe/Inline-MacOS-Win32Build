@@ -42,6 +42,7 @@ public slots:
     void toggleSentenceCorrection();
     void openPreferences();
     void openPermissions();
+    void openWalkthrough();
     void clearAllBuffers();
     void quitApp();
 
@@ -52,6 +53,7 @@ private:
     QAction* pauseAction_ = nullptr;
     QAction* sentenceToggleAction_ = nullptr;
     QAction* clearAction_ = nullptr;
+    QAction* walkthroughAction_ = nullptr;
     QAction* permAction_ = nullptr;
     QAction* prefsAction_ = nullptr;
     QAction* quitAction_ = nullptr;
