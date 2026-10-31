@@ -255,23 +255,26 @@
       flex-wrap: wrap;
       align-items: center;
       justify-content: center;
-      gap: 14px;
-      margin-bottom: 28px;
+      gap: 12px;
+      margin-bottom: 32px;
     }
 
     .btn-primary {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
+      justify-content: center;
+      gap: 9px;
       background-color: var(--text);
       color: var(--bg);
       font-size: 14px;
       font-weight: 600;
-      padding: 11px 22px;
+      padding: 11px 20px;
       border-radius: var(--radius-lg);
       border: 1px solid var(--text);
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
       transition: var(--transition);
+      text-decoration: none;
+      white-space: nowrap;
     }
 
     .btn-primary:hover {
@@ -282,6 +285,7 @@
     .btn-secondary {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       gap: 8px;
       background-color: var(--surface);
       border: 1px solid var(--border);
@@ -292,11 +296,24 @@
       border-radius: var(--radius-lg);
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
       transition: var(--transition);
+      text-decoration: none;
+      white-space: nowrap;
     }
 
     .btn-secondary:hover {
       border-color: var(--border-hover);
       background-color: var(--surface-subtle);
+    }
+
+    .btn-icon {
+      flex-shrink: 0;
+    }
+
+    .btn-sub {
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0.72;
+      margin-left: 2px;
     }
 
     /* Terminal Install Component */
@@ -619,12 +636,18 @@
     .event-status-pill {
       font-size: 11px;
       font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 4px;
-      background-color: var(--surface);
-      border: 1px solid var(--border);
-      color: var(--accent);
+      padding: 3px 9px;
+      border-radius: 6px;
+      background-color: var(--success);
+      color: #FFFFFF;
       display: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      animation: fadeInStatus 0.15s ease-out;
+    }
+
+    @keyframes fadeInStatus {
+      from { opacity: 0; transform: translateY(2px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     /* Features Grid */
@@ -844,36 +867,33 @@
       </div>
 
       <h1 class="hero-title">
-        System-wide autocorrect and predictive ghost text for macOS & Windows.
+        Typing without interruption.
       </h1>
 
       <p class="hero-subtitle">
-        Runs 100% locally on macOS (Apple Silicon & Intel) and Windows 10/11. Zero cloud calls, sub-microsecond event interception, and inline suggestions right at your cursor.
+        System-wide autocorrect and predictive ghost text for macOS & Windows.
       </p>
 
       <div class="hero-cta">
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.2/Inline-v1.2-macOS.dmg" class="btn-primary">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
+          <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.61-.75 1.04-1.8 0.92-2.87-.9.04-2 .61-2.65 1.36-.57.65-1.06 1.71-.93 2.74 1.01.08 2.05-.48 2.66-1.23z"/>
           </svg>
-          Download for macOS (v1.2 DMG)
+          <span>Download for macOS</span>
+          <span class="btn-sub">v1.2 DMG</span>
         </a>
-        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases" class="btn-secondary">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="8" height="8" rx="1"></rect>
-            <rect x="13" y="3" width="8" height="8" rx="1"></rect>
-            <rect x="3" y="13" width="8" height="8" rx="1"></rect>
-            <rect x="13" y="13" width="8" height="8" rx="1"></rect>
+        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases" class="btn-primary">
+          <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M0 3.449L9.75 2.1v9.451H0V3.449zm10.949-1.551L24 0v11.551H10.949V1.898zM0 12.45h9.75v9.451L0 20.551V12.45zm10.949 0H24V24l-13.051-1.898V12.45z"/>
           </svg>
-          Download for Windows (v1.2 Win32)
+          <span>Download for Windows</span>
+          <span class="btn-sub">v1.2 Win32</span>
         </a>
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" class="btn-secondary" target="_blank" rel="noopener">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
           </svg>
-          GitHub
+          <span>View on GitHub</span>
         </a>
       </div>
 
@@ -934,7 +954,7 @@
             <div class="demo-chip-group">
               <span class="chip-label">Try:</span>
               <button class="sample-chip" data-text="Looking forward">"Looking forward"</button>
-              <button class="sample-chip" data-text="The meetign">"The meetign"</button>
+              <button class="sample-chip" data-text="The meetign" data-autocorrect="true">"The meetign" (Auto-fix)</button>
               <button class="sample-chip" data-text="Please let me">"Please let me"</button>
               <button class="sample-chip" data-text="Tha">"Tha"</button>
               <button class="sample-chip" data-text="Works on">"Works on"</button>
@@ -1257,21 +1277,46 @@
       'teh': 'the',
       'meetign': 'meeting',
       'rescheduld': 'rescheduled',
+      'reschedual': 'reschedule',
       'definately': 'definitely',
+      'definetly': 'definitely',
       'recieved': 'received',
+      'recieve': 'receive',
+      'recieving': 'receiving',
       'seperate': 'separate',
+      'seperated': 'separated',
       'tommorow': 'tomorrow',
+      'tomorow': 'tomorrow',
+      'tomarrow': 'tomorrow',
       'wierd': 'weird',
       'calender': 'calendar',
       'untill': 'until',
       'occured': 'occurred',
+      'occurence': 'occurrence',
       'thru': 'through',
       'dont': "don't",
       'cant': "can't",
       'wont': "won't",
+      'didnt': "didn't",
+      'isnt': "isn't",
+      'arent': "aren't",
+      'wasnt': "wasn't",
+      'werent': "weren't",
+      'hasnt': "hasn't",
+      'havent': "haven't",
+      'hadnt': "hadn't",
+      'wouldnt': "wouldn't",
+      'couldnt': "couldn't",
+      'shouldnt': "shouldn't",
+      'im': "I'm",
+      'ive': "I've",
+      'id': "I'd",
+      'ill': "I'll",
+      'youre': "you're",
+      'theyre': "they're",
+      'weve': "we've",
       'beleive': 'believe',
       'goverment': 'government',
-      'occurence': 'occurrence',
       'neccessary': 'necessary',
       'accomodate': 'accommodate',
       'acheive': 'achieve',
@@ -1298,7 +1343,12 @@
       'realy': 'really',
       'truely': 'truly',
       'unfortunatly': 'unfortunately',
-      'wich': 'which'
+      'wich': 'which',
+      'writting': 'writing',
+      'weclome': 'welcome',
+      'thx': 'thanks',
+      'plz': 'please',
+      'pls': 'please'
     };
 
     function showStatus(text) {
@@ -1327,6 +1377,65 @@
     function extractFirstWord(suggest) {
       const match = suggest.match(/^(\s*\S+)/);
       return match ? match[1] : suggest;
+    }
+
+    function runAutocorrect(triggerDelimiter) {
+      if (!demoInput) return false;
+      const cursorPos = demoInput.selectionStart;
+      const val = demoInput.value;
+      const before = val.substring(0, cursorPos);
+      const after = val.substring(demoInput.selectionEnd);
+
+      let rawWord = '';
+      let delimiter = triggerDelimiter || '';
+      let wordStart = 0;
+
+      if (triggerDelimiter) {
+        // Desktop keydown: delimiter (Space/Enter) pressed, not yet in textarea
+        const match = before.match(/([a-zA-Z']+)$/);
+        if (match) {
+          rawWord = match[1];
+          wordStart = cursorPos - rawWord.length;
+        }
+      } else {
+        // Input event: delimiter (Space or punctuation) was just typed into textarea
+        const match = before.match(/([a-zA-Z']+)([\s.,!?;:\n])$/);
+        if (match) {
+          rawWord = match[1];
+          delimiter = match[2];
+          wordStart = cursorPos - match[0].length;
+        }
+      }
+
+      if (!rawWord) return false;
+      const rawLower = rawWord.toLowerCase();
+      if (!typoDictionary[rawLower]) return false;
+
+      let corrected = typoDictionary[rawLower];
+
+      // Match TitleCase or UPPERCASE
+      if (rawWord === rawWord.toUpperCase() && rawWord.length > 1) {
+        corrected = corrected.toUpperCase();
+      } else if (rawWord[0] === rawWord[0].toUpperCase()) {
+        corrected = corrected.charAt(0).toUpperCase() + corrected.slice(1);
+      }
+
+      const replacement = corrected + delimiter;
+      demoInput.value = before.substring(0, wordStart) + replacement + after;
+      const newCursor = wordStart + replacement.length;
+      demoInput.setSelectionRange(newCursor, newCursor);
+
+      lastAutocorrect = {
+        raw: rawWord,
+        corrected: corrected,
+        start: wordStart,
+        end: newCursor,
+        delimiter: delimiter
+      };
+
+      showStatus('Autocorrected: ' + rawWord + ' → ' + corrected);
+      updatePredictions();
+      return true;
     }
 
     function updatePredictions() {
@@ -1402,7 +1511,10 @@
     }
 
     if (demoInput) {
-      demoInput.addEventListener('input', updatePredictions);
+      demoInput.addEventListener('input', () => {
+        runAutocorrect();
+        updatePredictions();
+      });
       demoInput.addEventListener('scroll', syncScroll);
       demoInput.addEventListener('click', updatePredictions);
       demoInput.addEventListener('keyup', (e) => {
@@ -1433,45 +1545,17 @@
           return;
         }
 
-        // 2. Autocorrect on Space
+        // 2. Autocorrect on Space or Enter keydown
         if (e.key === ' ' || e.code === 'Space') {
-          const cursorPos = demoInput.selectionStart;
-          const val = demoInput.value;
-          const before = val.substring(0, cursorPos);
-          const after = val.substring(demoInput.selectionEnd);
-
-          const match = before.match(/([a-zA-Z']+)$/);
-          if (match) {
-            const rawWord = match[1];
-            const rawLower = rawWord.toLowerCase();
-
-            if (typoDictionary[rawLower]) {
-              e.preventDefault();
-              let corrected = typoDictionary[rawLower];
-
-              // Preserve Title Case or UPPERCASE
-              if (rawWord === rawWord.toUpperCase() && rawWord.length > 1) {
-                corrected = corrected.toUpperCase();
-              } else if (rawWord[0] === rawWord[0].toUpperCase()) {
-                corrected = corrected.charAt(0).toUpperCase() + corrected.slice(1);
-              }
-
-              const wordStart = cursorPos - rawWord.length;
-              demoInput.value = before.substring(0, wordStart) + corrected + ' ' + after;
-              const newCursor = wordStart + corrected.length + 1;
-              demoInput.setSelectionRange(newCursor, newCursor);
-
-              lastAutocorrect = {
-                raw: rawWord,
-                corrected: corrected,
-                start: wordStart,
-                end: newCursor
-              };
-
-              showStatus('Autocorrected: ' + rawWord + ' → ' + corrected);
-              updatePredictions();
-              return;
-            }
+          if (runAutocorrect(' ')) {
+            e.preventDefault();
+            return;
+          }
+          lastAutocorrect = null;
+        } else if (e.key === 'Enter') {
+          if (runAutocorrect('\n')) {
+            e.preventDefault();
+            return;
           }
           lastAutocorrect = null;
         }
@@ -1510,13 +1594,27 @@
 
     // Sample chip clicks
     document.querySelectorAll('.sample-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
+      chip.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // Keep focus in textarea
+      });
+
+      chip.addEventListener('click', (e) => {
+        e.preventDefault();
         const text = chip.dataset.text;
+        const isAutocorrectDemo = chip.dataset.autocorrect === 'true';
         if (!demoInput) return;
-        demoInput.value = text;
+
         demoInput.focus();
-        demoInput.setSelectionRange(text.length, text.length);
-        updatePredictions();
+
+        if (isAutocorrectDemo) {
+          demoInput.value = text + ' ';
+          demoInput.setSelectionRange(demoInput.value.length, demoInput.value.length);
+          runAutocorrect();
+        } else {
+          demoInput.value = text;
+          demoInput.setSelectionRange(text.length, text.length);
+          updatePredictions();
+        }
       });
     });
 
