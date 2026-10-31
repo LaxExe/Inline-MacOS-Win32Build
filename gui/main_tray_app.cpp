@@ -488,47 +488,7 @@ std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::
     // 1. Wait 3ms so the physical or synthetic keystroke finishes dispatching to the target app
     std::this_thread::sleep_for(std::chrono::milliseconds(3));
 
-    // 2. If our own Inline Settings window (e.g. Playground QLineEdit) is active, query the Qt widget directly
-    // for 100% pixel-exact cursor coordinates without AX IPC overhead.
-    if (settingsDialog_ && settingsDialog_->isVisible() && QApplication::activeWindow() != nullptr) {
-        std::optional<CaretGeometry> selfGeom;
-        QMetaObject::invokeMethod(settingsDialog_.get(), [&]() {
-            QWidget* fw = QApplication::focusWidget();
-            if (auto* le = qobject_cast<QLineEdit*>(fw)) {
-                struct PublicLineEdit : public QLineEdit { using QLineEdit::cursorRect; };
-                QRect cr = static_cast<PublicLineEdit*>(le)->cursorRect();
-                QFontMetricsF fm(le->font());
-                QString fullText = le->text();
-                int cpos = le->cursorPosition();
-                QString before = fullText.left(cpos);
-                QString after = fullText.mid(cpos);
-
-                double lineH = std::max(16.0, fm.height());
-                int topYLocal = static_cast<int>(std::round((le->height() - lineH) * 0.5));
-                QPoint globalCaret = le->mapToGlobal(QPoint(cr.center().x() + 1, topYLocal));
-                QPoint globalField = le->mapToGlobal(QPoint(0, 0));
-
-                CaretGeometry g;
-                g.pid = static_cast<int>(::getpid());
-                g.caret = {static_cast<double>(globalCaret.x()), static_cast<double>(globalCaret.y()), 2.5, lineH};
-                g.field = {static_cast<double>(globalField.x()), static_cast<double>(globalField.y()),
-                           static_cast<double>(le->width()), static_cast<double>(le->height())};
-                g.lineStartX = g.field.x + 10.0;
-                g.lineHeight = lineH;
-                g.fontSize = le->fontInfo().pointSizeF() > 0 ? le->fontInfo().pointSizeF() : 13.0;
-                g.isSingleLine = true;
-                g.atEditableEnd = after.isEmpty();
-                g.caretAtEOF = after.isEmpty();
-                g.textTail = before.toStdWString();
-                selfGeom = g;
-            }
-        }, Qt::BlockingQueuedConnection);
-        if (selfGeom) {
-            return selfGeom;
-        }
-    }
-
-    // 3. External macOS app: query AXCaretTracker and ensure textTail has caught up to the latest keystroke
+    // 2. Query AXCaretTracker and ensure textTail has caught up to the latest keystroke
     wchar_t expectedLast = L'\0';
     if (!partialWord.empty()) {
         expectedLast = static_cast<wchar_t>(std::towlower(partialWord.back()));

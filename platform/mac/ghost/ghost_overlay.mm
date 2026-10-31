@@ -25,12 +25,24 @@ static NSString* wstringToNSString(const std::wstring& ws) {
     return [[NSString alloc] initWithCharacters:chars.data() length:chars.size()];
 }
 
-@interface GhostTextRenderView : NSView
-@property (nonatomic, assign) GhostLayoutResult layoutData;
+@interface GhostTextRenderView : NSView {
+    GhostLayoutResult _layoutData;
+}
 @property (nonatomic, assign) BOOL darkAppearance;
+
+- (void)setLayoutData:(const GhostLayoutResult&)layout;
+- (const GhostLayoutResult&)layoutData;
 @end
 
 @implementation GhostTextRenderView
+
+- (void)setLayoutData:(const GhostLayoutResult&)layout {
+    _layoutData = layout;
+}
+
+- (const GhostLayoutResult&)layoutData {
+    return _layoutData;
+}
 
 - (BOOL)isFlipped {
     return YES; // Top-left origin inside the view matches AX line run offsets
@@ -41,13 +53,13 @@ static NSString* wstringToNSString(const std::wstring& ws) {
     [[NSColor clearColor] setFill];
     NSRectFill(self.bounds);
 
-    if (!self.layoutData.valid || self.layoutData.lines.empty()) return;
+    if (!_layoutData.valid || _layoutData.lines.empty()) return;
 
-    NSFont* font = resolveHostFont(self.layoutData.fontName, self.layoutData.fontSize);
+    NSFont* font = resolveHostFont(_layoutData.fontName, _layoutData.fontSize);
 
     CGFloat alpha = 0.48;
-    if (self.layoutData.styleMode == 0) alpha = 0.34;      // Subtle
-    else if (self.layoutData.styleMode == 2) alpha = 0.65; // High contrast
+    if (_layoutData.styleMode == 0) alpha = 0.34;      // Subtle
+    else if (_layoutData.styleMode == 2) alpha = 0.65; // High contrast
 
     NSColor* textColor = self.darkAppearance
         ? [NSColor colorWithCalibratedWhite:0.78 alpha:alpha]
@@ -58,10 +70,10 @@ static NSString* wstringToNSString(const std::wstring& ws) {
         NSForegroundColorAttributeName: textColor
     };
 
-    const double baseX = self.layoutData.boundingBox.x;
-    const double baseY = self.layoutData.boundingBox.y;
+    const double baseX = _layoutData.boundingBox.x;
+    const double baseY = _layoutData.boundingBox.y;
 
-    for (const auto& run : self.layoutData.lines) {
+    for (const auto& run : _layoutData.lines) {
         if (run.text.empty()) continue;
         NSString* str = wstringToNSString(run.text);
         CGFloat relX = static_cast<CGFloat>(run.x - baseX);
@@ -126,36 +138,41 @@ void GhostOverlay::showLayout(const GhostLayoutResult& layout) {
     GhostLayoutResult copy = layout;
     dispatch_async(dispatch_get_main_queue(), ^{
         @autoreleasepool {
-            ensurePanelOnMainThread();
-            NSScreen* primaryScreen = [[NSScreen screens] firstObject];
-            if (!primaryScreen) return;
-            CGFloat primaryHeight = primaryScreen.frame.size.height;
+            try {
+                ensurePanelOnMainThread();
+                NSScreen* primaryScreen = [[NSScreen screens] firstObject];
+                if (!primaryScreen) return;
+                CGFloat primaryHeight = primaryScreen.frame.size.height;
 
-            CGFloat w = std::max<CGFloat>(16.0, static_cast<CGFloat>(copy.boundingBox.width + 8.0));
-            CGFloat h = std::max<CGFloat>(14.0, static_cast<CGFloat>(copy.boundingBox.height));
-            CGFloat x = static_cast<CGFloat>(copy.boundingBox.x);
-            CGFloat y = primaryHeight - static_cast<CGFloat>(copy.boundingBox.y) - h;
+                CGFloat w = std::max<CGFloat>(16.0, static_cast<CGFloat>(copy.boundingBox.width + 8.0));
+                CGFloat h = std::max<CGFloat>(14.0, static_cast<CGFloat>(copy.boundingBox.height));
+                CGFloat x = static_cast<CGFloat>(copy.boundingBox.x);
+                CGFloat y = primaryHeight - static_cast<CGFloat>(copy.boundingBox.y) - h;
 
-            // Reject invalid/offscreen coords
-            if (x < -100.0 || y < -100.0 || y > primaryHeight + 100.0) {
-                return;
+                // Reject invalid/offscreen coords
+                if (x < -100.0 || y < -100.0 || y > primaryHeight + 100.0) {
+                    return;
+                }
+
+                NSAppearance* appAppearance = [NSApp effectiveAppearance];
+                NSAppearanceName matched = [appAppearance bestMatchFromAppearancesWithNames:@[
+                    NSAppearanceNameAqua,
+                    NSAppearanceNameDarkAqua
+                ]];
+                gGhostView.darkAppearance = [matched isEqualToString:NSAppearanceNameDarkAqua];
+                [gGhostView setLayoutData:copy];
+
+                [NSAnimationContext beginGrouping];
+                [[NSAnimationContext currentContext] setDuration:0.0];
+                [gGhostPanel setFrame:NSMakeRect(x, y, w, h) display:YES];
+                [gGhostView setFrame:NSMakeRect(0, 0, w, h)];
+                [gGhostView setNeedsDisplay:YES];
+                [gGhostPanel orderFrontRegardless];
+                [NSAnimationContext endGrouping];
+            } catch (const std::exception& e) {
+                // Safeguard against any C++ exception
+            } catch (...) {
             }
-
-            NSAppearance* appAppearance = [NSApp effectiveAppearance];
-            NSAppearanceName matched = [appAppearance bestMatchFromAppearancesWithNames:@[
-                NSAppearanceNameAqua,
-                NSAppearanceNameDarkAqua
-            ]];
-            gGhostView.darkAppearance = [matched isEqualToString:NSAppearanceNameDarkAqua];
-            gGhostView.layoutData = copy;
-
-            [NSAnimationContext beginGrouping];
-            [[NSAnimationContext currentContext] setDuration:0.0];
-            [gGhostPanel setFrame:NSMakeRect(x, y, w, h) display:YES];
-            [gGhostView setFrame:NSMakeRect(0, 0, w, h)];
-            [gGhostView setNeedsDisplay:YES];
-            [gGhostPanel orderFrontRegardless];
-            [NSAnimationContext endGrouping];
         }
     });
 }
@@ -163,8 +180,11 @@ void GhostOverlay::showLayout(const GhostLayoutResult& layout) {
 void GhostOverlay::hide() {
     dispatch_async(dispatch_get_main_queue(), ^{
         @autoreleasepool {
-            if (gGhostPanel && [gGhostPanel isVisible]) {
-                [gGhostPanel orderOut:nil];
+            try {
+                if (gGhostPanel && [gGhostPanel isVisible]) {
+                    [gGhostPanel orderOut:nil];
+                }
+            } catch (...) {
             }
         }
     });
@@ -173,30 +193,38 @@ void GhostOverlay::hide() {
 void GhostOverlay::advanceLayout(double deltaX, const std::wstring& remainingText) {
     if (deltaX <= 0.0 || remainingText.empty()) return;
 
+    // Explicit deep value copy for asynchronous block capture
+    std::wstring textCopy = remainingText;
+
     dispatch_async(dispatch_get_main_queue(), ^{
         @autoreleasepool {
-            if (!gGhostPanel || ![gGhostPanel isVisible] || !gGhostView) return;
+            try {
+                if (!gGhostPanel || ![gGhostPanel isVisible] || !gGhostView) return;
 
-            NSRect curFrame = [gGhostPanel frame];
-            curFrame.origin.x += static_cast<CGFloat>(deltaX);
-            curFrame.size.width = std::max<CGFloat>(16.0, curFrame.size.width - static_cast<CGFloat>(deltaX));
+                NSRect curFrame = [gGhostPanel frame];
+                curFrame.origin.x += static_cast<CGFloat>(deltaX);
+                curFrame.size.width = std::max<CGFloat>(16.0, curFrame.size.width - static_cast<CGFloat>(deltaX));
 
-            [NSAnimationContext beginGrouping];
-            [[NSAnimationContext currentContext] setDuration:0.0];
-            [gGhostPanel setFrame:curFrame display:YES];
-            [gGhostView setFrame:NSMakeRect(0, 0, curFrame.size.width, curFrame.size.height)];
+                [NSAnimationContext beginGrouping];
+                [[NSAnimationContext currentContext] setDuration:0.0];
+                [gGhostPanel setFrame:curFrame display:YES];
+                [gGhostView setFrame:NSMakeRect(0, 0, curFrame.size.width, curFrame.size.height)];
 
-            GhostLayoutResult updated = gGhostView.layoutData;
-            if (!updated.lines.empty()) {
-                updated.lines[0].text = remainingText;
-                updated.lines[0].x += deltaX;
-                updated.boundingBox.x += deltaX;
-                updated.boundingBox.width = std::max(4.0, updated.boundingBox.width - deltaX);
-                gGhostView.layoutData = updated;
+                GhostLayoutResult updated = [gGhostView layoutData];
+                if (!updated.lines.empty()) {
+                    updated.lines[0].text = textCopy;
+                    updated.lines[0].x += deltaX;
+                    updated.boundingBox.x += deltaX;
+                    updated.boundingBox.width = std::max(4.0, updated.boundingBox.width - deltaX);
+                    [gGhostView setLayoutData:updated];
+                }
+
+                [gGhostView setNeedsDisplay:YES];
+                [NSAnimationContext endGrouping];
+            } catch (const std::exception& e) {
+                // Safeguard against any C++ exception
+            } catch (...) {
             }
-
-            [gGhostView setNeedsDisplay:YES];
-            [NSAnimationContext endGrouping];
         }
     });
 }
@@ -204,10 +232,15 @@ void GhostOverlay::advanceLayout(double deltaX, const std::wstring& remainingTex
 double GhostOverlay::measureTextWidth(const std::wstring& text, const std::string& fontName, double fontSize) {
     if (text.empty()) return 0.0;
     @autoreleasepool {
-        NSFont* font = resolveHostFont(fontName, fontSize);
-        NSString* str = wstringToNSString(text);
-        NSDictionary* attrs = @{ NSFontAttributeName: font };
-        NSSize sz = [str sizeWithAttributes:attrs];
-        return static_cast<double>(sz.width);
+        try {
+            NSFont* font = resolveHostFont(fontName, fontSize);
+            NSString* str = wstringToNSString(text);
+            NSDictionary* attrs = @{ NSFontAttributeName: font };
+            NSSize sz = [str sizeWithAttributes:attrs];
+            return static_cast<double>(sz.width);
+        } catch (...) {
+            double sz = (fontSize >= 6.0 && fontSize <= 144.0) ? fontSize : 13.0;
+            return static_cast<double>(text.size()) * sz * 0.55;
+        }
     }
 }

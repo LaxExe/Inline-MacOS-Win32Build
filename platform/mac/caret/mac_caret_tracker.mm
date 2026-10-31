@@ -166,15 +166,16 @@ std::optional<CaretRect> MacCaretTracker::getCaretScreenRect() {
 
 std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
     @autoreleasepool {
-        // 1. Get frontmost application and warm up accessibility immediately (essential for Chromium/Electron)
-        NSRunningApplication* frontApp = [[NSWorkspace sharedWorkspace] frontmostApplication];
-        pid_t frontPid = frontApp ? [frontApp processIdentifier] : 0;
-        if (frontPid > 0) {
-            enableChromiumAccessibilityIfNeeded(static_cast<int>(frontPid));
-        }
-
-        // 2. Query focused UI element: try application directly first (much faster in Chromium), then focused window, then system-wide
         AXUIElementRef elem = nullptr;
+        try {
+            // 1. Get frontmost application and warm up accessibility immediately (essential for Chromium/Electron)
+            NSRunningApplication* frontApp = [[NSWorkspace sharedWorkspace] frontmostApplication];
+            pid_t frontPid = frontApp ? [frontApp processIdentifier] : 0;
+            if (frontPid > 0) {
+                enableChromiumAccessibilityIfNeeded(static_cast<int>(frontPid));
+            }
+
+            // 2. Query focused UI element: try application directly first (much faster in Chromium), then focused window, then system-wide
         if (frontPid > 0) {
             AXUIElementRef appElem = AXUIElementCreateApplication(frontPid);
             if (appElem) {
@@ -295,6 +296,12 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             CFRelease(selRangeVal);
         }
 
+        // Validate range bounds to prevent negative or corrupt values from custom app AX handlers
+        if (!hasSelRange || selRange.location < 0 || selRange.length < 0) {
+            hasSelRange = false;
+            selRange = CFRangeMake(0, 0);
+        }
+
         // If user has highlighted a span of text (selection > 0), do not show ghost predictions
         if (hasSelRange && selRange.length > 0) {
             CFRelease(elem);
@@ -386,8 +393,9 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                 if (CFGetTypeID(fullVal) == CFStringGetTypeID()) {
                     std::wstring fullStr = cfStringToWString(static_cast<CFStringRef>(fullVal));
                     if (geom.textTail.empty() && selRange.location <= static_cast<CFIndex>(fullStr.size())) {
-                        size_t start = (selRange.location > 160) ? (selRange.location - 160) : 0;
-                        geom.textTail = fullStr.substr(start, selRange.location - start);
+                        size_t loc = static_cast<size_t>(selRange.location);
+                        size_t start = (loc > 160) ? (loc - 160) : 0;
+                        geom.textTail = fullStr.substr(start, loc - start);
 
                         // Strip invisible zero-width formatting characters commonly inserted by Slate.js / Lexical / Electron
                         while (!geom.textTail.empty() && isZeroWidthOrFormatting(geom.textTail.back())) {
@@ -395,7 +403,7 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                         }
                     }
                     if (selRange.location < static_cast<CFIndex>(fullStr.size())) {
-                        for (size_t i = selRange.location; i < fullStr.size(); ++i) {
+                        for (size_t i = static_cast<size_t>(selRange.location); i < fullStr.size(); ++i) {
                             if (!isZeroWidthOrWhitespace(fullStr[i])) {
                                 geom.atEditableEnd = false;
                                 geom.caretAtEOF = false;
@@ -407,10 +415,12 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                 CFRelease(fullVal);
             }
 
-            CFIndex fontProbeIdx = (selRange.location > 0) ? (selRange.location - 1) : 0;
-            CFRange attrR = CFRangeMake(fontProbeIdx, 1);
-            AXValueRef attrRangeVal = AXValueCreate(kAXValueTypeCFRange, &attrR);
-            if (attrRangeVal) {
+            // 6c. Query font attributes safely
+            if (selRange.location > 0 || totalDocChars > 0) {
+                CFIndex fontProbeIdx = (selRange.location > 0) ? (selRange.location - 1) : 0;
+                CFRange attrR = CFRangeMake(fontProbeIdx, 1);
+                AXValueRef attrRangeVal = AXValueCreate(kAXValueTypeCFRange, &attrR);
+                if (attrRangeVal) {
                     CFTypeRef attrStrRef = nullptr;
                     if (AXUIElementCopyParameterizedAttributeValue(elem, kAXAttributedStringForRangeParameterizedAttribute, attrRangeVal, &attrStrRef) == kAXErrorSuccess && attrStrRef) {
                         if (CFGetTypeID(attrStrRef) == CFAttributedStringGetTypeID()) {
@@ -438,6 +448,7 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                     }
                     CFRelease(attrRangeVal);
                 }
+            }
         }
 
         // 7. Caret coordinate extraction:
@@ -597,7 +608,11 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             }
         }
 
-        CFRelease(elem);
+        if (elem) CFRelease(elem);
         return geom;
+    } catch (...) {
+        if (elem) CFRelease(elem);
+        return std::nullopt;
+    }
     }
 }
