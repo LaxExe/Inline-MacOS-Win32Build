@@ -503,12 +503,12 @@ std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::
 
     bool synced = false;
     std::optional<CaretGeometry> geom;
-    for (int attempt = 0; attempt < 7; ++attempt) {
+    for (int attempt = 0; attempt < 4; ++attempt) {
         geom = caretTracker_.getCaretGeometry();
         if (!geom) {
             // Give waking Chromium/Electron accessibility trees a brief moment to finish building
-            if (attempt < 6) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(4));
+            if (attempt < 3) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(3));
                 continue;
             }
             return std::nullopt;
@@ -534,7 +534,7 @@ std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::
             break; // Host app has processed the latest keystroke and updated its cursor!
         }
 
-        int sleepMs = 3 + attempt * 2; // 3ms, 5ms, 7ms, 9ms, 11ms, 13ms
+        int sleepMs = 3 + attempt * 2; // 3ms, 5ms, 7ms, 9ms
         std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
     }
 
@@ -640,7 +640,7 @@ void MainTrayApp::ghostWorkerLoop() {
                 req.config.ghostStyle
             );
             if (layout.valid) {
-                ghostOverlay_.showLayout(layout);
+                ghostOverlay_.showLayout(layout, req.generation);
                 renderedSomething = true;
                 lastRenderedCaretX_.store(layout.boundingBox.x, std::memory_order_relaxed);
                 lastRenderedCaretY_.store(layout.boundingBox.y, std::memory_order_relaxed);
@@ -672,7 +672,7 @@ void MainTrayApp::ghostWorkerLoop() {
                     instantPred.text = layout.fittedText;
                     std::wstring textToRender;
                     if (ghostSession_.applyCandidatePrediction(req.generation, contextKey, instantPred, textToRender)) {
-                        ghostOverlay_.showLayout(layout);
+                        ghostOverlay_.showLayout(layout, req.generation);
                         renderedSomething = true;
                         lastRenderedCaretX_.store(layout.boundingBox.x, std::memory_order_relaxed);
                         lastRenderedCaretY_.store(layout.boundingBox.y, std::memory_order_relaxed);
@@ -779,7 +779,7 @@ void MainTrayApp::llmWorkerLoop() {
                     ? layout
                     : computeGhostLayout(textToRender, *freshGeom, isMidWord, GhostOverlay::measureTextWidth, req.config.ghostStyle);
                 if (finalLayout.valid) {
-                    ghostOverlay_.showLayout(finalLayout);
+                    ghostOverlay_.showLayout(finalLayout, req.generation);
                     lastRenderedCaretX_.store(finalLayout.boundingBox.x, std::memory_order_relaxed);
                     lastRenderedCaretY_.store(finalLayout.boundingBox.y, std::memory_order_relaxed);
                     if (settingsDialog_ && settingsDialog_->isVisible()) {

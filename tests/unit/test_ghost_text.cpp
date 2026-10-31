@@ -69,6 +69,40 @@ TEST(GhostLayout, TruncatesCleanlyInSingleLineField) {
     EXPECT_EQ(res.fittedText, L"to the");
 }
 
+TEST(GhostLayout, ClampsToSingleLineWhenFieldHeightIsShortEvenIfIsSingleLineFalse) {
+    CaretGeometry cg;
+    cg.caret = {160.0, 50.0, 2.0, 18.0};
+    cg.field = {20.0, 40.0, 200.0, 32.0}; // 32px height search bar (like Google or Safari search)
+    cg.lineStartX = 28.0;
+    cg.lineHeight = 20.0;
+    cg.isSingleLine = false; // web content reported false
+    cg.atEditableEnd = true;
+    cg.caretAtEOF = true;
+
+    GhostLayoutResult res = computeGhostLayout(L" to the team tomorrow", cg, false, mono8Measure);
+    ASSERT_TRUE(res.valid);
+    // Must strictly be 1 line, never wrapping below the search bar!
+    ASSERT_EQ(res.lines.size(), 1u);
+    EXPECT_EQ(res.lines[0].text, L"to the");
+}
+
+TEST(GhostLayout, ClampsToSingleLineForTallSearchBarsUpTo72px) {
+    CaretGeometry cg;
+    cg.caret = {160.0, 50.0, 2.0, 18.0};
+    cg.field = {20.0, 40.0, 200.0, 64.0}; // 64px height modern search bar container
+    cg.lineStartX = 28.0;
+    cg.lineHeight = 20.0;
+    cg.isSingleLine = false; // web content reported false
+    cg.atEditableEnd = true;
+    cg.caretAtEOF = true;
+
+    GhostLayoutResult res = computeGhostLayout(L" to the team tomorrow", cg, false, mono8Measure);
+    ASSERT_TRUE(res.valid);
+    // Must strictly be 1 line, never wrapping below the search bar!
+    ASSERT_EQ(res.lines.size(), 1u);
+    EXPECT_EQ(res.lines[0].text, L"to the");
+}
+
 TEST(GhostLayout, HidesMidWordSuffixWhenSuffixOverflowsFirstLine) {
     CaretGeometry cg;
     // Caret right = 202, field right = 220 - 6 = 214 -> remaining = 12px (only 1 char fits)

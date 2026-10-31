@@ -9,7 +9,7 @@ public:
     ~GhostOverlay();
 
     // Renders the wrapped layout on the main thread
-    void showLayout(const GhostLayoutResult& layout);
+    void showLayout(const GhostLayoutResult& layout, uint64_t generation = 0);
 
     // Immediately hides the overlay panel
     void hide();

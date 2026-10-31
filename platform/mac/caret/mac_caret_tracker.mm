@@ -1,5 +1,6 @@
 #include "platform/mac/caret/mac_caret_tracker.h"
 #include "platform/mac/caret/secure_field_classifier.h"
+#include "platform/mac/ghost/ghost_overlay.h"
 #import <Cocoa/Cocoa.h>
 #import <ApplicationServices/ApplicationServices.h>
 #include <algorithm>
@@ -62,6 +63,11 @@ static bool isZeroWidthOrWhitespace(wchar_t c) {
 }
 
 static bool getAXRectForRange(AXUIElementRef elem, CFIndex loc, CFIndex len, CGRect& outRect) {
+    if (!elem) return false;
+    pid_t elemPid = 0;
+    AXUIElementGetPid(elem, &elemPid);
+    if (elemPid <= 0 || elemPid == getpid()) return false;
+
     CFRange r = CFRangeMake(loc, len);
     AXValueRef rangeVal = AXValueCreate(kAXValueTypeCFRange, &r);
     if (!rangeVal) return false;
@@ -97,6 +103,10 @@ static bool getAXRectForRange(AXUIElementRef elem, CFIndex loc, CFIndex len, CGR
 
 static bool getWebKitTextMarkerCaretRect(AXUIElementRef elem, CGRect& outRect) {
     if (!elem) return false;
+    pid_t elemPid = 0;
+    AXUIElementGetPid(elem, &elemPid);
+    if (elemPid <= 0 || elemPid == getpid()) return false;
+
     CFTypeRef markerRange = nullptr;
     AXError err = AXUIElementCopyAttributeValue(
         elem,
@@ -171,9 +181,11 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             // 1. Get frontmost application and warm up accessibility immediately (essential for Chromium/Electron)
             NSRunningApplication* frontApp = [[NSWorkspace sharedWorkspace] frontmostApplication];
             pid_t frontPid = frontApp ? [frontApp processIdentifier] : 0;
-            if (frontPid > 0) {
-                enableChromiumAccessibilityIfNeeded(static_cast<int>(frontPid));
+            // Never track or query accessibility on Inline itself — querying in-process Qt widgets across threads causes fatal crash
+            if (frontPid <= 0 || frontPid == getpid()) {
+                return std::nullopt;
             }
+            enableChromiumAccessibilityIfNeeded(static_cast<int>(frontPid));
 
             // 2. Query focused UI element: try application directly first (much faster in Chromium), then focused window, then system-wide
         if (frontPid > 0) {
@@ -231,7 +243,11 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
 
         pid_t pid = 0;
         AXUIElementGetPid(elem, &pid);
-        if (pid > 0 && pid != frontPid) {
+        if (pid <= 0 || pid == getpid()) {
+            CFRelease(elem);
+            return std::nullopt;
+        }
+        if (pid != frontPid) {
             enableChromiumAccessibilityIfNeeded(static_cast<int>(pid));
         }
 
@@ -310,7 +326,13 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
 
         CaretGeometry geom;
         geom.pid = static_cast<int>(pid);
-        geom.isSingleLine = (roleStr == "AXTextField" || roleStr == "AXComboBox" || subroleStr == "AXSearchField");
+        std::string lowerSub = subroleStr;
+        for (char& sc : lowerSub) sc = static_cast<char>(std::tolower(sc));
+        geom.isSingleLine = (roleStr == "AXTextField" || roleStr == "AXComboBox" ||
+                             subroleStr == "AXSearchField" ||
+                             lowerSub.find("search") != std::string::npos ||
+                             lowerSub.find("url") != std::string::npos ||
+                             (hasFieldFrame && fieldFrame.size.height <= 72.0));
         geom.atEditableEnd = true;
         geom.caretAtEOF = true;
 
@@ -387,34 +409,6 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                 }
             }
 
-            // 6b. Check kAXValueAttribute (Chromium / Electron inputs, textareas, web fields)
-            CFTypeRef fullVal = nullptr;
-            if (AXUIElementCopyAttributeValue(elem, kAXValueAttribute, &fullVal) == kAXErrorSuccess && fullVal) {
-                if (CFGetTypeID(fullVal) == CFStringGetTypeID()) {
-                    std::wstring fullStr = cfStringToWString(static_cast<CFStringRef>(fullVal));
-                    if (geom.textTail.empty() && selRange.location <= static_cast<CFIndex>(fullStr.size())) {
-                        size_t loc = static_cast<size_t>(selRange.location);
-                        size_t start = (loc > 160) ? (loc - 160) : 0;
-                        geom.textTail = fullStr.substr(start, loc - start);
-
-                        // Strip invisible zero-width formatting characters commonly inserted by Slate.js / Lexical / Electron
-                        while (!geom.textTail.empty() && isZeroWidthOrFormatting(geom.textTail.back())) {
-                            geom.textTail.pop_back();
-                        }
-                    }
-                    if (selRange.location < static_cast<CFIndex>(fullStr.size())) {
-                        for (size_t i = static_cast<size_t>(selRange.location); i < fullStr.size(); ++i) {
-                            if (!isZeroWidthOrWhitespace(fullStr[i])) {
-                                geom.atEditableEnd = false;
-                                geom.caretAtEOF = false;
-                                break;
-                            }
-                        }
-                    }
-                }
-                CFRelease(fullVal);
-            }
-
             // 6c. Query font attributes safely
             if (selRange.location > 0 || totalDocChars > 0) {
                 CFIndex fontProbeIdx = (selRange.location > 0) ? (selRange.location - 1) : 0;
@@ -426,19 +420,30 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                         if (CFGetTypeID(attrStrRef) == CFAttributedStringGetTypeID()) {
                             CFAttributedStringRef attrStr = static_cast<CFAttributedStringRef>(attrStrRef);
                             if (CFAttributedStringGetLength(attrStr) > 0) {
-                                CFDictionaryRef fontDict = static_cast<CFDictionaryRef>(
-                                    CFAttributedStringGetAttribute(attrStr, 0, kAXFontTextAttribute, nullptr)
-                                );
-                                if (fontDict && CFGetTypeID(fontDict) == CFDictionaryGetTypeID()) {
-                                    CFStringRef fname = static_cast<CFStringRef>(CFDictionaryGetValue(fontDict, kAXFontNameKey));
-                                    if (fname && CFGetTypeID(fname) == CFStringGetTypeID()) {
-                                        geom.fontName = cfStringToStdString(fname);
+                                // Try AppKit NSFontAttributeName directly
+                                CFTypeRef fontObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"NSFont", nullptr);
+                                if (fontObj && [(__bridge id)fontObj isKindOfClass:[NSFont class]]) {
+                                    NSFont* nsFont = (__bridge NSFont*)fontObj;
+                                    geom.fontSize = [nsFont pointSize];
+                                    if (nsFont.fontName && nsFont.fontName.length > 0) {
+                                        geom.fontName = [nsFont.fontName UTF8String];
                                     }
-                                    CFNumberRef fsize = static_cast<CFNumberRef>(CFDictionaryGetValue(fontDict, kAXFontSizeKey));
-                                    if (fsize && CFGetTypeID(fsize) == CFNumberGetTypeID()) {
-                                        double sz = 0.0;
-                                        if (CFNumberGetValue(fsize, kCFNumberDoubleType, &sz) && sz >= 6.0 && sz <= 144.0) {
-                                            geom.fontSize = sz;
+                                } else {
+                                    // Fallback to WebKit / AXFont dictionary
+                                    CFDictionaryRef fontDict = static_cast<CFDictionaryRef>(
+                                        CFAttributedStringGetAttribute(attrStr, 0, kAXFontTextAttribute, nullptr)
+                                    );
+                                    if (fontDict && CFGetTypeID(fontDict) == CFDictionaryGetTypeID()) {
+                                        CFStringRef fname = static_cast<CFStringRef>(CFDictionaryGetValue(fontDict, kAXFontNameKey));
+                                        if (fname && CFGetTypeID(fname) == CFStringGetTypeID()) {
+                                            geom.fontName = cfStringToStdString(fname);
+                                        }
+                                        CFNumberRef fsize = static_cast<CFNumberRef>(CFDictionaryGetValue(fontDict, kAXFontSizeKey));
+                                        if (fsize && CFGetTypeID(fsize) == CFNumberGetTypeID()) {
+                                            double sz = 0.0;
+                                            if (CFNumberGetValue(fsize, kCFNumberDoubleType, &sz) && sz >= 6.0 && sz <= 144.0) {
+                                                geom.fontSize = sz;
+                                            }
                                         }
                                     }
                                 }
@@ -448,6 +453,44 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                     }
                     CFRelease(attrRangeVal);
                 }
+            }
+        } // end hasSelRange
+
+        // 6b. Check kAXValueAttribute (Chromium / Electron inputs, textareas, web fields, Google search)
+        // Runs for both single-line and multi-line fields even when hasSelRange is false!
+        if (geom.textTail.empty()) {
+            CFTypeRef fullVal = nullptr;
+            if (AXUIElementCopyAttributeValue(elem, kAXValueAttribute, &fullVal) == kAXErrorSuccess && fullVal) {
+                if (CFGetTypeID(fullVal) == CFStringGetTypeID()) {
+                    std::wstring fullStr = cfStringToWString(static_cast<CFStringRef>(fullVal));
+                    if (hasSelRange && selRange.location <= static_cast<CFIndex>(fullStr.size())) {
+                        size_t loc = static_cast<size_t>(selRange.location);
+                        size_t start = (loc > 160) ? (loc - 160) : 0;
+                        geom.textTail = fullStr.substr(start, loc - start);
+                    } else {
+                        size_t start = (fullStr.size() > 160) ? (fullStr.size() - 160) : 0;
+                        geom.textTail = fullStr.substr(start);
+                    }
+
+                    // Strip invisible zero-width formatting characters commonly inserted by Slate.js / Lexical / Electron
+                    while (!geom.textTail.empty() && isZeroWidthOrFormatting(geom.textTail.back())) {
+                        geom.textTail.pop_back();
+                    }
+
+                    // Only probe ahead if the host app explicitly reported a valid selection range!
+                    // In Chromium / Google search web inputs, selRange is not reported (hasSelRange = false),
+                    // so dummy selRange.location = 0 must NEVER falsely declare that text follows the caret.
+                    if (hasSelRange && selRange.location < static_cast<CFIndex>(fullStr.size())) {
+                        for (size_t i = static_cast<size_t>(selRange.location); i < fullStr.size(); ++i) {
+                            if (!isZeroWidthOrWhitespace(fullStr[i])) {
+                                geom.atEditableEnd = false;
+                                geom.caretAtEOF = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                CFRelease(fullVal);
             }
         }
 
@@ -467,22 +510,34 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             }
         }
 
-        // Try WebKit TextMarker on parent web area if child element holds marker on parent
+        // Try WebKit TextMarker on ancestors (Chromium inputs can be nested inside AXGroup elements or forms)
         if (!gotCaret) {
-            CFTypeRef parentVal = nullptr;
-            if (AXUIElementCopyAttributeValue(elem, kAXParentAttribute, &parentVal) == kAXErrorSuccess && parentVal) {
-                if (CFGetTypeID(parentVal) == AXUIElementGetTypeID()) {
-                    if (getWebKitTextMarkerCaretRect(static_cast<AXUIElementRef>(parentVal), wkRect)) {
-                        if (wkRect.size.width <= 24.0) {
-                            double caretX = (wkRect.size.width <= 4.0) ? wkRect.origin.x : (wkRect.origin.x + wkRect.size.width);
-                            double caretH = (wkRect.size.height >= 8.0 && wkRect.size.height <= 200.0) ? wkRect.size.height : 18.0;
-                            caretRect = CGRectMake(caretX, wkRect.origin.y, 2.0, caretH);
-                            gotCaret = true;
+            AXUIElementRef curAncestor = elem;
+            CFRetain(curAncestor);
+            for (int depth = 0; depth < 3 && !gotCaret; ++depth) {
+                CFTypeRef parentVal = nullptr;
+                if (AXUIElementCopyAttributeValue(curAncestor, kAXParentAttribute, &parentVal) == kAXErrorSuccess && parentVal) {
+                    if (CFGetTypeID(parentVal) == AXUIElementGetTypeID()) {
+                        AXUIElementRef parentElem = static_cast<AXUIElementRef>(parentVal);
+                        if (getWebKitTextMarkerCaretRect(parentElem, wkRect)) {
+                            if (wkRect.size.width <= 24.0) {
+                                double caretX = (wkRect.size.width <= 4.0) ? wkRect.origin.x : (wkRect.origin.x + wkRect.size.width);
+                                double caretH = (wkRect.size.height >= 8.0 && wkRect.size.height <= 200.0) ? wkRect.size.height : 18.0;
+                                caretRect = CGRectMake(caretX, wkRect.origin.y, 2.0, caretH);
+                                gotCaret = true;
+                            }
                         }
+                        CFRelease(curAncestor);
+                        curAncestor = parentElem; // retain transferred
+                    } else {
+                        CFRelease(parentVal);
+                        break;
                     }
+                } else {
+                    break;
                 }
-                CFRelease(parentVal);
             }
+            CFRelease(curAncestor);
         }
 
         // 7b. Native AppKit Range Ladder (Notes, TextEdit, Pages, Messages, Mail)
@@ -512,8 +567,10 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                 }
                 // Caret X must never lag behind the preceding glyph's right edge during fast typing
                 double finalX = std::max((double)zeroRect.origin.x, prevRight);
-                double finalY = (zeroRect.origin.y > 1.0) ? zeroRect.origin.y : prevCharRect.origin.y;
-                double finalH = (zeroRect.size.height >= 8.0) ? zeroRect.size.height : prevCharRect.size.height;
+                // In AppKit, prevCharRect is the exact glyph typed on the active line.
+                // Always lock baseline Y and line height to prevCharRect so ghost text never floats above the typed line!
+                double finalY = prevCharRect.origin.y;
+                double finalH = prevCharRect.size.height;
                 caretRect = CGRectMake(finalX, finalY, 2.0, finalH);
                 return true;
             }
@@ -554,10 +611,16 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             gotCaret = tryRangeLadder();
         }
 
-        // 7c. Fallback for empty text field (e.g. search fields, single-line inputs)
-        if (!gotCaret && hasSelRange && selRange.location == 0 && hasFieldFrame && fieldFrame.size.height <= 80.0) {
+        // 7c. Fallback for text fields and search bars (when AX range queries are unsupported)
+        if (!gotCaret && hasFieldFrame && fieldFrame.size.height <= 80.0) {
             double h = std::clamp((double)fieldFrame.size.height - 8.0, 14.0, 24.0);
-            caretRect = CGRectMake(fieldFrame.origin.x + 6.0, fieldFrame.origin.y + (fieldFrame.size.height - h) * 0.5, 2.5, h);
+            double y = fieldFrame.origin.y + (fieldFrame.size.height - h) * 0.5;
+            double x = fieldFrame.origin.x + 8.0;
+            if (!geom.textTail.empty()) {
+                double textW = GhostOverlay::measureTextWidth(geom.textTail, geom.fontName, geom.fontSize);
+                x = std::min(fieldFrame.origin.x + fieldFrame.size.width - 12.0, x + textW);
+            }
+            caretRect = CGRectMake(x, y, 2.5, h);
             gotCaret = true;
         }
 

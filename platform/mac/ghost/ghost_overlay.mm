@@ -109,8 +109,8 @@ static void ensurePanelOnMainThread() {
     [gGhostPanel setHasShadow:NO];
     [gGhostPanel setIgnoresMouseEvents:YES];
     [gGhostPanel setFloatingPanel:YES];
-    [gGhostPanel setHidesOnDeactivate:NO];
-    [gGhostPanel setLevel:NSStatusWindowLevel];
+    [gGhostPanel setHidesOnDeactivate:YES];
+    [gGhostPanel setLevel:NSFloatingWindowLevel];
     [gGhostPanel setCollectionBehavior:(NSWindowCollectionBehaviorCanJoinAllSpaces |
                                         NSWindowCollectionBehaviorFullScreenAuxiliary |
                                         NSWindowCollectionBehaviorStationary |
@@ -123,22 +123,33 @@ static void ensurePanelOnMainThread() {
     [gGhostPanel setContentView:gGhostView];
 }
 
+static std::atomic<uint64_t> gOverlayGeneration{0};
+
 GhostOverlay::GhostOverlay() = default;
 
 GhostOverlay::~GhostOverlay() {
     hide();
 }
 
-void GhostOverlay::showLayout(const GhostLayoutResult& layout) {
+void GhostOverlay::showLayout(const GhostLayoutResult& layout, uint64_t generation) {
     if (!layout.valid || layout.lines.empty()) {
         hide();
         return;
+    }
+
+    uint64_t expectedGen = generation;
+    if (expectedGen > 0) {
+        gOverlayGeneration.store(expectedGen, std::memory_order_relaxed);
     }
 
     GhostLayoutResult copy = layout;
     dispatch_async(dispatch_get_main_queue(), ^{
         @autoreleasepool {
             try {
+                if (expectedGen > 0 && expectedGen < gOverlayGeneration.load(std::memory_order_relaxed)) {
+                    return; // Dropped: a newer keystroke has already been typed!
+                }
+
                 ensurePanelOnMainThread();
                 NSScreen* primaryScreen = [[NSScreen screens] firstObject];
                 if (!primaryScreen) return;
@@ -178,6 +189,7 @@ void GhostOverlay::showLayout(const GhostLayoutResult& layout) {
 }
 
 void GhostOverlay::hide() {
+    gOverlayGeneration.fetch_add(1, std::memory_order_relaxed);
     dispatch_async(dispatch_get_main_queue(), ^{
         @autoreleasepool {
             try {
@@ -192,6 +204,8 @@ void GhostOverlay::hide() {
 
 void GhostOverlay::advanceLayout(double deltaX, const std::wstring& remainingText) {
     if (deltaX <= 0.0 || remainingText.empty()) return;
+
+    gOverlayGeneration.fetch_add(1, std::memory_order_relaxed);
 
     // Explicit deep value copy for asynchronous block capture
     std::wstring textCopy = remainingText;

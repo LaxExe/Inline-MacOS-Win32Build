@@ -57,6 +57,7 @@ GhostLayoutResult computeGhostLayout(
 
     // Place suggestion snug against the right edge of the cursor (1.2pt from cursor.x),
     // eliminating loose gaps while strictly preventing overlap with the vertical cursor bar.
+    const bool isSingleLine = geom.isSingleLine || (geom.field.height > 0.0 && geom.field.height <= 72.0);
     const double caretRightX = geom.caret.x + 1.2;
     const double fieldLeft = (geom.field.width > 20.0) ? geom.field.x : (caretRightX - 40.0);
     const double fieldRight = (geom.field.width > 20.0) ? (geom.field.x + geom.field.width) : (caretRightX + 500.0);
@@ -67,10 +68,18 @@ GhostLayoutResult computeGhostLayout(
     const double padL = std::clamp(lineStartX - fieldLeft, 2.0, 24.0);
     const double rightEdge = std::max(caretRightX, fieldRight - padL);
 
-    const double firstLineWidth = rightEdge - caretRightX;
+    double firstLineWidth = rightEdge - caretRightX;
+    // For single-line text bars (search fields, URL bars), strictly clamp to the visible boundary
+    if (isSingleLine && geom.field.width > 20.0) {
+        double availW = std::max(0.0, fieldRight - 8.0 - caretRightX);
+        firstLineWidth = std::min(firstLineWidth, availW);
+        if (firstLineWidth < 14.0) {
+            return res; // No room left inside text bar
+        }
+    }
     const double restLineWidth = std::max(40.0, rightEdge - lineStartX);
 
-    const bool canWrap = !geom.isSingleLine && geom.caretAtEOF && (restLineWidth >= 40.0);
+    const bool canWrap = !isSingleLine && geom.caretAtEOF && (restLineWidth >= 40.0);
     int maxLines = 1;
     if (canWrap) {
         if (geom.field.height > res.lineHeight * 1.5) {
