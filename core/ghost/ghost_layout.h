@@ -21,6 +21,7 @@ struct GhostLayoutResult {
     std::string fontName;
     double fontSize = 13.0;
     double lineHeight = 18.0;
+    uint32_t textColorRGBA = 0;
     int styleMode = 1;       // 0 = Subtle, 1 = Standard, 2 = High contrast
 };
 

@@ -16,6 +16,7 @@ GhostLayoutResult computeGhostLayout(
 ) {
     GhostLayoutResult res;
     res.styleMode = styleMode;
+    res.textColorRGBA = geom.textColorRGBA;
     if (suggestion.empty()) return res;
 
     const double caretH = (geom.caret.height >= 6.0 && geom.caret.height <= 200.0) ? geom.caret.height : 18.0;

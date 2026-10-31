@@ -57,17 +57,30 @@ static NSString* wstringToNSString(const std::wstring& ws) {
 
     NSFont* font = resolveHostFont(_layoutData.fontName, _layoutData.fontSize);
 
-    CGFloat alpha = 0.48;
-    if (_layoutData.styleMode == 0) alpha = 0.34;      // Subtle
-    else if (_layoutData.styleMode == 2) alpha = 0.65; // High contrast
+    CGFloat alpha = 0.65;
+    if (_layoutData.styleMode == 0) alpha = 0.45;      // Subtle
+    else if (_layoutData.styleMode == 2) alpha = 0.85; // High contrast
 
-    NSColor* textColor = self.darkAppearance
-        ? [NSColor colorWithCalibratedWhite:0.78 alpha:alpha]
-        : [NSColor colorWithCalibratedRed:0.38 green:0.42 blue:0.48 alpha:alpha];
+    uint32_t colorHex = (_layoutData.textColorRGBA != 0) ? _layoutData.textColorRGBA : 0x1F2937FF;
+    CGFloat r = ((colorHex >> 24) & 0xFF) / 255.0;
+    CGFloat g = ((colorHex >> 16) & 0xFF) / 255.0;
+    CGFloat b = ((colorHex >> 8) & 0xFF) / 255.0;
+    NSColor* textColor = [NSColor colorWithCalibratedRed:r green:g blue:b alpha:alpha];
+
+    bool isDarkText = (r * 0.299 + g * 0.587 + b * 0.114) < 0.5;
+    NSShadow* shadow = [[NSShadow alloc] init];
+    [shadow setShadowBlurRadius:1.5];
+    [shadow setShadowOffset:NSMakeSize(0.0, -0.5)];
+    if (isDarkText) {
+        [shadow setShadowColor:[NSColor colorWithCalibratedWhite:1.0 alpha:0.35]];
+    } else {
+        [shadow setShadowColor:[NSColor colorWithCalibratedWhite:0.0 alpha:0.45]];
+    }
 
     NSDictionary* attrs = @{
         NSFontAttributeName: font,
-        NSForegroundColorAttributeName: textColor
+        NSForegroundColorAttributeName: textColor,
+        NSShadowAttributeName: shadow
     };
 
     const double baseX = _layoutData.boundingBox.x;
@@ -109,8 +122,8 @@ static void ensurePanelOnMainThread() {
     [gGhostPanel setHasShadow:NO];
     [gGhostPanel setIgnoresMouseEvents:YES];
     [gGhostPanel setFloatingPanel:YES];
-    [gGhostPanel setHidesOnDeactivate:YES];
-    [gGhostPanel setLevel:NSFloatingWindowLevel];
+    [gGhostPanel setHidesOnDeactivate:NO];
+    [gGhostPanel setLevel:NSStatusWindowLevel];
     [gGhostPanel setCollectionBehavior:(NSWindowCollectionBehaviorCanJoinAllSpaces |
                                         NSWindowCollectionBehaviorFullScreenAuxiliary |
                                         NSWindowCollectionBehaviorStationary |
@@ -123,7 +136,7 @@ static void ensurePanelOnMainThread() {
     [gGhostPanel setContentView:gGhostView];
 }
 
-static std::atomic<uint64_t> gOverlayGeneration{0};
+static std::atomic<uint64_t> gLayoutSequence{0};
 
 GhostOverlay::GhostOverlay() = default;
 
@@ -132,22 +145,19 @@ GhostOverlay::~GhostOverlay() {
 }
 
 void GhostOverlay::showLayout(const GhostLayoutResult& layout, uint64_t generation) {
+    (void)generation;
     if (!layout.valid || layout.lines.empty()) {
         hide();
         return;
     }
 
-    uint64_t expectedGen = generation;
-    if (expectedGen > 0) {
-        gOverlayGeneration.store(expectedGen, std::memory_order_relaxed);
-    }
-
+    uint64_t seq = gLayoutSequence.fetch_add(1, std::memory_order_relaxed) + 1;
     GhostLayoutResult copy = layout;
     dispatch_async(dispatch_get_main_queue(), ^{
         @autoreleasepool {
             try {
-                if (expectedGen > 0 && expectedGen < gOverlayGeneration.load(std::memory_order_relaxed)) {
-                    return; // Dropped: a newer keystroke has already been typed!
+                if (seq < gLayoutSequence.load(std::memory_order_relaxed)) {
+                    return; // Dropped: superseded by newer layout or hide
                 }
 
                 ensurePanelOnMainThread();
@@ -165,12 +175,6 @@ void GhostOverlay::showLayout(const GhostLayoutResult& layout, uint64_t generati
                     return;
                 }
 
-                NSAppearance* appAppearance = [NSApp effectiveAppearance];
-                NSAppearanceName matched = [appAppearance bestMatchFromAppearancesWithNames:@[
-                    NSAppearanceNameAqua,
-                    NSAppearanceNameDarkAqua
-                ]];
-                gGhostView.darkAppearance = [matched isEqualToString:NSAppearanceNameDarkAqua];
                 [gGhostView setLayoutData:copy];
 
                 [NSAnimationContext beginGrouping];
@@ -189,7 +193,7 @@ void GhostOverlay::showLayout(const GhostLayoutResult& layout, uint64_t generati
 }
 
 void GhostOverlay::hide() {
-    gOverlayGeneration.fetch_add(1, std::memory_order_relaxed);
+    gLayoutSequence.fetch_add(1, std::memory_order_relaxed);
     dispatch_async(dispatch_get_main_queue(), ^{
         @autoreleasepool {
             try {
@@ -204,8 +208,6 @@ void GhostOverlay::hide() {
 
 void GhostOverlay::advanceLayout(double deltaX, const std::wstring& remainingText) {
     if (deltaX <= 0.0 || remainingText.empty()) return;
-
-    gOverlayGeneration.fetch_add(1, std::memory_order_relaxed);
 
     // Explicit deep value copy for asynchronous block capture
     std::wstring textCopy = remainingText;

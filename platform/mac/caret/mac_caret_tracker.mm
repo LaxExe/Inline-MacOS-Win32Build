@@ -447,6 +447,21 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                                         }
                                     }
                                 }
+
+                                // Extract text foreground color if specified
+                                CFTypeRef colorObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"NSColor", nullptr);
+                                if (!colorObj) {
+                                    colorObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"NSForegroundColor", nullptr);
+                                }
+                                if (colorObj && [(__bridge id)colorObj isKindOfClass:[NSColor class]]) {
+                                    NSColor* col = [(__bridge NSColor*)colorObj colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+                                    if (col) {
+                                        uint32_t r = static_cast<uint32_t>(std::clamp([col redComponent] * 255.0, 0.0, 255.0));
+                                        uint32_t g = static_cast<uint32_t>(std::clamp([col greenComponent] * 255.0, 0.0, 255.0));
+                                        uint32_t b = static_cast<uint32_t>(std::clamp([col blueComponent] * 255.0, 0.0, 255.0));
+                                        geom.textColorRGBA = (r << 24) | (g << 16) | (b << 8) | 0xFF;
+                                    }
+                                }
                             }
                         }
                         CFRelease(attrStrRef);
@@ -668,6 +683,27 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                     CFRelease(lineNumVal);
                 }
                 CFRelease(idxNum);
+            }
+        }
+
+        if (geom.textColorRGBA == 0 && frontApp) {
+            NSString* bid = [frontApp bundleIdentifier];
+            if (bid) {
+                std::string lowerBid = [bid UTF8String];
+                for (char& c : lowerBid) c = static_cast<char>(std::tolower(c));
+                if (lowerBid.find("terminal") != std::string::npos ||
+                    lowerBid.find("iterm") != std::string::npos ||
+                    lowerBid.find("warp") != std::string::npos ||
+                    lowerBid.find("kitty") != std::string::npos ||
+                    lowerBid.find("alacritty") != std::string::npos ||
+                    lowerBid.find("vscode") != std::string::npos ||
+                    lowerBid.find("cursor") != std::string::npos) {
+                    geom.textColorRGBA = 0xE0E0E0FF; // Crisp light grey for dark terminals and IDEs
+                } else {
+                    geom.textColorRGBA = 0x1F2937FF; // Dark charcoal (#1F2937) for web browsers, Google search, Notes, TextEdit
+                }
+            } else {
+                geom.textColorRGBA = 0x1F2937FF;
             }
         }
 
