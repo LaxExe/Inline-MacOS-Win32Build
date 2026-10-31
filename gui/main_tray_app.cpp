@@ -454,7 +454,7 @@ bool MainTrayApp::initEngine() {
     return true;
 }
 
-void MainTrayApp::scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText) {
+void MainTrayApp::scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText, int settleMs) {
     if (!cachedConfig_.masterEnabled || !cachedConfig_.ghostTextEnabled) {
         return;
     }
@@ -472,6 +472,7 @@ void MainTrayApp::scheduleGhostPrediction(bool typeThroughOnly, const std::wstri
     req.typeThroughRemaining = typeThroughText;
     req.isSentenceStart = isSentenceStart_;
     req.typeThroughOnly = typeThroughOnly;
+    req.settleMs = settleMs;
     req.config = cachedConfig_;
 
     {
@@ -536,12 +537,12 @@ std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::
     }
 
     std::optional<CaretGeometry> geom;
-    for (int attempt = 0; attempt < 5; ++attempt) {
+    for (int attempt = 0; attempt < 3; ++attempt) {
         geom = caretTracker_.getCaretGeometry();
         if (!geom) {
             // Give waking Chromium/Electron accessibility trees a brief moment to finish building
-            if (attempt < 3) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            if (attempt < 2) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(6));
                 continue;
             }
             return std::nullopt;
@@ -553,7 +554,11 @@ std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::
         if (actualLast == expectedLast) {
             break; // Host app has processed the latest keystroke and updated its cursor!
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(3));
+        // If textTail is already longer than partialWord, the host app is ahead or has extra context: do not stall!
+        if (!partialWord.empty() && geom->textTail.size() >= partialWord.size()) {
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
     return geom;
 #else
@@ -581,6 +586,13 @@ void MainTrayApp::ghostWorkerLoop() {
         }
 
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+        if (req.settleMs > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(req.settleMs));
+            if (req.generation != ghostSession_.currentGeneration()) {
+                continue;
+            }
+        }
+
         if (!req.config.masterEnabled || !req.config.ghostTextEnabled ||
             IsSecureEventInputEnabled() ||
             isFrontmostAppExcluded(req.config.disabledApps) ||
@@ -931,7 +943,8 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
                 // Allow the injected text to settle cleanly in the host application.
                 // When the user resumes typing or hits space, ghost predictions resume naturally.
             } else {
-                scheduleGhostPrediction(true, remainingVisible);
+                int settle = std::clamp(static_cast<int>(acceptedChunk.size()) * 4 + 15, 20, 45);
+                scheduleGhostPrediction(true, remainingVisible, settle);
             }
 
             if (settingsDialog_ && settingsDialog_->isVisible()) {
@@ -1025,9 +1038,6 @@ void MainTrayApp::handleCharacter(wchar_t ch) {
     if (ghostSession_.onCharacterTyped(ch, remainingGhost)) {
         scheduleGhostPrediction(true, remainingGhost);
     } else {
-#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
-        ghostOverlay_.hide();
-#endif
         scheduleGhostPrediction(false);
     }
 
@@ -1225,9 +1235,12 @@ bool MainTrayApp::handleWordBoundary(wchar_t delimiter, bool isActiveTap) {
             scheduleGhostPrediction(true, remGhost);
         } else {
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
-            ghostOverlay_.hide();
+            if (correction.didCorrect) {
+                ghostOverlay_.hide();
+            }
 #endif
-            scheduleGhostPrediction(false);
+            int settle = correction.didCorrect ? std::clamp(static_cast<int>(correction.corrected.size()) * 4 + 20, 25, 45) : 0;
+            scheduleGhostPrediction(false, L"", settle);
         }
     } else {
         dismissGhost();

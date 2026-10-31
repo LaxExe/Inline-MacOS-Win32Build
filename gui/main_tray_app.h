@@ -100,6 +100,7 @@ private:
         CaretGeometry geom;
         bool isSentenceStart = false;
         bool typeThroughOnly = false;
+        int settleMs = 0;
         AppConfig config;
     };
     GhostWorkerRequest pendingGhostReq_;
@@ -123,7 +124,7 @@ private:
 
     void setupTray();
     void dismissGhost();
-    void scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText = L"");
+    void scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText = L"", int settleMs = 0);
     void ghostWorkerLoop();
     void llmWorkerLoop();
     std::optional<CaretGeometry> queryCaretGeometryWithSync(const std::wstring& partialWord, bool afterSpace);

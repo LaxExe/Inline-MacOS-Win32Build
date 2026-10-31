@@ -12,6 +12,10 @@ MacCaretTracker::MacCaretTracker() = default;
 
 void MacCaretTracker::enableChromiumAccessibilityIfNeeded(int pid) {
     if (pid <= 0) return;
+    static int sLastEnabledPid = 0;
+    if (sLastEnabledPid == pid) return;
+    sLastEnabledPid = pid;
+
     AXUIElementRef appElem = AXUIElementCreateApplication(pid);
     if (!appElem) return;
     AXUIElementSetMessagingTimeout(appElem, 0.15f);

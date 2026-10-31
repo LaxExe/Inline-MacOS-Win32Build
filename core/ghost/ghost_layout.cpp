@@ -30,10 +30,18 @@ GhostLayoutResult computeGhostLayout(
         return defaultMeasureText(s, res.fontName, res.fontSize);
     };
 
-    // Place suggestion snug against the cursor for mid-word completions or tokens without leading space,
-    // avoiding artificial gaps between the typed characters and the inline suggestion.
-    const bool snugToCaret = isMidWord || (!suggestion.empty() && suggestion.front() != L' ');
-    const double caretOffset = snugToCaret ? 0.5 : std::max(0.0, geom.caret.width);
+    std::wstring cleanSuggestion = suggestion;
+    if (!isMidWord) {
+        // At word boundary (after space or sentence start), strip redundant leading spaces
+        // so the suggestion anchors snug against the cursor bar and doesn't inject double spaces on Tab.
+        while (!cleanSuggestion.empty() && cleanSuggestion.front() == L' ') {
+            cleanSuggestion.erase(cleanSuggestion.begin());
+        }
+        if (cleanSuggestion.empty()) return res;
+    }
+
+    // Place suggestion snug against the cursor, avoiding artificial gaps between the cursor and the inline suggestion.
+    const double caretOffset = 0.5;
     const double caretRightX = geom.caret.x + caretOffset;
     const double fieldLeft = (geom.field.width > 20.0) ? geom.field.x : (caretRightX - 40.0);
     const double fieldRight = (geom.field.width > 20.0) ? (geom.field.x + geom.field.width) : (caretRightX + 500.0);
@@ -58,28 +66,28 @@ GhostLayoutResult computeGhostLayout(
         }
     }
 
-    // Split suggestion into words while preserving leading space on the first word if present
+    // Split suggestion into words while preserving leading space on the first word if present (e.g. mid-word " thank" -> " you")
     std::vector<std::wstring> words;
     {
         size_t i = 0;
         std::wstring leadingSpaces;
-        while (i < suggestion.size() && suggestion[i] == L' ') {
+        while (i < cleanSuggestion.size() && cleanSuggestion[i] == L' ') {
             leadingSpaces.push_back(L' ');
             ++i;
         }
         bool first = true;
-        while (i < suggestion.size()) {
+        while (i < cleanSuggestion.size()) {
             size_t start = i;
-            while (i < suggestion.size() && suggestion[i] != L' ') ++i;
+            while (i < cleanSuggestion.size() && cleanSuggestion[i] != L' ') ++i;
             if (i > start) {
-                std::wstring w = suggestion.substr(start, i - start);
+                std::wstring w = cleanSuggestion.substr(start, i - start);
                 if (first && !leadingSpaces.empty()) {
                     w = leadingSpaces + w;
                 }
                 words.push_back(std::move(w));
                 first = false;
             }
-            while (i < suggestion.size() && suggestion[i] == L' ') ++i;
+            while (i < cleanSuggestion.size() && cleanSuggestion[i] == L' ') ++i;
         }
     }
     if (words.empty()) return res;

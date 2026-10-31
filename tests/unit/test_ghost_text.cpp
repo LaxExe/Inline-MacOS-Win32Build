@@ -25,15 +25,15 @@ TEST(GhostLayout, FitsEntirelyOnFirstLineWhenEnoughSpace) {
     GhostLayoutResult res = computeGhostLayout(L" the meeting", cg, false, mono8Measure);
     ASSERT_TRUE(res.valid);
     ASSERT_EQ(res.lines.size(), 1u);
-    EXPECT_EQ(res.lines[0].text, L" the meeting");
-    EXPECT_DOUBLE_EQ(res.lines[0].x, 102.0);
+    EXPECT_EQ(res.lines[0].text, L"the meeting");
+    EXPECT_DOUBLE_EQ(res.lines[0].x, 100.5);
     EXPECT_DOUBLE_EQ(res.lines[0].y, 50.0);
 }
 
 TEST(GhostLayout, WrapsOverflowingWordsToLineStartXOnNextLine) {
     CaretGeometry cg;
-    // Field right edge = 20 + 200 = 220; padR = 6 -> usable right = 214
-    // Caret right edge = 160 + 2 = 162 -> remaining on line 1 = 52px (fits 6 chars at 8px/char)
+    // Field right edge = 20 + 200 = 220; padR = 8 -> usable right = 212
+    // Caret right edge = 160 + 1 = 161 -> remaining on line 1 = 51px (fits up to 6 chars at 8px/char)
     cg.caret = {160.0, 50.0, 2.0, 18.0};
     cg.field = {20.0, 40.0, 200.0, 200.0};
     cg.lineStartX = 28.0;
@@ -45,8 +45,8 @@ TEST(GhostLayout, WrapsOverflowingWordsToLineStartXOnNextLine) {
     GhostLayoutResult res = computeGhostLayout(L" to the team tomorrow", cg, false, mono8Measure);
     ASSERT_TRUE(res.valid);
     ASSERT_GE(res.lines.size(), 2u);
-    EXPECT_EQ(res.lines[0].text, L" to");
-    EXPECT_DOUBLE_EQ(res.lines[0].x, 162.0);
+    EXPECT_EQ(res.lines[0].text, L"to the");
+    EXPECT_DOUBLE_EQ(res.lines[0].x, 160.5);
     EXPECT_DOUBLE_EQ(res.lines[0].y, 50.0);
 
     EXPECT_DOUBLE_EQ(res.lines[1].x, 28.0);
@@ -65,8 +65,8 @@ TEST(GhostLayout, TruncatesCleanlyInSingleLineField) {
     GhostLayoutResult res = computeGhostLayout(L" to the meeting", cg, false, mono8Measure);
     ASSERT_TRUE(res.valid);
     ASSERT_EQ(res.lines.size(), 1u);
-    EXPECT_EQ(res.lines[0].text, L" to");
-    EXPECT_EQ(res.fittedText, L" to");
+    EXPECT_EQ(res.lines[0].text, L"to the");
+    EXPECT_EQ(res.fittedText, L"to the");
 }
 
 TEST(GhostLayout, HidesMidWordSuffixWhenSuffixOverflowsFirstLine) {
