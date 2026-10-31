@@ -13,6 +13,12 @@ struct Suggestion {
     int64_t count = 0;
 };
 
+struct BigramContinuation {
+    std::wstring nextWord;
+    int64_t count = 0;
+    double probability = 0.0;
+};
+
 class SymSpellDict {
 public:
     SymSpellDict(int maxEditDistance = 2, int prefixLength = 7);
@@ -27,6 +33,9 @@ public:
     int64_t getFrequency(const std::wstring& word) const;
     int64_t getBigramFrequency(const std::wstring& word1, const std::wstring& word2) const;
 
+    std::vector<Suggestion> completePrefix(const std::wstring& prefix, const std::wstring& prevWord = L"", size_t maxResults = 5) const;
+    std::vector<BigramContinuation> getNextWords(const std::wstring& prevWord, size_t maxResults = 5) const;
+
     size_t wordCount() const { return words_.size(); }
     size_t bigramCount() const { return bigrams_.size(); }
 
@@ -37,7 +46,13 @@ private:
     std::vector<std::pair<std::wstring, int64_t>> wordList_;
     std::unordered_map<std::wstring, uint32_t> words_;
     std::unordered_map<std::wstring, std::vector<uint32_t>> deletes_;
+    std::unordered_map<std::wstring, std::vector<uint32_t>> prefixIndex_;
     std::unordered_map<std::string, int64_t> bigrams_;
+    struct NextWordBucket {
+        int64_t totalCount = 0;
+        std::vector<std::pair<std::wstring, int64_t>> topNext;
+    };
+    std::unordered_map<std::string, NextWordBucket> bigramNext_;
 
     mutable std::vector<uint32_t> seenStamp_;
     mutable uint32_t currentStamp_ = 0;

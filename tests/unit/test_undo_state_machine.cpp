@@ -31,3 +31,11 @@ TEST(UndoStateMachine, SuppressClearsOnManualEdit) {
     auto thirdAttempt = sm.onWordCorrected(L"teh", L"the");
     EXPECT_FALSE(thirdAttempt.suppressed);
 }
+TEST(UndoStateMachine, BackspaceImmediatelyAfterGhostAcceptRevertsFullAcceptedSpan) {
+    UndoStateMachine sm;
+    sm.onGhostAccepted(L" the meeting tomorrow");
+    auto action = sm.onBackspace();
+    EXPECT_EQ(action.type, UndoAction::RevertGhostAccept);
+    EXPECT_EQ(action.correctedText, L" the meeting tomorrow");
+    EXPECT_TRUE(action.revertedText.empty());
+}

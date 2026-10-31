@@ -28,7 +28,7 @@ jobs:
 
       - name: Build and Package DMG
         run: |
-          chmod +x tools/create_dmg.sh
+          chmod +x tools/fetch_model.sh tools/create_dmg.sh
           ./tools/create_dmg.sh
 
       - name: Create GitHub Release
@@ -44,11 +44,15 @@ jobs:
             
             Lightweight, instantaneous on-device autocorrect engine with macOS System Settings styling.
 
-            #### What's New in v1.1:
+            #### What's New in v1.2:
+            - **Ghost Text Predictive Writing**: Predicts the next few words immediately to the right of your cursor across native macOS apps, wraps cleanly to the focused text box's width, and inserts on `Tab`.
+            - **One Word Mode**: New setting allows autocompleting only the active word you are typing, or multi-word sentence continuations.
+            - **Hybrid On-Device AI Engine**: Combines sub-millisecond N-gram completions with a bundled `SmolLM2-135M (Q8_0)` neural model running locally in an isolated helper process (~15 ms latency on 2 Apple Silicon CPU threads, zero external app dependencies).
+            - **Universal Caret Positioning**: Intelligent AX and window-anchored caret tracking that places ghost suggestions directly at your cursor.
             - **No Autocorrect on Enter**: Pressing Enter commits text untouched without modifying your words.
             - **Single-Key Undo on Backspace**: Pressing Backspace right after an autocorrection instantly reverts to your raw input.
             - **Menu Bar Dynamic Contrast**: Adaptive white vertical bar on dark/black menu bars; dark charcoal on light menu bars.
-            - **Modern System Settings GUI**: Redesigned System Settings dialog with full responsive layout, custom vocabulary, and real-time live feed.
+            - **Modern System Settings GUI**: Redesigned System Settings dialog with authentic macOS styling, responsive card layout, custom vocabulary, and real-time live feed.
             - **Redesigned Permissions Dialog**: Modern native macOS card interface with live status pills for Input Monitoring and Accessibility.
             - **Slang & Tech Term Whitelist**: Native protection for chat acronyms (`gng`, `brb`, `ttyl`, `idk`, `ngl`, `tbh`) and developer jargon (`repo`, `pr`, `cli`, `sdk`, `api`, `async`).
             - **Run-Together Word Splitting**: Intelligently splits concatenated words (`whenI` -> `when I`, `twowords` -> `two words`).

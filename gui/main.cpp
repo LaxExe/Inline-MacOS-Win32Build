@@ -67,10 +67,36 @@ int main(int argc, char *argv[]) {
     trayApp.initEngine();
 
     QTimer::singleShot(0, [&trayApp, hasExistingConfig]() {
-        // On first launch or when permissions are missing, present the 4-slide Walkthrough & Setup guide first,
+        // On first launch or when permissions are missing, present the 5-slide Walkthrough & Setup guide first,
         // then immediately open the main Settings window on screen.
         if (!hasExistingConfig || !PermissionDialog::areAllPermissionsGranted()) {
             trayApp.openWalkthrough();
+        } else {
+            bool needsUpgradeSlide = false;
+            {
+                std::lock_guard<std::mutex> lock(configMutex);
+                if (sharedConfig.onboardingVersion < 2) {
+                    needsUpgradeSlide = true;
+                    sharedConfig.onboardingVersion = 2;
+                }
+            }
+            if (needsUpgradeSlide) {
+                PermissionDialog dlg(nullptr, PermissionDialog::kGhostTextSlide);
+                dlg.exec();
+                std::string path;
+#ifdef _WIN32
+                const char* appData = getenv("APPDATA");
+                path = (appData ? appData : ".") + std::string("/Inline/config.json");
+#else
+                const char* home = getenv("HOME");
+                path = (home ? home : ".") + std::string("/Library/Application Support/Inline/config.json");
+#endif
+                std::ofstream out(path);
+                if (out.is_open()) {
+                    std::lock_guard<std::mutex> lock(configMutex);
+                    out << serializeConfig(sharedConfig);
+                }
+            }
         }
         trayApp.openPreferences();
     });

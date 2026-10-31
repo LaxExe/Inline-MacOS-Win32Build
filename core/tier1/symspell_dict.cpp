@@ -195,6 +195,32 @@ void SymSpellDict::addWord(const std::wstring& word, int64_t count) {
     seenStamp_.push_back(0);
     words_[word] = wordId;
     createDeletes(wordId);
+
+    // Index 1..10 character lowercase prefixes for instant (< 0.1ms) prefix completion
+    if (word.size() >= 2) {
+        std::wstring lowerWord;
+        lowerWord.reserve(word.size());
+        for (wchar_t c : word) lowerWord.push_back(static_cast<wchar_t>(std::towlower(c)));
+        size_t maxP = std::min<size_t>(lowerWord.size() - 1, 10);
+        for (size_t plen = 1; plen <= maxP; ++plen) {
+            const size_t maxBucket = (plen == 1) ? 24 : 20;
+            auto& bucket = prefixIndex_[lowerWord.substr(0, plen)];
+            if (bucket.size() < maxBucket) {
+                bucket.push_back(wordId);
+            } else {
+                // Replace lowest-frequency entry if new word is more frequent
+                size_t minIdx = 0;
+                for (size_t i = 1; i < bucket.size(); ++i) {
+                    if (wordList_[bucket[i]].second < wordList_[bucket[minIdx]].second) {
+                        minIdx = i;
+                    }
+                }
+                if (count > wordList_[bucket[minIdx]].second) {
+                    bucket[minIdx] = wordId;
+                }
+            }
+        }
+    }
 }
 
 bool SymSpellDict::hasWord(const std::wstring& word) const {
@@ -349,10 +375,123 @@ bool SymSpellDict::loadBigramDictionary(const std::string& corpusPath) {
             int64_t count = std::strtoll(line.c_str() + lastSpace + 1, nullptr, 10);
             if (count <= 0) count = 1;
             bigrams_[phrase] = count;
+
+            size_t firstSpace = phrase.find(' ');
+            if (firstSpace != std::string::npos && firstSpace > 0 && firstSpace + 1 < phrase.size()) {
+                std::string w1 = phrase.substr(0, firstSpace);
+                std::string w2Str = phrase.substr(firstSpace + 1);
+                std::wstring w2 = utf8ToWstringFast(w2Str.c_str(), w2Str.size());
+                auto& bucket = bigramNext_[w1];
+                bucket.totalCount += count;
+                if (bucket.topNext.size() < 8) {
+                    bucket.topNext.push_back({std::move(w2), count});
+                } else {
+                    size_t minIdx = 0;
+                    for (size_t i = 1; i < bucket.topNext.size(); ++i) {
+                        if (bucket.topNext[i].second < bucket.topNext[minIdx].second) {
+                            minIdx = i;
+                        }
+                    }
+                    if (count > bucket.topNext[minIdx].second) {
+                        bucket.topNext[minIdx] = {std::move(w2), count};
+                    }
+                }
+            }
         }
     }
 
+    for (auto& kv : bigramNext_) {
+        auto& top = kv.second.topNext;
+        std::sort(top.begin(), top.end(), [](const auto& a, const auto& b) {
+            return a.second > b.second;
+        });
+    }
+
     return true;
+}
+
+std::vector<Suggestion> SymSpellDict::completePrefix(const std::wstring& prefix, const std::wstring& prevWord, size_t maxResults) const {
+    std::vector<Suggestion> out;
+    if (prefix.empty() || maxResults == 0) return out;
+    if (prefix.size() == 1 && prevWord.empty()) return out;
+
+    std::wstring lowerPrefix;
+    lowerPrefix.reserve(prefix.size());
+    for (wchar_t c : prefix) lowerPrefix.push_back(static_cast<wchar_t>(std::towlower(c)));
+
+    std::wstring key = lowerPrefix.substr(0, std::min<size_t>(lowerPrefix.size(), 10));
+    auto it = prefixIndex_.find(key);
+    if (it != prefixIndex_.end()) {
+        for (uint32_t wordId : it->second) {
+            const auto& entry = wordList_[wordId];
+            if (entry.first.size() <= lowerPrefix.size()) continue;
+            bool match = true;
+            for (size_t i = 0; i < lowerPrefix.size(); ++i) {
+                if (static_cast<wchar_t>(std::towlower(entry.first[i])) != lowerPrefix[i]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (!match) continue;
+            int64_t score = entry.second;
+            if (!prevWord.empty()) {
+                int64_t bg = getBigramFrequency(prevWord, entry.first);
+                if (bg > 0) score += bg * 500;
+            }
+            out.push_back({entry.first, 0, score});
+        }
+    }
+
+    // Also include bigram continuations from prevWord that start with lowerPrefix
+    if (!prevWord.empty()) {
+        auto nexts = getNextWords(prevWord, 8);
+        for (const auto& nx : nexts) {
+            if (nx.nextWord.size() <= lowerPrefix.size()) continue;
+            if (nx.nextWord.compare(0, lowerPrefix.size(), lowerPrefix) == 0) {
+                bool exists = false;
+                for (auto& existing : out) {
+                    if (existing.term == nx.nextWord) {
+                        existing.count = std::max(existing.count, nx.count * 800 + getFrequency(nx.nextWord));
+                        exists = true;
+                        break;
+                    }
+                }
+                if (!exists) {
+                    out.push_back({nx.nextWord, 0, nx.count * 800 + getFrequency(nx.nextWord)});
+                }
+            }
+        }
+    }
+
+    std::sort(out.begin(), out.end(), [](const Suggestion& a, const Suggestion& b) {
+        return a.count > b.count;
+    });
+    if (out.size() > maxResults) out.resize(maxResults);
+    return out;
+}
+
+std::vector<BigramContinuation> SymSpellDict::getNextWords(const std::wstring& prevWord, size_t maxResults) const {
+    std::vector<BigramContinuation> out;
+    if (prevWord.empty() || bigramNext_.empty() || maxResults == 0) return out;
+
+    std::string key;
+    key.reserve(prevWord.size());
+    for (wchar_t c : prevWord) {
+        if (c < 128) key.push_back(static_cast<char>(std::towlower(c)));
+    }
+    auto it = bigramNext_.find(key);
+    if (it == bigramNext_.end() || it->second.totalCount <= 0) return out;
+
+    const double total = static_cast<double>(it->second.totalCount);
+    for (const auto& pair : it->second.topNext) {
+        if (out.size() >= maxResults) break;
+        out.push_back({
+            pair.first,
+            pair.second,
+            static_cast<double>(pair.second) / total
+        });
+    }
+    return out;
 }
 
 int64_t SymSpellDict::getBigramFrequency(const std::wstring& word1, const std::wstring& word2) const {

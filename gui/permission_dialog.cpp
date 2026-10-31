@@ -24,7 +24,8 @@ namespace {
 // 6: Lock (On-Device Privacy & Secure Fields)
 // 7: Code brackets (Slang & Developer Whitelist)
 // 8: MenuBar icon (|▪)
-// 9: Refresh / Reset (Reset Permission Cache)
+// 9: Refresh / Reset
+// 10: Ghost Text cursor + fading dashes
 class WalkthroughBadge : public QWidget {
     int type_;
 public:
@@ -37,13 +38,17 @@ protected:
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
 
-        // Monochrome container: #F3F4F6 with #E5E7EB border
-        p.setBrush(QColor(243, 244, 246));
-        p.setPen(QPen(QColor(229, 231, 235), 1.0));
+        bool isDark = false;
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+        isDark = isSystemInDarkMode();
+#endif
+        // Monochrome container: #F2F2F7 in light, #3A3A3C in dark
+        p.setBrush(isDark ? QColor(58, 58, 60) : QColor(242, 242, 247));
+        p.setPen(QPen(isDark ? QColor(72, 72, 74) : QColor(229, 229, 234), 1.0));
         p.drawRoundedRect(rect().adjusted(0, 0, -1, -1), 8, 8);
 
-        // Crisp dark charcoal vector stroke #111827
-        p.setPen(QPen(QColor(17, 24, 39), 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        // Crisp vector stroke #1D1D1F in light, #FFFFFF in dark
+        p.setPen(QPen(isDark ? QColor(255, 255, 255) : QColor(29, 29, 31), 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         p.setBrush(Qt::NoBrush);
 
         QRectF r(8, 8, 20, 20);
@@ -124,6 +129,15 @@ protected:
                 p.drawRoundedRect(QRectF(cx + 1.0, cy + 2.2, 3.6, 3.6), 0.8, 0.8);
                 break;
             }
+            case 10: { // Ghost Text cursor bar + trailing fading dashes
+                p.drawLine(QPointF(cx - sz * 0.36, cy - sz * 0.32), QPointF(cx - sz * 0.36, cy + sz * 0.32));
+                p.drawLine(QPointF(cx - sz * 0.18, cy - sz * 0.08), QPointF(cx + sz * 0.12, cy - sz * 0.08));
+                QPen fadedPen(QColor(107, 114, 128), 1.6, Qt::SolidLine, Qt::RoundCap);
+                p.setPen(fadedPen);
+                p.drawLine(QPointF(cx + sz * 0.22, cy - sz * 0.08), QPointF(cx + sz * 0.40, cy - sz * 0.08));
+                p.drawLine(QPointF(cx - sz * 0.18, cy + sz * 0.16), QPointF(cx + sz * 0.26, cy + sz * 0.16));
+                break;
+            }
             default: { // Refresh / Reset loop
                 p.drawArc(QRectF(cx - sz * 0.32, cy - sz * 0.32, sz * 0.64, sz * 0.64), 30 * 16, 290 * 16);
                 p.drawLine(QPointF(cx + sz * 0.28, cy - sz * 0.16), QPointF(cx + sz * 0.32, cy - sz * 0.36));
@@ -131,6 +145,85 @@ protected:
                 break;
             }
         }
+    }
+};
+
+// Interactive Animated Ghost Text Preview Banner (pure QPainter vector drawing)
+class GhostDemoWidget : public QWidget {
+    int phase_ = 0; // 0: typing, 1: ghost shown, 2: Tab pressed, 3: committed
+    QTimer* animTimer_ = nullptr;
+public:
+    explicit GhostDemoWidget(QWidget* parent = nullptr) : QWidget(parent) {
+        setFixedHeight(66);
+        animTimer_ = new QTimer(this);
+        connect(animTimer_, &QTimer::timeout, this, [this]() {
+            phase_ = (phase_ + 1) % 4;
+            update();
+        });
+        animTimer_->start(1100);
+    }
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+
+        QRectF cardRect = rect().adjusted(0, 0, -1, -1);
+        p.setBrush(QColor(255, 255, 255));
+        p.setPen(QPen(QColor(229, 231, 235), 1.0));
+        p.drawRoundedRect(cardRect, 12, 12);
+
+        // Simulated editor field inside the card
+        QRectF fieldRect(16, 13, width() - 120, 40);
+        p.setBrush(QColor(249, 250, 251));
+        p.setPen(QPen(QColor(229, 231, 235), 1.0));
+        p.drawRoundedRect(fieldRect, 8, 8);
+
+        QFont font = p.font();
+        font.setPixelSize(13);
+        font.setWeight(QFont::Medium);
+        p.setFont(font);
+        QFontMetrics fm(font);
+
+        QString typed = (phase_ == 0) ? "I wanted to foll" : "I wanted to follow";
+        QString ghost = " up on the meeting";
+
+        qreal textX = fieldRect.left() + 12;
+        qreal textY = fieldRect.center().y() + fm.ascent() * 0.36;
+
+        // Draw typed text in dark ink
+        p.setPen(QColor(17, 24, 39));
+        if (phase_ == 3) {
+            QString full = typed + ghost;
+            p.drawText(QPointF(textX, textY), full);
+            qreal caretX = textX + fm.horizontalAdvance(full) + 2;
+            p.setPen(QPen(QColor(34, 197, 94), 1.8));
+            p.drawLine(QPointF(caretX, fieldRect.center().y() - 8), QPointF(caretX, fieldRect.center().y() + 8));
+        } else {
+            p.drawText(QPointF(textX, textY), typed);
+            qreal caretX = textX + fm.horizontalAdvance(typed) + 1;
+            p.setPen(QPen(QColor(17, 24, 39), 1.6));
+            p.drawLine(QPointF(caretX, fieldRect.center().y() - 8), QPointF(caretX, fieldRect.center().y() + 8));
+
+            if (phase_ == 1 || phase_ == 2) {
+                p.setPen(QColor(156, 163, 175));
+                QString ghostStr = (phase_ == 0) ? "ow up on the meeting" : ghost;
+                p.drawText(QPointF(caretX + 3, textY), ghostStr);
+            }
+        }
+
+        // Right-side [Tab] keycap indicator
+        QRectF tabRect(width() - 90, 18, 74, 30);
+        bool tabActive = (phase_ == 2);
+        p.setBrush(tabActive ? QColor(17, 24, 39) : QColor(243, 244, 246));
+        p.setPen(QPen(tabActive ? QColor(17, 24, 39) : QColor(209, 213, 219), 1.0));
+        p.drawRoundedRect(tabRect, 7, 7);
+
+        QFont keyFont = p.font();
+        keyFont.setPixelSize(11);
+        keyFont.setWeight(QFont::Bold);
+        p.setFont(keyFont);
+        p.setPen(tabActive ? QColor(255, 255, 255) : QColor(55, 65, 81));
+        p.drawText(tabRect, Qt::AlignCenter, tabActive ? "Tab  Accept" : "Tab");
     }
 };
 } // namespace
@@ -143,7 +236,7 @@ bool PermissionDialog::areAllPermissionsGranted() {
 
 PermissionDialog::PermissionDialog(QWidget* parent, int initialSlide) : QDialog(parent) {
     setWindowTitle(tr("Inline — Walkthrough & Setup"));
-    setFixedSize(580, 490);
+    setFixedSize(580, 500);
     setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
 
     setupUi();
@@ -167,7 +260,7 @@ void PermissionDialog::setupUi() {
 
     // Top step pill
     auto* topRow = new QHBoxLayout();
-    stepBadgeLabel_ = new QLabel(tr("STEP 1 OF 4 • HOW IT WORKS"), this);
+    stepBadgeLabel_ = new QLabel(tr("STEP 1 OF 5 • HOW IT WORKS"), this);
     stepBadgeLabel_->setObjectName("stepBadge");
     topRow->addWidget(stepBadgeLabel_);
     topRow->addStretch();
@@ -186,10 +279,11 @@ void PermissionDialog::setupUi() {
 
     mainLayout->addSpacing(4);
 
-    // Stacked Slides (0: How It Works, 1: Features, 2: Privacy & Controls, 3: Permissions)
+    // Stacked Slides (0: How It Works, 1: Features, 2: Ghost Text, 3: Privacy & Controls, 4: Permissions)
     slideStack_ = new QStackedWidget(this);
     slideStack_->addWidget(createHowItWorksSlide());
     slideStack_->addWidget(createFeaturesSlide());
+    slideStack_->addWidget(createGhostTextSlide());
     slideStack_->addWidget(createPrivacyAndControlsSlide());
     slideStack_->addWidget(createPermissionSlide());
     mainLayout->addWidget(slideStack_, 1);
@@ -202,8 +296,8 @@ void PermissionDialog::setupUi() {
     skipButton_ = new QPushButton(tr("Skip Walkthrough"), this);
     skipButton_->setObjectName("secondaryBtn");
     connect(skipButton_, &QPushButton::clicked, this, [this]() {
-        if (slideStack_->currentIndex() < 3 && !areAllPermissionsGranted()) {
-            setCurrentSlide(3);
+        if (slideStack_->currentIndex() < kPermissionSlide && !areAllPermissionsGranted()) {
+            setCurrentSlide(kPermissionSlide);
         } else {
             accept();
         }
@@ -212,8 +306,8 @@ void PermissionDialog::setupUi() {
 
     footerRow->addStretch();
 
-    // Slide Dots
-    for (int i = 0; i < 4; ++i) {
+    // Slide Dots (5 steps)
+    for (int i = 0; i < kSlideCount; ++i) {
         auto* dot = new QPushButton(this);
         dot->setFixedSize(i == 0 ? 20 : 8, 8);
         dot->setCursor(Qt::PointingHandCursor);
@@ -328,16 +422,36 @@ QWidget* PermissionDialog::createFeaturesSlide() {
     });
 }
 
+QWidget* PermissionDialog::createGhostTextSlide() {
+    auto* wrapper = new QWidget(this);
+    auto* layout = new QVBoxLayout(wrapper);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(10);
+
+    layout->addWidget(new GhostDemoWidget(wrapper));
+
+    layout->addWidget(createInfoCard({
+        {10, tr("Press Tab to Accept Inline Suggestions"),
+             tr("Predicts the next 1-3 words right beside your cursor and wraps automatically to the text box width. Tab is only captured while a suggestion is visible."),
+             tr("Tab Key")},
+        {6,  tr("Bundled On-Device Language Model"),
+             tr("Powered by a compact local language model and 243K bigrams with zero network calls. Disabled automatically in terminals and code editors."),
+             tr("Cmd+Opt+Shift+G")}
+    }), 1);
+
+    return wrapper;
+}
+
 QWidget* PermissionDialog::createPrivacyAndControlsSlide() {
     return createInfoCard({
         {6, tr("100% On-Device Privacy & Password Protection"),
             tr("Zero network calls and zero disk logging. Secure password fields are excluded automatically, and buffers purge after 30s of inactivity."),
             tr("Offline")},
-        {8, tr("Adaptive Menu Bar Indicator & Hotkey"),
-            tr("Lives in your macOS menu bar (|.). Toggle autocorrect anytime with Cmd+Option+Shift+K or click the menu bar icon to open System Settings."),
+        {8, tr("Adaptive Menu Bar Indicator & Hotkeys"),
+            tr("Lives in your macOS menu bar (|.). Toggle autocorrect with Cmd+Option+Shift+K or Ghost Text with Cmd+Option+Shift+G anytime."),
             tr("Cmd+Opt+Shift+K")},
         {0, tr("Live Playground & Custom Vocabulary"),
-            tr("Use the Inline Settings window to test corrections in real time, add custom ignored words, or disable Inline inside specific applications."),
+            tr("Use the Inline Settings window to test corrections and Ghost Text in real time, add ignored words, or configure excluded apps."),
             tr("Customizable")}
     });
 }
@@ -374,7 +488,7 @@ QWidget* PermissionDialog::createPermissionSlide() {
     cardLayout->addWidget(createPermissionRow(
         1,
         tr("Accessibility"),
-        tr("Synthesizes backspaces and replacement text across active macOS apps."),
+        tr("Synthesizes backspaces, replacement text, and inline cursor tracking across macOS apps."),
         axStatusLabel_,
         axActionButton_,
         SLOT(onOpenAccessibilityClicked()),
@@ -435,7 +549,7 @@ QWidget* PermissionDialog::createPermissionRow(int iconType, const QString& titl
 
 void PermissionDialog::setCurrentSlide(int index) {
     if (index < 0) index = 0;
-    if (index > 3) index = 3;
+    if (index >= kSlideCount) index = kSlideCount - 1;
     slideStack_->setCurrentIndex(index);
     updateSlideHeader();
 }
@@ -454,34 +568,42 @@ void PermissionDialog::updateSlideHeader() {
     backButton_->setVisible(idx > 0);
 
     switch (idx) {
-        case 0:
-            stepBadgeLabel_->setText(tr("STEP 1 OF 4 • HOW IT WORKS"));
+        case kHowItWorksSlide:
+            stepBadgeLabel_->setText(tr("STEP 1 OF 5 • HOW IT WORKS"));
             titleLabel_->setText(tr("Welcome to Inline for macOS"));
             descriptionLabel_->setText(
-                tr("Inline runs silently in your macOS menu bar to fix typos in real time across every app. "
+                tr("Inline runs silently in your macOS menu bar to fix typos and predict words in real time. "
                    "Here is how the sub-millisecond correction pipeline works:"));
             nextButton_->setText(tr("Next: Features"));
             skipButton_->setText(areAllPermissionsGranted() ? tr("Close") : tr("Skip to Permissions"));
             break;
-        case 1:
-            stepBadgeLabel_->setText(tr("STEP 2 OF 4 • CORE FEATURES"));
+        case kFeaturesSlide:
+            stepBadgeLabel_->setText(tr("STEP 2 OF 5 • CORE FEATURES"));
             titleLabel_->setText(tr("Intelligent Autocorrect Features"));
             descriptionLabel_->setText(
                 tr("Designed for speed and accuracy whether you are writing messages, documents, or code:"));
+            nextButton_->setText(tr("Next: Ghost Text"));
+            skipButton_->setText(areAllPermissionsGranted() ? tr("Close") : tr("Skip to Permissions"));
+            break;
+        case kGhostTextSlide:
+            stepBadgeLabel_->setText(tr("STEP 3 OF 5 • GHOST TEXT"));
+            titleLabel_->setText(tr("Finish Sentences with Tab"));
+            descriptionLabel_->setText(
+                tr("Inline predicts the next couple of words right beside your cursor and wraps cleanly to any text box:"));
             nextButton_->setText(tr("Next: Privacy & Controls"));
             skipButton_->setText(areAllPermissionsGranted() ? tr("Close") : tr("Skip to Permissions"));
             break;
-        case 2:
-            stepBadgeLabel_->setText(tr("STEP 3 OF 4 • PRIVACY & CONTROLS"));
+        case kPrivacySlide:
+            stepBadgeLabel_->setText(tr("STEP 4 OF 5 • PRIVACY & CONTROLS"));
             titleLabel_->setText(tr("On-Device Privacy & Menu Bar Controls"));
             descriptionLabel_->setText(
                 tr("Everything stays strictly on your Mac with instant access from the top-right menu bar:"));
             nextButton_->setText(tr("Next: System Permissions"));
             skipButton_->setText(areAllPermissionsGranted() ? tr("Close") : tr("Skip to Permissions"));
             break;
-        case 3:
+        case kPermissionSlide:
         default:
-            stepBadgeLabel_->setText(tr("STEP 4 OF 4 • SYSTEM PERMISSIONS"));
+            stepBadgeLabel_->setText(tr("STEP 5 OF 5 • SYSTEM PERMISSIONS"));
             titleLabel_->setText(tr("Grant macOS System Permissions"));
             descriptionLabel_->setText(
                 tr("Enable Input Monitoring and Accessibility in macOS System Settings. "
@@ -494,7 +616,7 @@ void PermissionDialog::updateSlideHeader() {
 
 void PermissionDialog::onNextSlideClicked() {
     int idx = slideStack_->currentIndex();
-    if (idx < 3) {
+    if (idx < kSlideCount - 1) {
         setCurrentSlide(idx + 1);
     } else {
         accept();
@@ -509,129 +631,149 @@ void PermissionDialog::onPrevSlideClicked() {
 }
 
 void PermissionDialog::applyTheme() {
-    setStyleSheet(
+    bool isDark = false;
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    isDark = isSystemInDarkMode();
+#endif
+    QString mainBg     = isDark ? "#1E1E1E" : "#F2F2F7";
+    QString cardBg     = isDark ? "#2C2C2E" : "#FFFFFF";
+    QString cardBorder = isDark ? "#3A3A3C" : "#E5E5EA";
+    QString titleColor = isDark ? "#FFFFFF" : "#1D1D1F";
+    QString subColor   = isDark ? "#98989D" : "#6E6E73";
+    QString divColor   = isDark ? "#38383A" : "#E5E5EA";
+    QString actBtnBg   = isDark ? "#3A3A3C" : "#F2F2F7";
+    QString actBtnBrd  = isDark ? "#48484A" : "#D1D1D6";
+    QString primBtnBg  = isDark ? "#007AFF" : "#1D1D1F";
+    QString primBtnTxt = "#FFFFFF";
+
+    setStyleSheet(QString(
         "PermissionDialog {"
-        "  background-color: #F8F9FA;"
-        "  color: #111827;"
+        "  background-color: %1;"
+        "  color: %2;"
         "  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;"
         "}"
         "#stepBadge {"
         "  font-size: 10px;"
         "  font-weight: 700;"
         "  letter-spacing: 0.06em;"
-        "  color: #6B7280;"
+        "  color: %3;"
         "}"
         "#dialogTitle {"
         "  font-size: 21px;"
         "  font-weight: 700;"
-        "  color: #111827;"
+        "  color: %2;"
         "}"
         "#dialogSubtitle {"
         "  font-size: 12.5px;"
         "  line-height: 1.45;"
-        "  color: #6B7280;"
+        "  color: %3;"
         "}"
         "#permissionCard {"
-        "  background-color: #FFFFFF;"
-        "  border: 1px solid #E5E7EB;"
+        "  background-color: %4;"
+        "  border: 1px solid %5;"
         "  border-radius: 12px;"
         "}"
         "#rowDivider {"
-        "  color: #F3F4F6;"
-        "  background-color: #F3F4F6;"
+        "  color: %6;"
+        "  background-color: %6;"
         "  height: 1px;"
         "  border: none;"
         "}"
         "#statusSummary {"
         "  font-size: 11px;"
-        "  color: #6B7280;"
+        "  color: %3;"
         "  font-weight: 500;"
         "}"
         "#rowActionBtn {"
-        "  background-color: #F3F4F6;"
-        "  color: #111827;"
-        "  border: 1px solid #E5E7EB;"
+        "  background-color: %7;"
+        "  color: %2;"
+        "  border: 1px solid %8;"
         "  border-radius: 6px;"
         "  padding: 6px 12px;"
         "  font-size: 11px;"
         "  font-weight: 600;"
         "}"
         "#rowActionBtn:hover {"
-        "  background-color: #E5E7EB;"
+        "  background-color: %5;"
         "}"
         "#rowActionBtn:disabled {"
-        "  background-color: #F9FAFB;"
-        "  color: #9CA3AF;"
-        "  border-color: #E5E7EB;"
+        "  background-color: transparent;"
+        "  color: %3;"
+        "  border-color: %6;"
         "}"
         "#primaryBtn {"
-        "  background-color: #111827;"
-        "  color: #FFFFFF;"
-        "  border: 1px solid #111827;"
+        "  background-color: %9;"
+        "  color: %10;"
+        "  border: 1px solid %9;"
         "  border-radius: 8px;"
         "  padding: 8px 18px;"
         "  font-size: 12px;"
         "  font-weight: 600;"
         "}"
         "#primaryBtn:hover {"
-        "  background-color: #1F2937;"
+        "  opacity: 0.9;"
         "}"
         "#primaryBtn:disabled {"
-        "  background-color: #9CA3AF;"
-        "  border-color: #9CA3AF;"
+        "  background-color: #6B7280;"
+        "  border-color: #6B7280;"
+        "  color: #D1D5DB;"
         "}"
         "#secondaryBtn {"
         "  background-color: transparent;"
-        "  color: #6B7280;"
-        "  border: 1px solid #D1D5DB;"
+        "  color: %3;"
+        "  border: 1px solid %8;"
         "  border-radius: 8px;"
         "  padding: 8px 14px;"
         "  font-size: 12px;"
         "  font-weight: 500;"
         "}"
         "#secondaryBtn:hover {"
-        "  background-color: #F3F4F6;"
-        "  color: #111827;"
+        "  background-color: %7;"
+        "  color: %2;"
         "}"
-    );
+    ).arg(
+        mainBg, titleColor, subColor, cardBg, cardBorder,
+        divColor, actBtnBg, actBtnBrd, primBtnBg, primBtnTxt
+    ));
 }
 
 void PermissionDialog::checkPermissions() {
     bool im = checkInputMonitoringPermission();
     bool ax = checkAccessibilityPermission(false);
 
+    bool isDark = false;
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    isDark = isSystemInDarkMode();
+#endif
+
+    QString grantedStyle = isDark
+        ? "background-color: #064E3B; color: #34D399; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 10px; border: 1px solid #059669;"
+        : "background-color: #ECFDF5; color: #059669; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 10px; border: 1px solid #A7F3D0;";
+
+    QString reqStyle = isDark
+        ? "background-color: #7F1D1D; color: #F87171; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 10px; border: 1px solid #DC2626;"
+        : "background-color: #FEF2F2; color: #DC2626; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 10px; border: 1px solid #FECACA;";
+
     if (im) {
         imStatusLabel_->setText(tr("Granted"));
-        imStatusLabel_->setStyleSheet(
-            "background-color: #ECFDF5; color: #059669; font-size: 11px; font-weight: 600; "
-            "padding: 4px 10px; border-radius: 10px; border: 1px solid #A7F3D0;"
-        );
+        imStatusLabel_->setStyleSheet(grantedStyle);
         imActionButton_->setText(tr("Enabled"));
         imActionButton_->setEnabled(false);
     } else {
         imStatusLabel_->setText(tr("Required"));
-        imStatusLabel_->setStyleSheet(
-            "background-color: #FEF2F2; color: #DC2626; font-size: 11px; font-weight: 600; "
-            "padding: 4px 10px; border-radius: 10px; border: 1px solid #FECACA;"
-        );
+        imStatusLabel_->setStyleSheet(reqStyle);
         imActionButton_->setText(tr("Open Settings"));
         imActionButton_->setEnabled(true);
     }
 
     if (ax) {
         axStatusLabel_->setText(tr("Granted"));
-        axStatusLabel_->setStyleSheet(
-            "background-color: #ECFDF5; color: #059669; font-size: 11px; font-weight: 600; "
-            "padding: 4px 10px; border-radius: 10px; border: 1px solid #A7F3D0;"
-        );
+        axStatusLabel_->setStyleSheet(grantedStyle);
         axActionButton_->setText(tr("Enabled"));
         axActionButton_->setEnabled(false);
     } else {
         axStatusLabel_->setText(tr("Required"));
-        axStatusLabel_->setStyleSheet(
-            "background-color: #FEF2F2; color: #DC2626; font-size: 11px; font-weight: 600; "
-            "padding: 4px 10px; border-radius: 10px; border: 1px solid #FECACA;"
-        );
+        axStatusLabel_->setStyleSheet(reqStyle);
         axActionButton_->setText(tr("Open Settings"));
         axActionButton_->setEnabled(true);
     }
@@ -639,14 +781,14 @@ void PermissionDialog::checkPermissions() {
     if (im && ax) {
         statusSummaryLabel_->setText(tr("All system permissions are granted and ready."));
         statusSummaryLabel_->setStyleSheet("color: #059669; font-size: 11px; font-weight: 600;");
-        if (slideStack_->currentIndex() == 3) {
+        if (slideStack_->currentIndex() == kPermissionSlide) {
             nextButton_->setText(tr("Open Inline Settings"));
             skipButton_->setText(tr("Close"));
         }
     } else {
         statusSummaryLabel_->setText(tr("Waiting for permissions in macOS System Settings..."));
         statusSummaryLabel_->setStyleSheet("color: #6B7280; font-size: 11px; font-weight: 500;");
-        if (slideStack_->currentIndex() == 3) {
+        if (slideStack_->currentIndex() == kPermissionSlide) {
             nextButton_->setText(tr("Open Inline Settings"));
         }
     }

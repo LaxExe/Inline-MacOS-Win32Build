@@ -24,7 +24,9 @@ This file serves as the definitive reference for AI assistants working on this c
 | **Run Settings & Toggle Tests** | `./build_release/tests/test_settings_binding` |
 | **Run Word Boundary Tests** | `./build_release/tests/test_word_boundary` |
 | **Run Undo State Machine Tests** | `./build_release/tests/test_undo_state_machine` |
+| **Run Ghost Text Unit Tests** | `./build_release/tests/test_ghost_text` |
 | **Run Performance Benchmark** | `./build_release/bench_corrector` |
+| **Run Predictor Benchmark** | `./build_release/bench_predictor` |
 
 ### Packaging & Releasing
 | Action | Command |
@@ -79,6 +81,7 @@ Outputs compressed `dist/Inline-vX.X-macOS.dmg` with `/Applications` drag-and-dr
 ### 3. Default Engine & Toggle States
 - The following features must **always be enabled by default** on initial launch:
   - **Autocorrect Engine** (`masterEnabled = true`)
+  - **Ghost Text Predictions** (`ghostTextEnabled = true`, `smartPredictionsEnabled = true`)
   - **Single-Key Undo on Backspace** (`singleKeyUndoEnabled = true`)
   - **Run-Together Word Splitting** (`splitRunTogetherWords = true`)
   - **Sentence Capitalization** (`sentenceCorrectionEnabled = true`)
@@ -93,8 +96,9 @@ Outputs compressed `dist/Inline-vX.X-macOS.dmg` with `/Applications` drag-and-dr
 
 ### 5. Delimiter & Key Behavior
 - **Space (` `)**: Triggers word evaluation and autocorrection.
+- **Tab (`\t`, `kVK_Tab`)**: If Ghost Text is currently visible, swallows `Tab` and injects the predicted continuation. If no Ghost Text is visible, **NEVER autocorrects** — clears buffer and passes `Tab` straight through to the app.
 - **Enter / Return (`\n`, `\r`, `kVK_Return`, keypad enter)**: **NEVER autocorrects**. Commits whatever raw text the user typed, clears buffer, starts sentence flag, and passes the Enter key straight through to the app.
-- **Backspace (`kVK_Delete`)**: If pressed immediately following an autocorrection, reverts the word back to raw keystrokes (Single-Key Undo). If pressed during typing, pops the last character.
+- **Backspace (`kVK_Delete`)**: If pressed immediately following an autocorrection or a Ghost Text accept, reverts the text back to raw keystrokes (Single-Key Undo). If pressed during typing, pops the last character.
 
 ### 6. Slang & Jargon Whitelist
 - Protect 180+ internet slang acronyms (`gng`, `brb`, `ttyl`, `idk`, `ngl`, `tbh`, etc.) in [`frequency_dictionary_en_82_765.txt`](dictionaries/frequency_dictionary_en_82_765.txt).

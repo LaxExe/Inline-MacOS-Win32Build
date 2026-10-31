@@ -11,7 +11,10 @@ TEST(SettingsBinding, AggressivenessSliderMapsToUnitRange) {
 
 TEST(SettingsBinding, PredictionLengthEnumRoundTrips) {
     EXPECT_EQ(predictionLengthFromIndex(0), AppConfig::PredictionLength::Conservative);
+    EXPECT_EQ(predictionLengthFromIndex(1), AppConfig::PredictionLength::Balanced);
     EXPECT_EQ(predictionLengthFromIndex(2), AppConfig::PredictionLength::Verbose);
+    EXPECT_EQ(predictionLengthFromIndex(3), AppConfig::PredictionLength::SingleWord);
+    EXPECT_EQ(predictionLengthToIndex(AppConfig::PredictionLength::SingleWord), 3);
 }
 
 TEST(SettingsBinding, DefaultAppConfigHasTogglesEnabled) {
@@ -21,6 +24,20 @@ TEST(SettingsBinding, DefaultAppConfigHasTogglesEnabled) {
     EXPECT_TRUE(cfg.splitRunTogetherWords);
     EXPECT_TRUE(cfg.sentenceCorrectionEnabled);
     EXPECT_TRUE(cfg.launchAtLogin);
+    EXPECT_TRUE(cfg.ghostTextEnabled);
+    EXPECT_TRUE(cfg.smartPredictionsEnabled);
+    EXPECT_EQ(cfg.ghostAcceptMode, 0);
+    EXPECT_EQ(cfg.ghostStyle, 1);
+    EXPECT_FALSE(cfg.ghostDisabledApps.empty());
+}
+
+TEST(SettingsBinding, GhostTextCombosRoundTrip) {
+    EXPECT_EQ(acceptKeyToIndex(acceptKeyFromIndex(0)), 0);
+    EXPECT_EQ(acceptKeyToIndex(acceptKeyFromIndex(1)), 1);
+    EXPECT_EQ(ghostAcceptModeToIndex(ghostAcceptModeFromIndex(0)), 0);
+    EXPECT_EQ(ghostAcceptModeToIndex(ghostAcceptModeFromIndex(1)), 1);
+    EXPECT_EQ(ghostStyleToIndex(ghostStyleFromIndex(0)), 0);
+    EXPECT_EQ(ghostStyleToIndex(ghostStyleFromIndex(2)), 2);
 }
 
 TEST(SettingsBinding, ToggleSwitchVisuallyReflectsOnState) {

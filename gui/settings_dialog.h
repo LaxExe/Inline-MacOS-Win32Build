@@ -35,7 +35,8 @@ enum class IconType {
     Accessibility,
     Keyboard,
     Activity,
-    Database
+    Database,
+    GhostText
 };
 
 // Modern iOS/macOS Pill-Style Toggle Switch
@@ -91,7 +92,11 @@ public:
     void loadFromConfig();
     void saveToConfig();
     void updateStatusInfo(bool hookRunning, size_t dictWords);
+    void updatePredictorInfo(bool modelAvailable, bool helperRunning, bool circuitTripped, bool lowPower, int64_t latencyMs);
     bool isDarkTheme() const { return isDarkTheme_; }
+
+signals:
+    void configChanged();
 
 public slots:
     void appendLog(const QString& msg);
@@ -127,28 +132,40 @@ private:
     QComboBox* sensitivityCombo_ = nullptr;
     QComboBox* editDistanceCombo_ = nullptr;
 
-    // Page 2: Appearance
+    // Page 2: Ghost Text
+    ToggleSwitch* ghostEnabledToggle_ = nullptr;
+    QComboBox* acceptKeyCombo_ = nullptr;
+    QComboBox* acceptModeCombo_ = nullptr;
+    QComboBox* predictionLengthCombo_ = nullptr;
+    QComboBox* ghostStyleCombo_ = nullptr;
+    ToggleSwitch* smartPredictionsToggle_ = nullptr;
+    QLabel* llmStatusBadge_ = nullptr;
+    QLabel* llmLatencyBadge_ = nullptr;
+
+    // Page 3: Appearance
     ThemePreviewCard* systemThemeCard_ = nullptr;
     ThemePreviewCard* lightThemeCard_ = nullptr;
     ThemePreviewCard* darkThemeCard_ = nullptr;
 
-    // Page 3: Vocabulary & Slang
+    // Page 4: Vocabulary & Slang
     QPlainTextEdit* ignoreWordsEdit_ = nullptr;
 
-    // Page 4: Excluded Applications
+    // Page 5: Excluded Applications
     QPlainTextEdit* disabledAppsEdit_ = nullptr;
+    QPlainTextEdit* ghostDisabledAppsEdit_ = nullptr;
 
-    // Page 5: Playground
+    // Page 6: Playground
     QLineEdit* testInputEdit_ = nullptr;
     QPlainTextEdit* liveLogEdit_ = nullptr;
 
-    // Page 6: Permissions & Health
+    // Page 7: Permissions & Health
     QLabel* axStatusBadge_ = nullptr;
     QPushButton* axActionBtn_ = nullptr;
     QLabel* imStatusBadge_ = nullptr;
     QPushButton* imActionBtn_ = nullptr;
     QLabel* engineStatusBadge_ = nullptr;
     QLabel* dictCountBadge_ = nullptr;
+    QLabel* predictorHealthBadge_ = nullptr;
 
     QTimer* refreshTimer_ = nullptr;
     bool hookRunning_ = false;
@@ -160,6 +177,7 @@ private:
 
     QWidget* createGeneralPage();
     QWidget* createFeaturesPage();
+    QWidget* createGhostTextPage();
     QWidget* createAppearancePage();
     QWidget* createVocabularyPage();
     QWidget* createExcludedAppsPage();

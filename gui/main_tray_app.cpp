@@ -4,10 +4,12 @@
 #include "core/buffers/buffer_gate.h"
 #include "core/buffers/word_boundary.h"
 #include "core/tier1/corrector.h"
+#include "core/ghost/ghost_layout.h"
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
 #include "platform/mac/hotkey/global_hotkey.h"
 #include "platform/mac/permissions.h"
 #include <Carbon/Carbon.h>
+#include <pthread/qos.h>
 #else
 #include "platform/win/hotkey/global_hotkey.h"
 #endif
@@ -16,6 +18,10 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QTimer>
+#include <QFontMetricsF>
+#include <QLineEdit>
+#include <QPlainTextEdit>
+#include <unistd.h>
 #include <iostream>
 
 static QIcon createStatusIcon(bool active, bool isDark = false) {
@@ -58,12 +64,34 @@ MainTrayApp::MainTrayApp(QObject* parent) : QObject(parent) {
 }
 
 MainTrayApp::~MainTrayApp() {
+    ghostWorkerRunning_.store(false, std::memory_order_relaxed);
+    ghostWorkerCv_.notify_all();
+    llmWorkerCv_.notify_all();
+    if (ghostWorkerThread_.joinable()) {
+        ghostWorkerThread_.join();
+    }
+    if (llmWorkerThread_.joinable()) {
+        llmWorkerThread_.join();
+    }
+    dismissGhost();
     clearAllBuffers();
     hook_.stop();
     injector_.stop();
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    predictorClient_.shutdownHelper();
+#endif
+}
+
+void MainTrayApp::dismissGhost() {
+    ghostSession_.hide();
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    ghostOverlay_.hide();
+#endif
 }
 
 void MainTrayApp::clearAllBuffers() {
+    dismissGhost();
+    ghostSession_.clearRejected();
     clearRequested_.store(true, std::memory_order_release);
     hasBufferedData_.store(false, std::memory_order_relaxed);
     hook_.clearQueue();
@@ -98,11 +126,24 @@ void MainTrayApp::onIdleCheck() {
         updateTrayIcon();
     }
 
+    if (settingsDialog_ && settingsDialog_->isVisible()) {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+        settingsDialog_->updatePredictorInfo(
+            predictorClient_.isModelAvailable(),
+            predictorClient_.isHelperRunning(),
+            predictorClient_.isCircuitTripped(),
+            PowerMonitor::isLowPowerModeEnabled(),
+            predictorClient_.lastLatencyMs()
+        );
+#endif
+    }
+
     if (!hasBufferedData_.load(std::memory_order_relaxed)) return;
     int64_t nowNs = std::chrono::steady_clock::now().time_since_epoch().count();
     int64_t lastNs = lastKeyTimeNs_.load(std::memory_order_relaxed);
     constexpr int64_t kThirtySecondsNs = 30LL * 1000000000LL;
     if ((nowNs - lastNs) >= kThirtySecondsNs) {
+        dismissGhost();
         hasBufferedData_.store(false, std::memory_order_relaxed);
         clearRequested_.store(true, std::memory_order_release);
         hook_.clearQueue();
@@ -134,6 +175,7 @@ void MainTrayApp::setupTray() {
 
     pauseAction_ = trayMenu_->addAction(tr("Pause Autocorrection"), this, &MainTrayApp::toggleMasterEnabled);
     sentenceToggleAction_ = trayMenu_->addAction(tr("Sentence Capitalization: Active"), this, &MainTrayApp::toggleSentenceCorrection);
+    ghostToggleAction_ = trayMenu_->addAction(tr("Ghost Text Predictions: Active"), this, &MainTrayApp::toggleGhostText);
     clearAction_ = trayMenu_->addAction(tr("Purge Keystroke Buffer"), this, &MainTrayApp::clearAllBuffers);
 
     trayMenu_->addSeparator();
@@ -165,6 +207,7 @@ void MainTrayApp::setupTray() {
         }, Qt::QueuedConnection);
     });
     registerPassiveCaretResetMonitors([this]() {
+        dismissGhost();
         clearRequested_.store(true, std::memory_order_release);
     });
 #endif
@@ -177,10 +220,16 @@ void MainTrayApp::setupTray() {
 void MainTrayApp::updateTrayIcon() {
     bool enabled = false;
     bool sentenceEnabled = false;
+    bool ghostEnabled = false;
     {
         std::lock_guard<std::mutex> lock(configMutex);
         enabled = sharedConfig.masterEnabled;
         sentenceEnabled = sharedConfig.sentenceCorrectionEnabled;
+        ghostEnabled = sharedConfig.ghostTextEnabled;
+    }
+
+    if (!enabled || !ghostEnabled) {
+        dismissGhost();
     }
 
     bool isDark = false;
@@ -207,6 +256,9 @@ void MainTrayApp::updateTrayIcon() {
     }
 
     sentenceToggleAction_->setText(sentenceEnabled ? tr("Sentence Capitalization: Active") : tr("Sentence Capitalization: Inactive"));
+    if (ghostToggleAction_) {
+        ghostToggleAction_->setText(ghostEnabled ? tr("Ghost Text Predictions: Active") : tr("Ghost Text Predictions: Inactive"));
+    }
 }
 
 void MainTrayApp::toggleMasterEnabled() {
@@ -231,25 +283,45 @@ void MainTrayApp::toggleSentenceCorrection() {
     }
 }
 
+void MainTrayApp::toggleGhostText() {
+    bool nowEnabled = false;
+    {
+        std::lock_guard<std::mutex> lock(configMutex);
+        sharedConfig.ghostTextEnabled = !sharedConfig.ghostTextEnabled;
+        nowEnabled = sharedConfig.ghostTextEnabled;
+    }
+    if (!nowEnabled) {
+        dismissGhost();
+    }
+    updateTrayIcon();
+    if (settingsDialog_ && settingsDialog_->isVisible()) {
+        settingsDialog_->loadFromConfig();
+    }
+}
+
 void MainTrayApp::openWalkthrough() {
+    dismissGhost();
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
     bringAppToFront();
 #endif
-    PermissionDialog dlg(nullptr, 0);
+    PermissionDialog dlg(nullptr, PermissionDialog::kHowItWorksSlide);
     dlg.show();
     dlg.raise();
     dlg.activateWindow();
     dlg.exec();
+    updateTrayIcon();
     if (settingsDialog_ && settingsDialog_->isVisible()) {
+        settingsDialog_->loadFromConfig();
         settingsDialog_->refreshPermissions();
     }
 }
 
 void MainTrayApp::openPermissions() {
+    dismissGhost();
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
     bringAppToFront();
 #endif
-    PermissionDialog dlg(nullptr, 3);
+    PermissionDialog dlg(nullptr, PermissionDialog::kPermissionSlide);
     dlg.show();
     dlg.raise();
     dlg.activateWindow();
@@ -260,13 +332,36 @@ void MainTrayApp::openPermissions() {
 }
 
 void MainTrayApp::openPreferences() {
+    dismissGhost();
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
     bringAppToFront();
 #endif
     if (!settingsDialog_) {
         settingsDialog_ = std::make_unique<SettingsDialog>();
+        connect(settingsDialog_.get(), &SettingsDialog::configChanged, this, [this]() {
+            updateTrayIcon();
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+            bool smartOn = true;
+            {
+                std::lock_guard<std::mutex> lock(configMutex);
+                smartOn = sharedConfig.smartPredictionsEnabled && sharedConfig.ghostTextEnabled && sharedConfig.masterEnabled;
+            }
+            if (!smartOn) {
+                predictorClient_.shutdownHelper();
+            }
+#endif
+        });
     }
     settingsDialog_->updateStatusInfo(hook_.isRunning(), static_cast<int>(dict_.wordCount()));
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    settingsDialog_->updatePredictorInfo(
+        predictorClient_.isModelAvailable(),
+        predictorClient_.isHelperRunning(),
+        predictorClient_.isCircuitTripped(),
+        PowerMonitor::isLowPowerModeEnabled(),
+        predictorClient_.lastLatencyMs()
+    );
+#endif
     settingsDialog_->loadFromConfig();
     settingsDialog_->show();
     settingsDialog_->raise();
@@ -274,9 +369,22 @@ void MainTrayApp::openPreferences() {
 }
 
 void MainTrayApp::quitApp() {
+    ghostWorkerRunning_.store(false, std::memory_order_relaxed);
+    ghostWorkerCv_.notify_all();
+    llmWorkerCv_.notify_all();
+    if (ghostWorkerThread_.joinable()) {
+        ghostWorkerThread_.join();
+    }
+    if (llmWorkerThread_.joinable()) {
+        llmWorkerThread_.join();
+    }
+    dismissGhost();
     clearAllBuffers();
     hook_.stop();
     injector_.stop();
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    predictorClient_.shutdownHelper();
+#endif
     QApplication::quit();
 }
 
@@ -308,10 +416,16 @@ bool MainTrayApp::initEngine() {
         std::cerr << "[TypingAssistant] Warning: Failed to load bigram dictionary from: " << bigramPath << std::endl;
     }
 
+    ngramPredictor_ = std::make_unique<NgramPredictor>(dict_);
+
     {
         std::lock_guard<std::mutex> lock(configMutex);
         cachedConfig_ = sharedConfig;
     }
+
+    ghostWorkerRunning_.store(true, std::memory_order_relaxed);
+    ghostWorkerThread_ = std::thread(&MainTrayApp::ghostWorkerLoop, this);
+    llmWorkerThread_ = std::thread(&MainTrayApp::llmWorkerLoop, this);
 
     hook_.setKeyFilterCallback([this](const RawKeyEvent& ev, bool isActiveTap) {
         return this->onRawKeyEvent(ev, isActiveTap);
@@ -323,14 +437,334 @@ bool MainTrayApp::initEngine() {
     injector_.start();
     hook_.start();
 
-    // Register default global hotkey ⌘⌥⇧K
+    // Register default global hotkey Cmd+Opt+Shift+K for Autocorrect
     GlobalHotkeyManager::instance().registerHotkey(
         KeyCode::K, Mod::Cmd | Mod::Option | Mod::Shift, [this]() {
             QMetaObject::invokeMethod(this, &MainTrayApp::toggleMasterEnabled, Qt::QueuedConnection);
         }
     );
 
+    // Register global hotkey Cmd+Opt+Shift+G for Ghost Text Predictions
+    GlobalHotkeyManager::instance().registerHotkey(
+        KeyCode::G, Mod::Cmd | Mod::Option | Mod::Shift, [this]() {
+            QMetaObject::invokeMethod(this, &MainTrayApp::toggleGhostText, Qt::QueuedConnection);
+        }
+    );
+
     return true;
+}
+
+void MainTrayApp::scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText) {
+    if (!cachedConfig_.masterEnabled || !cachedConfig_.ghostTextEnabled) {
+        return;
+    }
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    if (isFrontmostAppExcluded(cachedConfig_.ghostDisabledApps)) {
+        dismissGhost();
+        return;
+    }
+#endif
+
+    GhostWorkerRequest req;
+    req.generation = ghostSession_.currentGeneration();
+    req.contextWords.assign(contextWindow_.words.begin(), contextWindow_.words.end());
+    req.partialWord = currentWord_.chars;
+    req.typeThroughRemaining = typeThroughText;
+    req.isSentenceStart = isSentenceStart_;
+    req.typeThroughOnly = typeThroughOnly;
+    req.config = cachedConfig_;
+
+    {
+        std::lock_guard<std::mutex> lock(ghostWorkerMutex_);
+        pendingGhostReq_ = std::move(req);
+        hasPendingGhostReq_ = true;
+    }
+    ghostWorkerCv_.notify_one();
+}
+
+std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::wstring& partialWord, bool afterSpace) {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    // 1. Wait 3ms so the physical or synthetic keystroke finishes dispatching to the target app
+    std::this_thread::sleep_for(std::chrono::milliseconds(3));
+
+    // 2. If our own Inline Settings window (e.g. Playground QLineEdit) is active, query the Qt widget directly
+    // for 100% pixel-exact cursor coordinates without AX IPC overhead.
+    if (settingsDialog_ && settingsDialog_->isVisible() && QApplication::activeWindow() != nullptr) {
+        std::optional<CaretGeometry> selfGeom;
+        QMetaObject::invokeMethod(settingsDialog_.get(), [&]() {
+            QWidget* fw = QApplication::focusWidget();
+            if (auto* le = qobject_cast<QLineEdit*>(fw)) {
+                struct PublicLineEdit : public QLineEdit { using QLineEdit::cursorRect; };
+                QRect cr = static_cast<PublicLineEdit*>(le)->cursorRect();
+                QFontMetricsF fm(le->font());
+                QString fullText = le->text();
+                int cpos = le->cursorPosition();
+                QString before = fullText.left(cpos);
+                QString after = fullText.mid(cpos);
+
+                double lineH = std::max(16.0, fm.height());
+                int topYLocal = static_cast<int>(std::round((le->height() - lineH) * 0.5));
+                QPoint globalCaret = le->mapToGlobal(QPoint(cr.center().x() + 1, topYLocal));
+                QPoint globalField = le->mapToGlobal(QPoint(0, 0));
+
+                CaretGeometry g;
+                g.pid = static_cast<int>(::getpid());
+                g.caret = {static_cast<double>(globalCaret.x()), static_cast<double>(globalCaret.y()), 2.5, lineH};
+                g.field = {static_cast<double>(globalField.x()), static_cast<double>(globalField.y()),
+                           static_cast<double>(le->width()), static_cast<double>(le->height())};
+                g.lineStartX = g.field.x + 10.0;
+                g.lineHeight = lineH;
+                g.fontSize = le->fontInfo().pointSizeF() > 0 ? le->fontInfo().pointSizeF() : 13.0;
+                g.isSingleLine = true;
+                g.atEditableEnd = after.isEmpty();
+                g.caretAtEOF = after.isEmpty();
+                g.textTail = before.toStdWString();
+                selfGeom = g;
+            }
+        }, Qt::BlockingQueuedConnection);
+        if (selfGeom) {
+            return selfGeom;
+        }
+    }
+
+    // 3. External macOS app: query AXCaretTracker and ensure textTail has caught up to the latest keystroke
+    wchar_t expectedLast = L'\0';
+    if (!partialWord.empty()) {
+        expectedLast = static_cast<wchar_t>(std::towlower(partialWord.back()));
+    } else if (afterSpace) {
+        expectedLast = L' ';
+    }
+
+    std::optional<CaretGeometry> geom;
+    for (int attempt = 0; attempt < 5; ++attempt) {
+        geom = caretTracker_.getCaretGeometry();
+        if (!geom) {
+            // Give waking Chromium/Electron accessibility trees a brief moment to finish building
+            if (attempt < 3) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                continue;
+            }
+            return std::nullopt;
+        }
+        if (expectedLast == L'\0' || geom->textTail.empty()) {
+            break;
+        }
+        wchar_t actualLast = static_cast<wchar_t>(std::towlower(geom->textTail.back()));
+        if (actualLast == expectedLast) {
+            break; // Host app has processed the latest keystroke and updated its cursor!
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(3));
+    }
+    return geom;
+#else
+    (void)partialWord;
+    (void)afterSpace;
+    return std::nullopt;
+#endif
+}
+
+void MainTrayApp::ghostWorkerLoop() {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    pthread_set_qos_class_self_np(QOS_CLASS_USER_INTERACTIVE, 0);
+#endif
+
+    while (ghostWorkerRunning_.load(std::memory_order_relaxed)) {
+        GhostWorkerRequest req;
+        {
+            std::unique_lock<std::mutex> lock(ghostWorkerMutex_);
+            ghostWorkerCv_.wait(lock, [this]() {
+                return !ghostWorkerRunning_.load(std::memory_order_relaxed) || hasPendingGhostReq_;
+            });
+            if (!ghostWorkerRunning_.load(std::memory_order_relaxed)) break;
+            req = std::move(pendingGhostReq_);
+            hasPendingGhostReq_ = false;
+        }
+
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+        if (!req.config.masterEnabled || !req.config.ghostTextEnabled ||
+            IsSecureEventInputEnabled() ||
+            isFrontmostAppExcluded(req.config.disabledApps) ||
+            isFrontmostAppExcluded(req.config.ghostDisabledApps)) {
+            dismissGhost();
+            continue;
+        }
+
+        const bool isMidWord = !req.partialWord.empty();
+        const bool afterSpace = req.partialWord.empty() && !req.contextWords.empty();
+
+        // Query caret geometry immediately (with 3ms keystroke settle + textTail sync so cursor is never stale)
+        auto geom = queryCaretGeometryWithSync(req.partialWord, afterSpace);
+        if (req.generation != ghostSession_.currentGeneration()) continue;
+        if (!geom || !geom->atEditableEnd) {
+            dismissGhost();
+            continue;
+        }
+
+        // Build context string for rejection key and LLM prompt
+        std::wstring contextKey;
+        for (const auto& w : req.contextWords) {
+            contextKey += w + L" ";
+        }
+        if (!geom->textTail.empty() && contextKey.empty()) {
+            contextKey = geom->textTail;
+            if (!req.partialWord.empty() && contextKey.size() >= req.partialWord.size()) {
+                contextKey.erase(contextKey.size() - req.partialWord.size());
+            }
+        }
+
+        // Type-through fast path: if user typed a matching character and there is still multi-word text remaining,
+        // re-anchor it immediately at the new cursor position, and if it's down to a short suffix, let Ngram/LLM extend it!
+        bool renderedSomething = false;
+        if (req.typeThroughOnly && !req.typeThroughRemaining.empty()) {
+            bool midWordNow = req.typeThroughRemaining.front() != L' ';
+            GhostLayoutResult layout = computeGhostLayout(
+                req.typeThroughRemaining,
+                *geom,
+                midWordNow,
+                GhostOverlay::measureTextWidth,
+                req.config.ghostStyle
+            );
+            if (layout.valid) {
+                ghostOverlay_.showLayout(layout);
+                renderedSomething = true;
+            }
+            // If typeThroughRemaining still contains a space (multiple words ahead), no need to recompute
+            if (req.typeThroughRemaining.find(L' ') != std::wstring::npos) {
+                continue;
+            }
+        }
+
+        // Layer 0: Instant N-Gram & Phrase Predictor (< 0.1 ms, ZERO debounce — active on every keystroke!)
+        if (ngramPredictor_ && req.generation == ghostSession_.currentGeneration()) {
+            PredictionResult instantPred = ngramPredictor_->predict(
+                req.contextWords,
+                req.partialWord,
+                req.config.predictionLength,
+                req.isSentenceStart
+            );
+            if (!instantPred.text.empty()) {
+                bool midWordRender = isMidWord && instantPred.text.front() != L' ';
+                GhostLayoutResult layout = computeGhostLayout(
+                    instantPred.text,
+                    *geom,
+                    midWordRender,
+                    GhostOverlay::measureTextWidth,
+                    req.config.ghostStyle
+                );
+                if (layout.valid) {
+                    instantPred.text = layout.fittedText;
+                    std::wstring textToRender;
+                    if (ghostSession_.applyCandidatePrediction(req.generation, contextKey, instantPred, textToRender)) {
+                        ghostOverlay_.showLayout(layout);
+                        renderedSomething = true;
+                        if (settingsDialog_ && settingsDialog_->isVisible()) {
+                            QString msg = QString("[GHOST_PREDICT] source=Instant words=%1 latency=%2us")
+                                .arg(instantPred.wordCount)
+                                .arg(instantPred.latencyUs);
+                            QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!renderedSomething && !ghostSession_.isVisible()) {
+            ghostOverlay_.hide();
+        }
+
+        // Hand off to non-blocking Layer 1 LLM worker thread for deep contextual multi-word continuation
+        if (req.config.smartPredictionsEnabled &&
+            PowerMonitor::currentEngineMode() == EngineMode::Full &&
+            !predictorClient_.isCircuitTripped() &&
+            req.generation == ghostSession_.currentGeneration() &&
+            (!contextKey.empty() || req.partialWord.size() >= 2)) {
+            GhostWorkerRequest llmReq = req;
+            llmReq.contextKey = contextKey;
+            llmReq.geom = *geom;
+            {
+                std::lock_guard<std::mutex> lock(llmWorkerMutex_);
+                pendingLlmReq_ = std::move(llmReq);
+                hasPendingLlmReq_ = true;
+            }
+            llmWorkerCv_.notify_one();
+        }
+#endif
+    }
+}
+
+void MainTrayApp::llmWorkerLoop() {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    pthread_set_qos_class_self_np(QOS_CLASS_USER_INITIATED, 0);
+
+    // Pre-warm the out-of-process InlinePredictor helper on startup so the first prediction has zero cold start
+    if (cachedConfig_.masterEnabled && cachedConfig_.ghostTextEnabled && cachedConfig_.smartPredictionsEnabled) {
+        (void)predictorClient_.predict(0, L"Hello ", L"", 1);
+    }
+#endif
+
+    while (ghostWorkerRunning_.load(std::memory_order_relaxed)) {
+        GhostWorkerRequest req;
+        {
+            std::unique_lock<std::mutex> lock(llmWorkerMutex_);
+            llmWorkerCv_.wait(lock, [this]() {
+                return !ghostWorkerRunning_.load(std::memory_order_relaxed) || hasPendingLlmReq_;
+            });
+            if (!ghostWorkerRunning_.load(std::memory_order_relaxed)) break;
+            req = std::move(pendingLlmReq_);
+            hasPendingLlmReq_ = false;
+        }
+
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+        // Brief 22ms coalesce so rapid keystrokes don't queue unnecessary LLM calls while Layer 0 handles every key
+        std::this_thread::sleep_for(std::chrono::milliseconds(22));
+        if (!ghostWorkerRunning_.load(std::memory_order_relaxed)) break;
+        if (req.generation != ghostSession_.currentGeneration()) continue;
+
+        int maxW = maxWordsForLength(req.config.predictionLength);
+        PredictionResult llmPred = predictorClient_.predict(
+            req.generation,
+            req.contextKey,
+            req.partialWord,
+            maxW
+        );
+        if (llmPred.text.empty() || req.generation != ghostSession_.currentGeneration()) {
+            continue;
+        }
+
+        // Re-verify latest caret geometry in case the host view scrolled or moved
+        auto freshGeom = queryCaretGeometryWithSync(req.partialWord, req.partialWord.empty() && !req.contextWords.empty());
+        if (!freshGeom || !freshGeom->atEditableEnd || req.generation != ghostSession_.currentGeneration()) {
+            continue;
+        }
+
+        const bool isMidWord = !req.partialWord.empty() && llmPred.text.front() != L' ';
+        GhostLayoutResult layout = computeGhostLayout(
+            llmPred.text,
+            *freshGeom,
+            isMidWord,
+            GhostOverlay::measureTextWidth,
+            req.config.ghostStyle
+        );
+        if (layout.valid) {
+            llmPred.text = layout.fittedText;
+            std::wstring textToRender;
+            if (ghostSession_.applyCandidatePrediction(req.generation, req.contextKey, llmPred, textToRender)) {
+                GhostLayoutResult finalLayout = (textToRender == layout.fittedText)
+                    ? layout
+                    : computeGhostLayout(textToRender, *freshGeom, isMidWord, GhostOverlay::measureTextWidth, req.config.ghostStyle);
+                if (finalLayout.valid) {
+                    ghostOverlay_.showLayout(finalLayout);
+                    if (settingsDialog_ && settingsDialog_->isVisible()) {
+                        QString msg = QString("[GHOST_PREDICT] source=LLM words=%1 latency=%2ms")
+                            .arg(llmPred.wordCount)
+                            .arg(llmPred.latencyUs / 1000);
+                        QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
+                    }
+                }
+            }
+        }
+#endif
+    }
 }
 
 static wchar_t keyCodeToChar(int64_t keycode, uint64_t flags) {
@@ -397,6 +831,7 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
     // 1. Handle lock-free buffer clear request from UI / idle timer
     if (clearRequested_.exchange(false, std::memory_order_acquire)) {
         currentWord_.chars.clear();
+        currentWordFromGhost_ = false;
         contextWindow_.words.clear();
         sentenceBuffer_.words.clear();
         undoSM_.reset();
@@ -405,7 +840,9 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
     // 2. A click can move the caret anywhere, so whatever we buffered no longer sits before the caret.
     // CGEventType values: LeftMouseDown=1, RightMouseDown=3, OtherMouseDown=25.
     if (ev.type == 1 || ev.type == 3 || ev.type == 25) {
+        dismissGhost();
         currentWord_.chars.clear();
+        currentWordFromGhost_ = false;
         undoSM_.onOtherKey();
         currentWordToken_++;
         injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
@@ -414,7 +851,8 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
 
     if (ev.type != kCGEventKeyDown) return false;
 
-    lastKeyTimeNs_.store(std::chrono::steady_clock::now().time_since_epoch().count(), std::memory_order_relaxed);
+    const int64_t nowNs = std::chrono::steady_clock::now().time_since_epoch().count();
+    lastKeyTimeNs_.store(nowNs, std::memory_order_relaxed);
     hasBufferedData_.store(true, std::memory_order_relaxed);
 
     // 3. Non-blocking config read: never stall the real-time hook thread if UI is writing config
@@ -422,12 +860,17 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
         cachedConfig_ = sharedConfig;
         configMutex.unlock();
     }
-    if (!cachedConfig_.masterEnabled) return false;
+    if (!cachedConfig_.masterEnabled) {
+        dismissGhost();
+        return false;
+    }
 
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
     // 3b. Never buffer or autocorrect inside secure password inputs or excluded applications
     if (IsSecureEventInputEnabled() || isFrontmostAppExcluded(cachedConfig_.disabledApps)) {
+        dismissGhost();
         currentWord_.chars.clear();
+        currentWordFromGhost_ = false;
         undoSM_.onOtherKey();
         currentWordToken_++;
         injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
@@ -435,24 +878,95 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
     }
 #endif
 
+    // 3c. Ghost Text accept check (runs BEFORE navigation/Tab word-boundary handling!)
+    if (cachedConfig_.ghostTextEnabled &&
+        ghostSession_.shouldSwallowKey(ev.keyCode, ev.flags, ev.isAutorepeat, isActiveTap, cachedConfig_.acceptKey, nowNs)) {
+        if (ev.isAutorepeat) {
+            return true; // Swallow held-down Tab key repeat within 500ms of accept
+        }
+
+        std::wstring acceptedChunk;
+        std::wstring remainingVisible;
+        if (ghostSession_.consumeAccept(cachedConfig_.ghostAcceptMode, nowNs, acceptedChunk, remainingVisible)) {
+            currentWordToken_++;
+            injector_.setValidToken(InjectionOp::GHOST_ACCEPT, currentWordToken_);
+
+            std::wstring priorWord = currentWord_.chars;
+            undoSM_.onGhostAccepted(acceptedChunk, priorWord);
+
+            InjectionOp acceptOp{
+                .type = InjectionOp::TYPE_TEXT,
+                .count = 0,
+                .text = acceptedChunk,
+                .generation_token = currentWordToken_,
+                .source = InjectionOp::GHOST_ACCEPT
+            };
+            injector_.executeImmediate(acceptOp);
+
+            // Update currentWord_ and contextWindow_ with accepted text
+            std::wstring combined = currentWord_.chars + acceptedChunk;
+            currentWord_.chars.clear();
+            std::wstring token;
+            for (wchar_t wc : combined) {
+                if (wc == L' ') {
+                    if (!token.empty()) {
+                        contextWindow_.words.push_back(std::move(token));
+                        if (contextWindow_.words.size() > 5) contextWindow_.words.pop_front();
+                        token.clear();
+                    }
+                } else {
+                    token.push_back(wc);
+                }
+            }
+            currentWord_.chars = std::move(token);
+            currentWordFromGhost_ = !currentWord_.chars.empty();
+            if (!acceptedChunk.empty()) {
+                wchar_t lastC = acceptedChunk.back();
+                isSentenceStart_ = (lastC == L'.' || lastC == L'!' || lastC == L'?');
+            }
+
+            if (remainingVisible.empty()) {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+                ghostOverlay_.hide();
+#endif
+                // Immediately predict the next couple of words following the Tab-completed word/phrase!
+                scheduleGhostPrediction(false);
+            } else {
+                scheduleGhostPrediction(true, remainingVisible);
+            }
+
+            if (settingsDialog_ && settingsDialog_->isVisible()) {
+                QString msg = QString("[GHOST_ACCEPT] Inserted %1 characters via %2")
+                    .arg(acceptedChunk.size())
+                    .arg(cachedConfig_.acceptKey == KeyCode::RightArrow ? "RightArrow" : "Tab");
+                QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
+            }
+            return true; // Swallow physical Tab / RightArrow
+        }
+    }
+
     // 4. Ignore keyboard shortcuts with Command (⌘) or Control (⌃) modifiers
     constexpr uint64_t kCmdMask = (1ULL << 20); // kCGEventFlagMaskCommand
     constexpr uint64_t kCtrlMask = (1ULL << 18); // kCGEventFlagMaskControl
     if ((ev.flags & (kCmdMask | kCtrlMask)) != 0) {
+        dismissGhost();
         currentWord_.chars.clear();
+        currentWordFromGhost_ = false;
         undoSM_.onOtherKey();
         currentWordToken_++;
         injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
         return false;
     }
 
-    // 5. Navigation and escape keys reset the current word buffer
+    // 5. Navigation and escape keys reset the current word buffer and hide ghost text
     if (ev.keyCode == kVK_LeftArrow || ev.keyCode == kVK_RightArrow ||
         ev.keyCode == kVK_UpArrow || ev.keyCode == kVK_DownArrow ||
         ev.keyCode == kVK_Escape || ev.keyCode == kVK_Home ||
         ev.keyCode == kVK_End || ev.keyCode == kVK_PageUp ||
         ev.keyCode == kVK_PageDown) {
+        dismissGhost();
         currentWord_.chars.clear();
+        currentWordFromGhost_ = false;
         undoSM_.onOtherKey();
         currentWordToken_++;
         injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
@@ -465,17 +979,32 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
 
     wchar_t ch = keyCodeToChar(ev.keyCode, ev.flags);
     if (ch == L'\0') {
+        dismissGhost();
         undoSM_.onOtherKey();
         return false;
     }
 
-    // Never autocorrect on Enter / Return: commit raw text as-is and pass Enter through directly
+    // Never autocorrect or accept ghost text on Enter / Return: commit raw text as-is and pass Enter through directly
     if (ev.keyCode == kVK_Return || ev.keyCode == 0x4C /* kVK_ANSI_KeypadEnter */ || ch == L'\n' || ch == L'\r') {
+        dismissGhost();
         currentWord_.chars.clear();
+        currentWordFromGhost_ = false;
         undoSM_.onOtherKey();
         currentWordToken_++;
         injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
         isSentenceStart_ = true;
+        return false;
+    }
+
+    // If Tab was pressed when no ghost text was visible (or with Shift+Tab), hide any ghost and pass Tab through
+    // without triggering typo replacement on the preceding word!
+    if (ev.keyCode == kVK_Tab || ch == L'\t') {
+        dismissGhost();
+        currentWord_.chars.clear();
+        currentWordFromGhost_ = false;
+        undoSM_.onOtherKey();
+        currentWordToken_++;
+        injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
         return false;
     }
 
@@ -493,6 +1022,16 @@ void MainTrayApp::handleCharacter(wchar_t ch) {
     currentWordToken_++;
     injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
 
+    std::wstring remainingGhost;
+    if (ghostSession_.onCharacterTyped(ch, remainingGhost)) {
+        scheduleGhostPrediction(true, remainingGhost);
+    } else {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+        ghostOverlay_.hide();
+#endif
+        scheduleGhostPrediction(false);
+    }
+
     if (settingsDialog_ && settingsDialog_->isVisible()) {
         QString msg = QString("Key typed: '%1'  |  Current word buffer: \"%2\"")
             .arg(QChar(ch))
@@ -502,15 +1041,45 @@ void MainTrayApp::handleCharacter(wchar_t ch) {
 }
 
 bool MainTrayApp::handleBackspace(bool isActiveTap) {
-    // 1. Check if an auto-correction just occurred right before this backspace
+    dismissGhost();
+
+    // 1. Check if an auto-correction or Ghost Text accept just occurred right before this backspace
     UndoActionResult undoAction = cachedConfig_.singleKeyUndoEnabled ? undoSM_.onBackspace() : UndoActionResult{};
+    if (undoAction.type == UndoAction::RevertGhostAccept) {
+        currentWordToken_++;
+        injector_.setValidToken(InjectionOp::UNDO_CORRECTION, currentWordToken_);
+
+        int backspaces = static_cast<int>(undoAction.correctedText.size()) - (isActiveTap ? 0 : 1);
+        if (backspaces > 0) {
+            InjectionOp bsOp{
+                .type = InjectionOp::BACKSPACE_N,
+                .count = backspaces,
+                .text = L"",
+                .generation_token = currentWordToken_,
+                .source = InjectionOp::UNDO_CORRECTION
+            };
+            injector_.executeImmediate(bsOp);
+        }
+
+        currentWord_.chars = undoAction.revertedText;
+        currentWordFromGhost_ = false;
+
+        std::wstring contextKey;
+        for (const auto& w : contextWindow_.words) contextKey += w + L" ";
+        ghostSession_.markRejected(contextKey, undoAction.correctedText);
+
+        if (settingsDialog_ && settingsDialog_->isVisible()) {
+            QString msg = QString("[GHOST_UNDO] Reverted accepted suggestion (%1 chars)")
+                .arg(undoAction.correctedText.size());
+            QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
+        }
+        return isActiveTap;
+    }
+
     if (undoAction.type == UndoAction::RevertCorrection) {
         currentWordToken_++;
         injector_.setValidToken(InjectionOp::UNDO_CORRECTION, currentWordToken_);
 
-        // Common prefix optimization: only backspace the divergent suffix of correctedText
-        // (plus trailing delimiter if physical backspace is swallowed by active tap),
-        // then retype the divergent suffix of revertedText.
         size_t p = commonPrefixLength(undoAction.correctedText, undoAction.revertedText);
 
         int backspaces = static_cast<int>(undoAction.correctedText.size() - p) + (isActiveTap ? 1 : 0);
@@ -527,6 +1096,7 @@ bool MainTrayApp::handleBackspace(bool isActiveTap) {
         injector_.executeImmediate(replaceOp);
 
         currentWord_.chars = undoAction.revertedText;
+        currentWordFromGhost_ = false;
 
         if (!contextWindow_.words.empty() && contextWindow_.words.back() == undoAction.correctedText) {
             contextWindow_.words.pop_back();
@@ -551,6 +1121,11 @@ bool MainTrayApp::handleBackspace(bool isActiveTap) {
     if (!currentWord_.chars.empty()) {
         currentWord_.chars.pop_back();
     }
+    if (currentWord_.chars.empty()) {
+        currentWordFromGhost_ = false;
+    } else {
+        scheduleGhostPrediction(false);
+    }
 
     if (settingsDialog_ && settingsDialog_->isVisible()) {
         QString msg = QString("[BACKSPACE] Current word buffer: \"%1\"").arg(QString::fromStdWString(currentWord_.chars));
@@ -561,6 +1136,7 @@ bool MainTrayApp::handleBackspace(bool isActiveTap) {
 
 bool MainTrayApp::handleWordBoundary(wchar_t delimiter, bool isActiveTap) {
     if (currentWord_.chars.empty()) {
+        dismissGhost();
         undoSM_.onOtherKey();
         if (delimiter == L'.' || delimiter == L'!' || delimiter == L'?' || delimiter == L'\n') {
             isSentenceStart_ = true;
@@ -573,6 +1149,8 @@ bool MainTrayApp::handleWordBoundary(wchar_t delimiter, bool isActiveTap) {
     std::wstring word = std::move(currentWord_.chars);
     currentWord_.chars.clear();
     currentWord_.chars.reserve(64);
+    const bool skipAutocorrectFromGhost = currentWordFromGhost_;
+    currentWordFromGhost_ = false;
 
     std::wstring wordForContext = word;
     std::wstring prevWord = L"";
@@ -581,16 +1159,18 @@ bool MainTrayApp::handleWordBoundary(wchar_t delimiter, bool isActiveTap) {
     }
 
     bool swallowedDelimiter = false;
-    auto correction = correctWord(word, dict_, cachedConfig_, isSentenceStart_, prevWord);
+    CorrectionResult correction{};
+    if (!skipAutocorrectFromGhost) {
+        correction = correctWord(word, dict_, cachedConfig_, isSentenceStart_, prevWord);
+    }
+
     if (correction.didCorrect) {
+        dismissGhost();
         auto check = undoSM_.onWordCorrected(word, correction.corrected);
         if (!check.suppressed) {
             currentWordToken_++;
             injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
 
-            // Common prefix optimization + Step 1 (delimiter swallowed before app sees it):
-            // If isActiveTap is true, the delimiter has NOT reached the app yet, so we only delete
-            // (word.size() - p) characters (0 backspaces when a missing letter is at the end!)
             size_t p = commonPrefixLength(word, correction.corrected);
 
             int backspaces = static_cast<int>(word.size() - p) + (isActiveTap ? 0 : 1);
@@ -638,6 +1218,21 @@ bool MainTrayApp::handleWordBoundary(wchar_t delimiter, bool isActiveTap) {
     if (contextWindow_.words.size() > 5) {
         contextWindow_.words.pop_front();
     }
+
+    // Trigger next-word Ghost Text prediction when user presses Space
+    if (delimiter == L' ') {
+        std::wstring remGhost;
+        if (!correction.didCorrect && ghostSession_.onCharacterTyped(L' ', remGhost)) {
+            scheduleGhostPrediction(true, remGhost);
+        } else {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+            ghostOverlay_.hide();
+#endif
+            scheduleGhostPrediction(false);
+        }
+    } else {
+        dismissGhost();
+    }
+
     return swallowedDelimiter;
 }
-

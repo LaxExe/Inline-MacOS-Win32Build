@@ -1,4 +1,5 @@
 #include "platform/mac/permissions.h"
+#include "platform/mac/caret/mac_caret_tracker.h"
 #import <Cocoa/Cocoa.h>
 #import <ApplicationServices/ApplicationServices.h>
 #include <atomic>
@@ -232,6 +233,11 @@ static void updateFrontmostAppInfo(NSRunningApplication *app) {
     std::lock_guard<std::mutex> lock(gFrontAppMutex);
     gFrontBundleId = std::move(bundleId);
     gFrontAppName = std::move(appName);
+
+    // Warm up accessibility immediately if this is a Chromium/Electron/browser application
+    if ([app processIdentifier] > 0) {
+        MacCaretTracker::enableChromiumAccessibilityIfNeeded([app processIdentifier]);
+    }
 }
 
 void registerPassiveCaretResetMonitors(std::function<void()> onReset) {
@@ -239,7 +245,7 @@ void registerPassiveCaretResetMonitors(std::function<void()> onReset) {
     updateFrontmostAppInfo([[NSWorkspace sharedWorkspace] frontmostApplication]);
 
     if (!gGlobalMouseMonitor) {
-        NSEventMask mask = NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown | NSEventMaskOtherMouseDown;
+        NSEventMask mask = NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown | NSEventMaskOtherMouseDown | NSEventMaskScrollWheel;
         gGlobalMouseMonitor = [NSEvent addGlobalMonitorForEventsMatchingMask:mask handler:^(NSEvent * _Nonnull) {
             if (gCaretResetCallback) gCaretResetCallback();
         }];
@@ -255,6 +261,13 @@ void registerPassiveCaretResetMonitors(std::function<void()> onReset) {
                                                                 usingBlock:^(NSNotification * _Nonnull note) {
         NSRunningApplication *app = note.userInfo[NSWorkspaceApplicationKey];
         updateFrontmostAppInfo(app);
+        if (gCaretResetCallback) gCaretResetCallback();
+    }];
+
+    [[[NSWorkspace sharedWorkspace] notificationCenter] addObserverForName:NSWorkspaceActiveSpaceDidChangeNotification
+                                                                    object:nil
+                                                                     queue:[NSOperationQueue mainQueue]
+                                                                usingBlock:^(NSNotification * _Nonnull) {
         if (gCaretResetCallback) gCaretResetCallback();
     }];
 }

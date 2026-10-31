@@ -4,7 +4,8 @@
 
 enum class UndoAction {
     NormalDelete,
-    RevertCorrection
+    RevertCorrection,
+    RevertGhostAccept
 };
 
 struct UndoActionResult {
@@ -22,6 +23,7 @@ public:
     UndoStateMachine();
 
     CorrectResult onWordCorrected(const std::wstring& original, const std::wstring& corrected);
+    void onGhostAccepted(const std::wstring& acceptedText, const std::wstring& priorWordBuffer = L"");
     UndoActionResult onBackspace();
     void onOtherKey();
     void reset();
@@ -30,6 +32,7 @@ private:
     enum class State {
         Idle,
         EligibleForUndo,
+        EligibleForGhostUndo,
         Suppressed
     };
 

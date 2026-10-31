@@ -11,6 +11,13 @@
 class PermissionDialog : public QDialog {
     Q_OBJECT
 public:
+    static constexpr int kHowItWorksSlide = 0;
+    static constexpr int kFeaturesSlide   = 1;
+    static constexpr int kGhostTextSlide  = 2;
+    static constexpr int kPrivacySlide    = 3;
+    static constexpr int kPermissionSlide = 4;
+    static constexpr int kSlideCount      = 5;
+
     explicit PermissionDialog(QWidget* parent = nullptr, int initialSlide = 0);
     ~PermissionDialog() override = default;
 
@@ -30,7 +37,7 @@ private:
     QLabel* descriptionLabel_ = nullptr;
     QStackedWidget* slideStack_ = nullptr;
 
-    // Slide 3: Subsystem inspection rows
+    // Slide 4: Subsystem inspection rows
     QLabel* imStatusLabel_ = nullptr;
     QPushButton* imActionButton_ = nullptr;
 
@@ -53,6 +60,7 @@ private:
 
     QWidget* createHowItWorksSlide();
     QWidget* createFeaturesSlide();
+    QWidget* createGhostTextSlide();
     QWidget* createPrivacyAndControlsSlide();
     QWidget* createPermissionSlide();
 

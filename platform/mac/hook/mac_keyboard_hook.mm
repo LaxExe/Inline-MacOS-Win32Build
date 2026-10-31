@@ -92,6 +92,7 @@ CGEventRef MacKeyboardHook::eventTapCallback(CGEventTapProxy proxy, CGEventType 
     raw.flags = CGEventGetFlags(event);
     raw.type = static_cast<uint32_t>(type);
     raw.timestampNs = CGEventGetTimestamp(event);
+    raw.isAutorepeat = (CGEventGetIntegerValueField(event, kCGKeyboardEventAutorepeat) != 0);
 
     const bool activeTap = self->isActiveTap_.load(std::memory_order_relaxed);
     bool swallow = (type == kCGEventKeyDown && raw.keyCode == 48 /* kVK_Tab */ &&

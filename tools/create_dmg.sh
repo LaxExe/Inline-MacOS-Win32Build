@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Build and Package Inline macOS DMG (v1.1)
+# Build and Package Inline macOS DMG (v1.2)
 # ==============================================================================
 set -e
 
@@ -13,12 +13,15 @@ NC='\033[0m'
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-echo -e "${BOLD}${BLUE}=== Building and Packaging Inline v1.1 for macOS ===${NC}\n"
+echo -e "${BOLD}${BLUE}=== Building and Packaging Inline v1.2 for macOS ===${NC}\n"
+
+# 0. Ensure bundled GGUF model & llama.cpp are fetched
+./tools/fetch_model.sh
 
 # 1. Build Release
 echo -e "${BOLD}Building Inline (Release)...${NC}"
 cmake -B build_release -DCMAKE_BUILD_TYPE=Release -G Ninja
-cmake --build build_release --target Inline
+cmake --build build_release --target Inline InlinePredictor
 
 APP_SRC="build_release/gui/Inline.app"
 if [ ! -d "$APP_SRC" ]; then
@@ -35,8 +38,11 @@ else
     echo -e "${RED}Warning: macdeployqt not found. App bundle may lack embedded Qt frameworks.${NC}"
 fi
 
-# 3. Codesign with explicit bundle identifier
+# 3. Codesign with explicit bundle identifier (helper first, then outer app bundle)
 echo -e "\n${BOLD}Codesigning Inline.app...${NC}"
+if [ -f "$APP_SRC/Contents/MacOS/InlinePredictor" ]; then
+    codesign --force --sign - "$APP_SRC/Contents/MacOS/InlinePredictor"
+fi
 codesign --force --deep --sign - -i com.inline.mac "$APP_SRC"
 
 # 4. Prepare DMG Staging
@@ -51,7 +57,7 @@ cp -R "$APP_SRC" "$STAGING_DIR/"
 ln -s /Applications "$STAGING_DIR/Applications"
 
 # 5. Generate Compressed DMG
-DMG_NAME="Inline-v1.1-macOS.dmg"
+DMG_NAME="Inline-v1.2-macOS.dmg"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 rm -f "$DMG_PATH"
 

@@ -54,7 +54,10 @@ if [ ! -f "resources/AppIcon.icns" ]; then
     ./tools/generate_app_icon
 fi
 
-# 5. Build Release bundle
+# 5. Fetch bundled language model & llama.cpp runtime if not present
+./tools/fetch_model.sh
+
+# 6. Build Release bundle
 echo -e "\n${BOLD}Building Inline (Release)...${NC}"
 cmake -B build_release $CMAKE_FLAGS
 cmake --build build_release -j$(sysctl -n hw.ncpu || echo 4)

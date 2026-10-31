@@ -44,12 +44,22 @@ std::string serializeConfig(const AppConfig& cfg) {
     ss << "  \"ghostTextEnabled\": " << (cfg.ghostTextEnabled ? "true" : "false") << ",\n";
     ss << "  \"acceptKey\": " << static_cast<uint32_t>(cfg.acceptKey) << ",\n";
     ss << "  \"predictionLength\": " << static_cast<int>(cfg.predictionLength) << ",\n";
+    ss << "  \"smartPredictionsEnabled\": " << (cfg.smartPredictionsEnabled ? "true" : "false") << ",\n";
+    ss << "  \"ghostAcceptMode\": " << cfg.ghostAcceptMode << ",\n";
+    ss << "  \"ghostStyle\": " << cfg.ghostStyle << ",\n";
     ss << "  \"disabledApps\": [";
     for (size_t i = 0; i < cfg.disabledApps.size(); ++i) {
         ss << "\"" << escapeJsonString(cfg.disabledApps[i]) << "\"";
         if (i + 1 < cfg.disabledApps.size()) ss << ", ";
     }
-    ss << "]\n";
+    ss << "],\n";
+    ss << "  \"ghostDisabledApps\": [";
+    for (size_t i = 0; i < cfg.ghostDisabledApps.size(); ++i) {
+        ss << "\"" << escapeJsonString(cfg.ghostDisabledApps[i]) << "\"";
+        if (i + 1 < cfg.ghostDisabledApps.size()) ss << ", ";
+    }
+    ss << "],\n";
+    ss << "  \"onboardingVersion\": " << cfg.onboardingVersion << "\n";
     ss << "}";
     return ss.str();
 }
@@ -83,11 +93,14 @@ AppConfig deserializeConfig(const std::string& jsonStr, bool& outOk) {
         }
     };
 
-    auto parseInt = [&](const std::string& key, int& val) {
+    auto parseInt = [&](const std::string& key, int& val, bool* found = nullptr) {
         std::regex re("\"" + key + "\"\\s*:\\s*([0-9]+)");
         std::smatch m;
         if (std::regex_search(jsonStr, m, re)) {
+            if (found) *found = true;
             try { val = std::stoi(m[1].str()); } catch (...) {}
+        } else if (found) {
+            *found = false;
         }
     };
 
@@ -129,11 +142,26 @@ AppConfig deserializeConfig(const std::string& jsonStr, bool& outOk) {
 
     int predLenInt = static_cast<int>(AppConfig::PredictionLength::Balanced);
     parseInt("predictionLength", predLenInt);
-    if (predLenInt >= 0 && predLenInt <= 2) {
+    if (predLenInt >= 0 && predLenInt <= 3) {
         cfg.predictionLength = static_cast<AppConfig::PredictionLength>(predLenInt);
     }
 
+    parseBool("smartPredictionsEnabled", cfg.smartPredictionsEnabled);
+    int acceptMode = 0;
+    parseInt("ghostAcceptMode", acceptMode);
+    cfg.ghostAcceptMode = (acceptMode == 1) ? 1 : 0;
+
+    int styleInt = 1;
+    parseInt("ghostStyle", styleInt);
+    if (styleInt >= 0 && styleInt <= 2) cfg.ghostStyle = styleInt;
+
     parseStringArray("disabledApps", cfg.disabledApps);
+    parseStringArray("ghostDisabledApps", cfg.ghostDisabledApps);
+
+    bool foundOnboarding = false;
+    int onboardingVer = 1;
+    parseInt("onboardingVersion", onboardingVer, &foundOnboarding);
+    cfg.onboardingVersion = foundOnboarding ? onboardingVer : 1;
 
     return cfg;
 }
