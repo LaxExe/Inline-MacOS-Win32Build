@@ -42,13 +42,13 @@ protected:
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
         isDark = isSystemInDarkMode();
 #endif
-        // Monochrome container: #F2F2F7 in light, #3A3A3C in dark
-        p.setBrush(isDark ? QColor(58, 58, 60) : QColor(242, 242, 247));
-        p.setPen(QPen(isDark ? QColor(72, 72, 74) : QColor(229, 229, 234), 1.0));
+        // designlang flat tokens: #f5f5f5 in light, #1f1f1f in dark
+        p.setBrush(isDark ? QColor(31, 31, 31) : QColor(245, 245, 245));
+        p.setPen(QPen(isDark ? QColor(46, 46, 46) : QColor(229, 229, 229), 1.0));
         p.drawRoundedRect(rect().adjusted(0, 0, -1, -1), 8, 8);
 
-        // Crisp vector stroke #1D1D1F in light, #FFFFFF in dark
-        p.setPen(QPen(isDark ? QColor(255, 255, 255) : QColor(29, 29, 31), 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        // Crisp vector stroke #171717 in light, #FFFFFF in dark
+        p.setPen(QPen(isDark ? QColor(255, 255, 255) : QColor(23, 23, 23), 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
         p.setBrush(Qt::NoBrush);
 
         QRectF r(8, 8, 20, 20);
@@ -635,43 +635,44 @@ void PermissionDialog::applyTheme() {
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
     isDark = isSystemInDarkMode();
 #endif
-    QString mainBg     = isDark ? "#1E1E1E" : "#F2F2F7";
-    QString cardBg     = isDark ? "#2C2C2E" : "#FFFFFF";
-    QString cardBorder = isDark ? "#3A3A3C" : "#E5E5EA";
-    QString titleColor = isDark ? "#FFFFFF" : "#1D1D1F";
-    QString subColor   = isDark ? "#98989D" : "#6E6E73";
-    QString divColor   = isDark ? "#38383A" : "#E5E5EA";
-    QString actBtnBg   = isDark ? "#3A3A3C" : "#F2F2F7";
-    QString actBtnBrd  = isDark ? "#48484A" : "#D1D1D6";
-    QString primBtnBg  = isDark ? "#007AFF" : "#1D1D1F";
-    QString primBtnTxt = "#FFFFFF";
+    // designlang flat tokens: Inter typography, 14px radii, neutral ramps
+    QString mainBg     = isDark ? "#121212" : "#FFFFFF";
+    QString cardBg     = isDark ? "#171717" : "#FFFFFF";
+    QString cardBorder = isDark ? "#2E2E2E" : "#E5E5E5";
+    QString titleColor = isDark ? "#FFFFFF" : "#171717";
+    QString subColor   = isDark ? "#9F9F9F" : "#525252";
+    QString divColor   = isDark ? "#262626" : "#EAEAEA";
+    QString actBtnBg   = isDark ? "#1F1F1F" : "#F5F5F5";
+    QString actBtnBrd  = isDark ? "#2E2E2E" : "#E5E5E5";
+    QString primBtnBg  = isDark ? "#FFFFFF" : "#171717";
+    QString primBtnTxt = isDark ? "#171717" : "#FFFFFF";
 
     setStyleSheet(QString(
         "PermissionDialog {"
         "  background-color: %1;"
         "  color: %2;"
-        "  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;"
+        "  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;"
         "}"
         "#stepBadge {"
-        "  font-size: 10px;"
+        "  font-size: 11px;"
         "  font-weight: 700;"
-        "  letter-spacing: 0.06em;"
+        "  letter-spacing: 0.05em;"
         "  color: %3;"
         "}"
         "#dialogTitle {"
-        "  font-size: 21px;"
+        "  font-size: 22px;"
         "  font-weight: 700;"
         "  color: %2;"
         "}"
         "#dialogSubtitle {"
-        "  font-size: 12.5px;"
+        "  font-size: 13px;"
         "  line-height: 1.45;"
         "  color: %3;"
         "}"
         "#permissionCard {"
         "  background-color: %4;"
         "  border: 1px solid %5;"
-        "  border-radius: 12px;"
+        "  border-radius: 14px;"
         "}"
         "#rowDivider {"
         "  color: %6;"

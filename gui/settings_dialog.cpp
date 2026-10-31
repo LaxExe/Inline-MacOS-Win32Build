@@ -272,9 +272,9 @@ QWidget* SettingsDialog::createIconBadge(IconType type) {
                 }
             }
 
-            QColor bg = isDark ? QColor(58, 58, 60) : QColor(242, 242, 247);
-            QColor border = isDark ? QColor(72, 72, 74) : QColor(229, 229, 234);
-            QColor stroke = isDark ? QColor(255, 255, 255) : QColor(29, 29, 31);
+            QColor bg = isDark ? QColor(31, 31, 31) : QColor(245, 245, 245);
+            QColor border = isDark ? QColor(46, 46, 46) : QColor(229, 229, 229);
+            QColor stroke = isDark ? QColor(255, 255, 255) : QColor(23, 23, 23);
 
             p.setBrush(bg);
             p.setPen(QPen(border, 1.0));
@@ -498,29 +498,29 @@ void SettingsDialog::applyTheme(ThemePreviewCard::ThemeMode mode) {
 #endif
     isDarkTheme_ = isDark;
 
-    // Native Apple macOS System Settings palette
-    QString mainBg        = isDark ? "#1E1E1E" : "#F2F2F7";
-    QString sidebarBg     = isDark ? "#252525" : "#EBEBF0";
-    QString sidebarBorder = isDark ? "#38383A" : "#D1D1D6";
-    QString searchBg      = isDark ? "#2C2C2E" : "#FFFFFF";
-    QString searchBorder  = isDark ? "#3A3A3C" : "#D1D1D6";
-    QString cardBg        = isDark ? "#2C2C2E" : "#FFFFFF";
-    QString cardBorder    = isDark ? "#3A3A3C" : "#E5E5EA";
-    QString textColor     = isDark ? "#FFFFFF" : "#1D1D1F";
-    QString subtextColor  = isDark ? "#98989D" : "#6E6E73";
-    QString dividerColor  = isDark ? "#38383A" : "#E5E5EA";
-    QString inputBg       = isDark ? "#3A3A3C" : "#FFFFFF";
-    QString inputBorder   = isDark ? "#48484A" : "#D1D1D6";
-    QString btnBg         = isDark ? "#3A3A3C" : "#E5E5EA";
-    QString btnBorder     = isDark ? "#48484A" : "#D1D1D6";
-    QString itemHover     = isDark ? "#3A3A3C" : "#E5E5EA";
-    QString itemSelected  = isDark ? "#48484A" : "#D1D1D6";
+    // designlang flat tokens: Inter typography, 14px radii, neutral ramps
+    QString mainBg        = isDark ? "#121212" : "#FFFFFF";
+    QString sidebarBg     = isDark ? "#171717" : "#FBFBFB";
+    QString sidebarBorder = isDark ? "#262626" : "#E5E5E5";
+    QString searchBg      = isDark ? "#1F1F1F" : "#FFFFFF";
+    QString searchBorder  = isDark ? "#2E2E2E" : "#E5E5E5";
+    QString cardBg        = isDark ? "#171717" : "#FFFFFF";
+    QString cardBorder    = isDark ? "#2E2E2E" : "#E5E5E5";
+    QString textColor     = isDark ? "#FFFFFF" : "#171717";
+    QString subtextColor  = isDark ? "#9F9F9F" : "#525252";
+    QString dividerColor  = isDark ? "#262626" : "#EAEAEA";
+    QString inputBg       = isDark ? "#1F1F1F" : "#FFFFFF";
+    QString inputBorder   = isDark ? "#2E2E2E" : "#E5E5E5";
+    QString btnBg         = isDark ? "#262626" : "#F5F5F5";
+    QString btnBorder     = isDark ? "#333333" : "#E5E5E5";
+    QString itemHover     = isDark ? "#1F1F1F" : "#F5F5F5";
+    QString itemSelected  = isDark ? "#262626" : "#EAEAEA";
 
     setStyleSheet(QString(
         "SettingsDialog {"
         "  background-color: %1;"
         "  color: %2;"
-        "  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;"
+        "  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;"
         "}"
         "#sidebarContainer {"
         "  background-color: %3;"
@@ -531,27 +531,27 @@ void SettingsDialog::applyTheme(ThemePreviewCard::ThemeMode mode) {
         "  border: 1px solid %6;"
         "  border-radius: 8px;"
         "  padding: 6px 10px;"
-        "  font-size: 12px;"
+        "  font-size: 13px;"
         "  color: %2;"
         "}"
         "#searchEdit:focus {"
-        "  border: 1px solid #007AFF;"
+        "  border: 1px solid #171717;"
         "}"
         "#settingCard {"
         "  background-color: %7;"
         "  border: 1px solid %8;"
-        "  border-radius: 12px;"
+        "  border-radius: 14px;"
         "}"
         "#settingRowTitle {"
-        "  font-size: 13px;"
+        "  font-size: 14px;"
         "  font-weight: 600;"
         "  color: %2;"
         "}"
         "#settingRowSubtitle {"
-        "  font-size: 11px;"
+        "  font-size: 12px;"
         "  font-weight: 400;"
         "  color: %9;"
-        "  line-height: 1.35;"
+        "  line-height: 1.4;"
         "}"
         "#settingRowDivider {"
         "  background-color: %10;"
