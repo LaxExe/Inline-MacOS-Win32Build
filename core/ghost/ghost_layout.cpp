@@ -39,15 +39,21 @@ GhostLayoutResult computeGhostLayout(
     const bool hostEndsWithWordChar = geom.afterWordChar ||
         (!geom.textTail.empty() && isWordOrPunctChar(geom.textTail.back()));
 
-    if (hostEndsWithWordChar && !isMidWord) {
-        // Document cursor is resting against the end of a completed word (e.g. immediately after Tab-accepting
-        // a word in One-Word mode, or continuing a sentence where no space has been typed in the document yet).
-        // Ensure exactly ONE leading space so words never touch, collide, or overlap visually or on Tab accept!
-        if (!cleanSuggestion.empty() && cleanSuggestion.front() != L' ') {
-            cleanSuggestion.insert(cleanSuggestion.begin(), L' ');
+    const bool suggestionHasLeadingSpace = (!cleanSuggestion.empty() && cleanSuggestion.front() == L' ');
+
+    if (hostEndsWithWordChar) {
+        // Document cursor is resting against the end of a completed word (e.g. typing "hello|").
+        // If suggestion is a next-word continuation (starts with space or not mid-word),
+        // ensure exactly ONE leading space so words never touch, collide, or overlap visually or on Tab accept!
+        if (suggestionHasLeadingSpace || !isMidWord) {
+            if (!cleanSuggestion.empty() && cleanSuggestion.front() != L' ') {
+                cleanSuggestion.insert(cleanSuggestion.begin(), L' ');
+            }
         }
+        // If it is mid-word and suggestion has no leading space (e.g. "unn" -> "ecessary"),
+        // leave it snug against the cursor without a space.
     } else {
-        // Document either already ends with whitespace (space/newline/tab), or is empty (sentence start), or is mid-word.
+        // Document either already ends with whitespace (space/newline/tab), or is empty (sentence start).
         // Strip redundant leading spaces so the ghost text anchors snug against the cursor bar
         // without an artificial double-space gap, and does not insert extra spaces into the host app.
         while (!cleanSuggestion.empty() && cleanSuggestion.front() == L' ') {

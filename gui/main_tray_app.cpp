@@ -601,7 +601,7 @@ void MainTrayApp::ghostWorkerLoop() {
         }
 
         if (geom->textTail.empty()) {
-            geom->afterWordChar = req.currentWordFromGhost;
+            geom->afterWordChar = !req.partialWord.empty() || req.currentWordFromGhost;
         } else {
             wchar_t lastCh = geom->textTail.back();
             geom->afterWordChar = (lastCh != L' ' && lastCh != L'\t' && lastCh != L'\n' && lastCh != L'\r');
@@ -631,7 +631,7 @@ void MainTrayApp::ghostWorkerLoop() {
             if (!sessionGhost.empty() && sessionGhost.size() <= typeThroughText.size()) {
                 typeThroughText = sessionGhost;
             }
-            bool midWordNow = isMidWord;
+            bool midWordNow = isMidWord && (typeThroughText.empty() || typeThroughText.front() != L' ');
             GhostLayoutResult layout = computeGhostLayout(
                 typeThroughText,
                 *geom,
@@ -757,13 +757,13 @@ void MainTrayApp::llmWorkerLoop() {
         }
 
         if (freshGeom->textTail.empty()) {
-            freshGeom->afterWordChar = req.currentWordFromGhost;
+            freshGeom->afterWordChar = !req.partialWord.empty() || req.currentWordFromGhost;
         } else {
             wchar_t lastCh = freshGeom->textTail.back();
             freshGeom->afterWordChar = (lastCh != L' ' && lastCh != L'\t' && lastCh != L'\n' && lastCh != L'\r');
         }
 
-        const bool isMidWord = !req.partialWord.empty() && llmPred.text.front() != L' ';
+        const bool isMidWord = !req.partialWord.empty() && (llmPred.text.empty() || llmPred.text.front() != L' ');
         GhostLayoutResult layout = computeGhostLayout(
             llmPred.text,
             *freshGeom,

@@ -335,3 +335,21 @@ TEST(GhostLayout, PreservesLeadingSpaceWhenAfterWordCharIsTrueEvenIfTextTailEmpt
     EXPECT_EQ(res.fittedText, L" tomorrow");
     EXPECT_DOUBLE_EQ(res.lines[0].x, 101.2);
 }
+
+TEST(GhostLayout, PreservesLeadingSpaceForNextWordWhenTypingCompletedWord) {
+    CaretGeometry cg;
+    cg.caret = {100.0, 50.0, 2.5, 18.0};
+    cg.field = {20.0, 40.0, 400.0, 200.0};
+    cg.lineStartX = 28.0;
+    cg.lineHeight = 20.0;
+    cg.isSingleLine = false;
+    cg.atEditableEnd = true;
+    cg.afterWordChar = true; // cursor resting right after completed word e.g. "hello"
+
+    // When next-word prediction " there" arrives, it must preserve the leading space so "hello" and "there" never collide!
+    GhostLayoutResult res = computeGhostLayout(L" there", cg, false, mono8Measure);
+    ASSERT_TRUE(res.valid);
+    ASSERT_EQ(res.lines.size(), 1u);
+    EXPECT_EQ(res.lines[0].text, L" there");
+    EXPECT_EQ(res.fittedText, L" there");
+}

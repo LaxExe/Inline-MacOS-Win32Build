@@ -529,7 +529,7 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
         if (!gotCaret) {
             AXUIElementRef curAncestor = elem;
             CFRetain(curAncestor);
-            for (int depth = 0; depth < 3 && !gotCaret; ++depth) {
+            for (int depth = 0; depth < 8 && !gotCaret; ++depth) {
                 CFTypeRef parentVal = nullptr;
                 if (AXUIElementCopyAttributeValue(curAncestor, kAXParentAttribute, &parentVal) == kAXErrorSuccess && parentVal) {
                     if (CFGetTypeID(parentVal) == AXUIElementGetTypeID()) {
@@ -629,12 +629,15 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
         // 7c. Fallback for text fields and search bars (when AX range queries are unsupported)
         if (!gotCaret && hasFieldFrame && fieldFrame.size.height <= 80.0) {
             double h = std::clamp((double)fieldFrame.size.height - 8.0, 14.0, 24.0);
-            double y = fieldFrame.origin.y + (fieldFrame.size.height - h) * 0.5;
-            double x = fieldFrame.origin.x + 8.0;
+            // In web search bars (Google, Vivaldi), vertical center of text line is ~2.5pt higher than fieldFrame physical center
+            double y = fieldFrame.origin.y + (fieldFrame.size.height - h) * 0.5 - 2.5;
+            double effectiveFontSize = (geom.fontSize >= 10.0 && geom.fontSize <= 36.0) ? geom.fontSize : 16.0;
+            double textW = 0.0;
             if (!geom.textTail.empty()) {
-                double textW = GhostOverlay::measureTextWidth(geom.textTail, geom.fontName, geom.fontSize);
-                x = std::min(fieldFrame.origin.x + fieldFrame.size.width - 12.0, x + textW);
+                textW = GhostOverlay::measureTextWidth(geom.textTail, geom.fontName, effectiveFontSize);
             }
+            // Standard web search bar left padding (Google/Vivaldi/Safari search) is ~13pt
+            double x = std::min(fieldFrame.origin.x + fieldFrame.size.width - 12.0, fieldFrame.origin.x + 13.0 + textW);
             caretRect = CGRectMake(x, y, 2.5, h);
             gotCaret = true;
         }
