@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inline for macOS — System-Wide Autocorrect & Predictive Ghost Text</title>
-  <meta name="description" content="Sub-millisecond, system-wide autocorrect and inline predictive ghost text for macOS. 100% on-device, zero telemetry, zero cloud calls.">
+  <title>Inline — System-Wide Autocorrect & Predictive Ghost Text for macOS & Windows</title>
+  <meta name="description" content="Sub-millisecond, system-wide autocorrect and inline predictive ghost text for macOS and Windows. 100% on-device, zero telemetry, zero cloud calls.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -485,53 +485,66 @@
     /* Live Interactive Typing Box */
     .interactive-typing-area {
       position: relative;
-      min-height: 160px;
-      padding: 24px;
+      min-height: 150px;
       cursor: text;
+      background-color: var(--surface);
+    }
+
+    .ghost-layer,
+    .real-typing-input {
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 150px;
+      padding: 20px 24px;
+      margin: 0;
+      border: none;
+      outline: none;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 18px;
+      line-height: 1.6;
+      letter-spacing: normal;
+      word-spacing: normal;
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: break-word;
+      tab-size: 2;
     }
 
     .ghost-layer {
       position: absolute;
-      top: 24px;
-      left: 24px;
-      right: 24px;
-      bottom: 24px;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       pointer-events: none;
-      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Text', sans-serif;
-      font-size: 18px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-wrap: break-word;
       z-index: 1;
+      overflow: hidden;
+      color: transparent;
     }
 
-    .ghost-mirror-typed {
+    .ghost-mirror-typed,
+    .ghost-mirror-after {
       color: transparent;
-      opacity: 0;
+      visibility: hidden;
+      display: inline;
     }
 
     .ghost-prediction {
       color: var(--ghost-color);
       opacity: 0.85;
       font-style: normal;
+      display: inline;
+      pointer-events: none;
     }
 
     .real-typing-input {
       position: relative;
       z-index: 2;
-      width: 100%;
-      min-height: 112px;
       background: transparent;
-      border: none;
-      outline: none;
-      resize: none;
-      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Text', sans-serif;
-      font-size: 18px;
-      line-height: 1.6;
+      resize: vertical;
       color: var(--text);
       caret-color: var(--accent);
-      white-space: pre-wrap;
-      word-wrap: break-word;
+      overflow-y: auto;
     }
 
     .real-typing-input::placeholder {
@@ -827,15 +840,15 @@
     <div class="container">
       <div class="version-pill">
         <span class="pulse-dot"></span>
-        <span>Inline v1.2 for macOS is now live</span>
+        <span>Inline v1.2 is now live for macOS and Windows</span>
       </div>
 
       <h1 class="hero-title">
-        System-wide autocorrect and predictive ghost text for macOS.
+        System-wide autocorrect and predictive ghost text for macOS & Windows.
       </h1>
 
       <p class="hero-subtitle">
-        Runs 100% locally on Apple Silicon and Intel. Zero cloud calls, sub-microsecond event interception, and inline suggestions right at your cursor.
+        Runs 100% locally on macOS (Apple Silicon & Intel) and Windows 10/11. Zero cloud calls, sub-microsecond event interception, and inline suggestions right at your cursor.
       </p>
 
       <div class="hero-cta">
@@ -847,24 +860,35 @@
           </svg>
           Download for macOS (v1.2 DMG)
         </a>
+        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases" class="btn-secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="8" height="8" rx="1"></rect>
+            <rect x="13" y="3" width="8" height="8" rx="1"></rect>
+            <rect x="3" y="13" width="8" height="8" rx="1"></rect>
+            <rect x="13" y="13" width="8" height="8" rx="1"></rect>
+          </svg>
+          Download for Windows (v1.2 Win32)
+        </a>
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" class="btn-secondary" target="_blank" rel="noopener">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
           </svg>
-          View Source
+          GitHub
         </a>
       </div>
 
       <!-- Terminal Install Section -->
       <div class="terminal-install-card" id="terminal">
         <div class="terminal-tabs">
-          <button class="terminal-tab-btn active" id="tabCurl" data-type="curl">Terminal (curl)</button>
-          <button class="terminal-tab-btn" id="tabBrew" data-type="brew">Homebrew</button>
+          <button class="terminal-tab-btn active" id="tabCurl" data-type="curl">macOS (curl)</button>
+          <button class="terminal-tab-btn" id="tabBrew" data-type="brew">macOS (brew)</button>
+          <button class="terminal-tab-btn" id="tabPowerShell" data-type="powershell">Windows (PowerShell)</button>
+          <button class="terminal-tab-btn" id="tabWinget" data-type="winget">Windows (winget)</button>
           <span class="terminal-tab-label">Terminal Install</span>
         </div>
         <div class="terminal-body">
           <div class="terminal-code">
-            <span class="terminal-prompt">$</span><span id="terminalCommand">curl -fsSL https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/install.sh | bash</span>
+            <span class="terminal-prompt" id="terminalPrompt">$</span><span id="terminalCommand">curl -fsSL https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/install.sh | bash</span>
           </div>
           <button class="copy-btn" id="copyCmdBtn" title="Copy command">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="copyIcon">
@@ -887,7 +911,7 @@
             </div>
             <div class="window-title">
               <span class="live-dot"></span>
-              <span>Try Inline Live</span>
+              <span>Try Inline Live (macOS & Windows Engine)</span>
             </div>
             <div class="demo-mode-toggle">
               <button class="mode-btn active" id="modeMulti" data-mode="multi">Multi-Word</button>
@@ -896,10 +920,8 @@
           </div>
 
           <div class="interactive-typing-area" id="typingContainer">
-            <div class="ghost-layer" id="ghostLayer">
-              <span class="ghost-mirror-typed" id="ghostMirror"></span><span class="ghost-prediction" id="ghostText"></span>
-            </div>
-            <textarea class="real-typing-input" id="demoInput" rows="3" spellcheck="false" autocomplete="off" placeholder="Click here and start typing... (e.g. 'Look', 'Thank', 'The meetign ')"></textarea>
+            <div class="ghost-layer" id="ghostLayer" aria-hidden="true"><span class="ghost-mirror-typed" id="ghostMirror"></span><span class="ghost-prediction" id="ghostText"></span><span class="ghost-mirror-after" id="ghostMirrorAfter"></span></div>
+            <textarea class="real-typing-input" id="demoInput" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Click here and start typing... (e.g. 'Look', 'Thank', 'The meetign ')"></textarea>
           </div>
 
           <div class="demo-bar-bottom">
@@ -915,6 +937,7 @@
               <button class="sample-chip" data-text="The meetign">"The meetign"</button>
               <button class="sample-chip" data-text="Please let me">"Please let me"</button>
               <button class="sample-chip" data-text="Tha">"Tha"</button>
+              <button class="sample-chip" data-text="Works on">"Works on"</button>
             </div>
           </div>
         </div>
@@ -928,8 +951,10 @@
     <div class="works-anywhere-strip">
       <h2 class="works-anywhere-title">Works anywhere you work.</h2>
       <p class="works-anywhere-desc">
-        Every native macOS app, browser, terminal, and document editor. Zero extensions, zero plugins, zero cloud configurations.
+        Every native macOS and Windows app, browser, terminal, and document editor. Zero extensions, zero plugins, zero cloud configurations.
       </p>
+    </div>
+  </section>
     </div>
   </section>
 
@@ -1023,12 +1048,12 @@
         <div class="spec-item">
           <div class="spec-val">&le; 2 &mu;s</div>
           <div class="spec-label">Keystroke Interception</div>
-          <div class="spec-sub">Native CGEventTap</div>
+          <div class="spec-sub">CGEventTap (macOS) & Win32 Hooks (Windows)</div>
         </div>
         <div class="spec-item">
           <div class="spec-val">&lt; 120 MB</div>
           <div class="spec-label">Active RSS Memory</div>
-          <div class="spec-sub">Includes neural model</div>
+          <div class="spec-sub">Includes neural model & dictionary</div>
         </div>
         <div class="spec-item">
           <div class="spec-val">0.0%</div>
@@ -1038,7 +1063,7 @@
         <div class="spec-item">
           <div class="spec-val">~15 ms</div>
           <div class="spec-label">Prediction Latency</div>
-          <div class="spec-sub">Apple Silicon efficiency cores</div>
+          <div class="spec-sub">Apple Silicon & x64 AVX2</div>
         </div>
       </div>
     </div>
@@ -1048,7 +1073,7 @@
   <footer>
     <div class="container footer-inner">
       <div>
-        <strong>Inline for macOS</strong> • Open-source native desktop typing utility under MIT.
+        <strong>Inline for macOS & Windows</strong> • Open-source native desktop typing utility under MIT.
       </div>
       <div class="footer-links">
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases">Releases</a>
@@ -1072,111 +1097,148 @@
     const savedTheme = localStorage.getItem('inline_theme') || (prefersDark.matches ? 'dark' : 'light');
     setTheme(savedTheme);
 
-    themeBtn.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme');
-      setTheme(current === 'dark' ? 'light' : 'dark');
-    });
+    if (themeBtn) {
+      themeBtn.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme');
+        setTheme(current === 'dark' ? 'light' : 'dark');
+      });
+    }
 
     // Terminal Tabs
     const tabCurl = document.getElementById('tabCurl');
     const tabBrew = document.getElementById('tabBrew');
+    const tabPowerShell = document.getElementById('tabPowerShell');
+    const tabWinget = document.getElementById('tabWinget');
+    const terminalPrompt = document.getElementById('terminalPrompt');
     const cmdText = document.getElementById('terminalCommand');
     const copyCmdBtn = document.getElementById('copyCmdBtn');
     const copyBtnText = document.getElementById('copyBtnText');
 
     const commands = {
       curl: 'curl -fsSL https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/install.sh | bash',
-      brew: 'brew install LaxExe/tap/inline'
+      brew: 'brew tap LaxExe/inline && brew install --cask inline',
+      powershell: 'irm https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/windows-branch/install.ps1 | iex',
+      winget: 'winget install LaxExe.Inline'
     };
 
     let activeTab = 'curl';
 
     function setTab(tab) {
       activeTab = tab;
-      if (tab === 'curl') {
+      [tabCurl, tabBrew, tabPowerShell, tabWinget].forEach(btn => {
+        if (btn) btn.classList.remove('active');
+      });
+
+      if (tab === 'curl' && tabCurl) {
         tabCurl.classList.add('active');
-        tabBrew.classList.remove('active');
+        if (terminalPrompt) terminalPrompt.textContent = '$';
         cmdText.textContent = commands.curl;
-      } else {
+      } else if (tab === 'brew' && tabBrew) {
         tabBrew.classList.add('active');
-        tabCurl.classList.remove('active');
+        if (terminalPrompt) terminalPrompt.textContent = '$';
         cmdText.textContent = commands.brew;
+      } else if (tab === 'powershell' && tabPowerShell) {
+        tabPowerShell.classList.add('active');
+        if (terminalPrompt) terminalPrompt.textContent = 'PS >';
+        cmdText.textContent = commands.powershell;
+      } else if (tab === 'winget' && tabWinget) {
+        tabWinget.classList.add('active');
+        if (terminalPrompt) terminalPrompt.textContent = '>';
+        cmdText.textContent = commands.winget;
       }
     }
 
-    tabCurl.addEventListener('click', () => setTab('curl'));
-    tabBrew.addEventListener('click', () => setTab('brew'));
+    if (tabCurl) tabCurl.addEventListener('click', () => setTab('curl'));
+    if (tabBrew) tabBrew.addEventListener('click', () => setTab('brew'));
+    if (tabPowerShell) tabPowerShell.addEventListener('click', () => setTab('powershell'));
+    if (tabWinget) tabWinget.addEventListener('click', () => setTab('winget'));
 
-    copyCmdBtn.addEventListener('click', () => {
-      navigator.clipboard.writeText(commands[activeTab]).then(() => {
-        copyBtnText.textContent = 'Copied!';
-        setTimeout(() => {
-          copyBtnText.textContent = 'Copy';
-        }, 2000);
+    if (copyCmdBtn) {
+      copyCmdBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(commands[activeTab]).then(() => {
+          copyBtnText.textContent = 'Copied!';
+          setTimeout(() => {
+            copyBtnText.textContent = 'Copy';
+          }, 2000);
+        });
       });
-    });
+    }
 
     // ==========================================
     // Interactive Live Demo Box Engine
     // ==========================================
     const demoInput = document.getElementById('demoInput');
+    const ghostLayer = document.getElementById('ghostLayer');
     const ghostMirror = document.getElementById('ghostMirror');
     const ghostText = document.getElementById('ghostText');
+    const ghostMirrorAfter = document.getElementById('ghostMirrorAfter');
     const eventStatus = document.getElementById('eventStatus');
     const modeMulti = document.getElementById('modeMulti');
     const modeOne = document.getElementById('modeOne');
 
     let activeMode = 'multi'; // 'multi' or 'one'
-    let lastAutocorrect = null; // { raw: string, corrected: string, index: number }
+    let lastAutocorrect = null; // { raw: string, corrected: string, start: number, end: number }
 
-    modeMulti.addEventListener('click', () => {
-      activeMode = 'multi';
-      modeMulti.classList.add('active');
-      modeOne.classList.remove('active');
-      updatePredictions();
-    });
+    if (modeMulti && modeOne) {
+      modeMulti.addEventListener('click', () => {
+        activeMode = 'multi';
+        modeMulti.classList.add('active');
+        modeOne.classList.remove('active');
+        updatePredictions();
+      });
 
-    modeOne.addEventListener('click', () => {
-      activeMode = 'one';
-      modeOne.classList.add('active');
-      modeMulti.classList.remove('active');
-      updatePredictions();
-    });
+      modeOne.addEventListener('click', () => {
+        activeMode = 'one';
+        modeOne.classList.add('active');
+        modeMulti.classList.remove('active');
+        updatePredictions();
+      });
+    }
 
-    // Prediction rules & dictionary
+    // Rich multi-word contextual completions
     const multiPredictions = [
       { prefix: 'looking forward', suggest: ' to hearing from you soon' },
       { prefix: 'look', suggest: 'ing forward to our meeting tomorrow' },
-      { prefix: 'thank you', suggest: ' for your help and feedback' },
-      { prefix: 'thank', suggest: ' you so much for the update' },
+      { prefix: 'thank you', suggest: ' so much for your help and feedback' },
+      { prefix: 'thank', suggest: ' you for following up with the team' },
       { prefix: 'tha', suggest: 'nk you for following up' },
-      { prefix: 'please let me', suggest: ' know what time works best' },
-      { prefix: 'please let', suggest: ' me know if you have questions' },
+      { prefix: 'please let me', suggest: ' know what time works best for you' },
+      { prefix: 'please let', suggest: ' me know if you have any questions' },
       { prefix: 'please', suggest: ' find the attached document below' },
       { prefix: 'ple', suggest: 'ase let me know when you are free' },
-      { prefix: 'i will', suggest: ' follow up with you tomorrow' },
-      { prefix: 'i am', suggest: ' currently working on the release' },
+      { prefix: 'i will', suggest: ' follow up with you tomorrow morning' },
+      { prefix: 'i am', suggest: ' currently working on the next update' },
       { prefix: 'let me', suggest: ' know if you need anything else' },
-      { prefix: 'how are', suggest: ' things going on your end?' },
-      { prefix: 'how is', suggest: ' everything going with the project?' },
+      { prefix: 'how are', suggest: ' things going on your side?' },
+      { prefix: 'how is', suggest: ' everything coming along with the project?' },
       { prefix: 'what time', suggest: ' works best for your schedule?' },
-      { prefix: 'have a', suggest: ' great weekend ahead!' },
-      { prefix: 'can you', suggest: ' review this pull request?' },
-      { prefix: 'sorry for', suggest: ' the delayed response' },
-      { prefix: 'good morning', suggest: ', hope you had a great weekend' },
-      { prefix: 'just wanted', suggest: ' to follow up on this' }
+      { prefix: 'have a', suggest: ' great rest of your week and weekend ahead!' },
+      { prefix: 'can you', suggest: ' please review this pull request?' },
+      { prefix: 'sorry for', suggest: ' the delayed response on this' },
+      { prefix: 'good morning', suggest: ', hope you had a wonderful weekend' },
+      { prefix: 'just wanted', suggest: ' to check in and see how this is going' },
+      { prefix: 'the meeting', suggest: ' has been scheduled for tomorrow afternoon' },
+      { prefix: 'works on', suggest: ' both macOS and Windows flawlessly' },
+      { prefix: 'defin', suggest: 'itely agree with this approach' }
     ];
 
+    // Single-word instant completions
     const wordCompletions = {
       'tha': 'nk',
       'than': 'k',
+      'thank': ' you',
       'look': 'ing',
+      'looki': 'ng',
       'plea': 'se',
       'ple': 'ase',
       'meet': 'ing',
+      'meeti': 'ng',
       'auto': 'correct',
+      'autoc': 'orrect',
       'pred': 'iction',
+      'predi': 'ction',
       'sett': 'ings',
+      'setti': 'ngs',
       'term': 'inal',
       'appl': 'ication',
       'deve': 'lopment',
@@ -1184,9 +1246,13 @@
       'feat': 'ure',
       'conf': 'iguration',
       'sens': 'itivity',
-      'inst': 'allation'
+      'inst': 'allation',
+      'wind': 'ows',
+      'syst': 'em',
+      'sched': 'ule'
     };
 
+    // Typo dictionary for autocorrect on Space
     const typoDictionary = {
       'teh': 'the',
       'meetign': 'meeting',
@@ -1202,10 +1268,41 @@
       'thru': 'through',
       'dont': "don't",
       'cant': "can't",
-      'wont': "won't"
+      'wont': "won't",
+      'beleive': 'believe',
+      'goverment': 'government',
+      'occurence': 'occurrence',
+      'neccessary': 'necessary',
+      'accomodate': 'accommodate',
+      'acheive': 'achieve',
+      'acrosss': 'across',
+      'alot': 'a lot',
+      'adress': 'address',
+      'becuase': 'because',
+      'begining': 'beginning',
+      'collegue': 'colleague',
+      'concious': 'conscious',
+      'embarass': 'embarrass',
+      'enviroment': 'environment',
+      'foward': 'forward',
+      'freind': 'friend',
+      'garantee': 'guarantee',
+      'happend': 'happened',
+      'immediatly': 'immediately',
+      'interupt': 'interrupt',
+      'knowlege': 'knowledge',
+      'mispell': 'misspell',
+      'noticable': 'noticeable',
+      'peice': 'piece',
+      'prefered': 'preferred',
+      'realy': 'really',
+      'truely': 'truly',
+      'unfortunatly': 'unfortunately',
+      'wich': 'which'
     };
 
     function showStatus(text) {
+      if (!eventStatus) return;
       eventStatus.textContent = text;
       eventStatus.style.display = 'inline-block';
       setTimeout(() => {
@@ -1213,120 +1310,222 @@
       }, 2500);
     }
 
+    function syncScroll() {
+      if (ghostLayer && demoInput) {
+        ghostLayer.scrollTop = demoInput.scrollTop;
+        ghostLayer.scrollLeft = demoInput.scrollLeft;
+      }
+    }
+
+    function cleanSuggestion(before, suggest) {
+      if (before.endsWith(' ') && suggest.startsWith(' ')) {
+        return suggest.slice(1);
+      }
+      return suggest;
+    }
+
+    function extractFirstWord(suggest) {
+      const match = suggest.match(/^(\s*\S+)/);
+      return match ? match[1] : suggest;
+    }
+
     function updatePredictions() {
+      if (!demoInput || !ghostMirror || !ghostText) return;
       const val = demoInput.value;
-      ghostMirror.textContent = val;
+      const cursorPos = (demoInput.selectionStart !== undefined) ? demoInput.selectionStart : val.length;
+      
+      const beforeCursor = val.substring(0, cursorPos);
+      const afterCursor = val.substring(cursorPos);
 
-      if (!val || val.length === 0) {
+      // Trailing newline handling for HTML span pre-wrap
+      ghostMirror.textContent = beforeCursor;
+      if (ghostMirrorAfter) {
+        ghostMirrorAfter.textContent = afterCursor;
+      }
+
+      syncScroll();
+
+      if (!beforeCursor || beforeCursor.length === 0) {
         ghostText.textContent = '';
         return;
       }
 
-      // Check current word at the end
-      const matchWord = val.match(/([a-zA-Z]+)$/);
-      const currentWord = matchWord ? matchWord[1].toLowerCase() : '';
-      const lower = val.toLowerCase();
+      const matchWord = beforeCursor.match(/([a-zA-Z0-9']+)\s*$/);
+      const rawCurrentWord = matchWord ? matchWord[1] : '';
+      const currentWordLower = rawCurrentWord.toLowerCase();
+      const lowerBefore = beforeCursor.toLowerCase();
+      const trimmedLower = lowerBefore.trimEnd();
 
+      // One Word Mode
       if (activeMode === 'one') {
-        if (currentWord && wordCompletions[currentWord]) {
-          ghostText.textContent = wordCompletions[currentWord];
+        // 1. If currently inside a partial word, complete the active word
+        if (currentWordLower && wordCompletions[currentWordLower]) {
+          let completion = wordCompletions[currentWordLower];
+          if (rawCurrentWord.length > 0 && rawCurrentWord[0] === rawCurrentWord[0].toUpperCase()) {
+            completion = completion.charAt(0).toUpperCase() + completion.slice(1);
+          }
+          ghostText.textContent = completion;
           return;
+        }
+
+        // 2. Otherwise suggest only the next single word of contextual phrase
+        for (const p of multiPredictions) {
+          if (trimmedLower.endsWith(p.prefix)) {
+            const clean = cleanSuggestion(beforeCursor, p.suggest);
+            ghostText.textContent = extractFirstWord(clean);
+            return;
+          }
         }
         ghostText.textContent = '';
         return;
       }
 
-      // Multi-word mode
+      // Multi-word mode: check multi-word prefixes first
       for (const p of multiPredictions) {
-        if (lower.endsWith(p.prefix)) {
-          ghostText.textContent = p.suggest;
+        if (trimmedLower.endsWith(p.prefix)) {
+          ghostText.textContent = cleanSuggestion(beforeCursor, p.suggest);
           return;
         }
       }
 
-      // Fallback to word completion
-      if (currentWord && wordCompletions[currentWord]) {
-        ghostText.textContent = wordCompletions[currentWord];
+      // Multi-word mode fallback to single-word completion
+      if (currentWordLower && wordCompletions[currentWordLower]) {
+        let completion = wordCompletions[currentWordLower];
+        if (rawCurrentWord.length > 0 && rawCurrentWord[0] === rawCurrentWord[0].toUpperCase()) {
+          completion = completion.charAt(0).toUpperCase() + completion.slice(1);
+        }
+        ghostText.textContent = completion;
         return;
       }
 
       ghostText.textContent = '';
     }
 
-    demoInput.addEventListener('input', () => {
-      updatePredictions();
-    });
-
-    demoInput.addEventListener('keydown', (e) => {
-      // 1. Accept Ghost Text on Tab
-      if (e.key === 'Tab') {
-        if (ghostText.textContent) {
-          e.preventDefault();
-          demoInput.value += ghostText.textContent;
-          ghostText.textContent = '';
-          ghostMirror.textContent = demoInput.value;
-          showStatus('Accepted prediction');
+    if (demoInput) {
+      demoInput.addEventListener('input', updatePredictions);
+      demoInput.addEventListener('scroll', syncScroll);
+      demoInput.addEventListener('click', updatePredictions);
+      demoInput.addEventListener('keyup', (e) => {
+        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
           updatePredictions();
+        }
+      });
+
+      demoInput.addEventListener('keydown', (e) => {
+        // 1. Accept Ghost Text on Tab
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          const pred = ghostText.textContent;
+          if (pred && pred.length > 0) {
+            const cursorPos = demoInput.selectionStart;
+            const val = demoInput.value;
+            const before = val.substring(0, cursorPos);
+            const after = val.substring(demoInput.selectionEnd);
+
+            demoInput.value = before + pred + after;
+            const newCursor = cursorPos + pred.length;
+            demoInput.setSelectionRange(newCursor, newCursor);
+
+            ghostText.textContent = '';
+            showStatus('Accepted: ' + pred.trim());
+            updatePredictions();
+          }
           return;
         }
-      }
 
-      // 2. Autocorrect on Space
-      if (e.key === ' ' || e.code === 'Space') {
-        const val = demoInput.value;
-        const match = val.match(/([a-zA-Z]+)$/);
-        if (match) {
-          const rawWord = match[1];
-          const rawLower = rawWord.toLowerCase();
-          if (typoDictionary[rawLower]) {
-            e.preventDefault();
-            const corrected = typoDictionary[rawLower];
-            const startIdx = val.length - rawWord.length;
-            demoInput.value = val.substring(0, startIdx) + corrected + ' ';
-            lastAutocorrect = {
-              raw: rawWord,
-              corrected: corrected,
-              endPos: demoInput.value.length
-            };
-            showStatus('Autocorrected: ' + rawWord + ' -> ' + corrected);
-            updatePredictions();
-            return;
-          }
-        }
-        lastAutocorrect = null;
-      }
-
-      // 3. Single-Key Undo on Backspace
-      if (e.key === 'Backspace') {
-        if (lastAutocorrect && demoInput.selectionStart === lastAutocorrect.endPos) {
-          e.preventDefault();
+        // 2. Autocorrect on Space
+        if (e.key === ' ' || e.code === 'Space') {
+          const cursorPos = demoInput.selectionStart;
           const val = demoInput.value;
-          const correctedWithSpace = lastAutocorrect.corrected + ' ';
-          if (val.endsWith(correctedWithSpace)) {
-            demoInput.value = val.substring(0, val.length - correctedWithSpace.length) + lastAutocorrect.raw;
+          const before = val.substring(0, cursorPos);
+          const after = val.substring(demoInput.selectionEnd);
+
+          const match = before.match(/([a-zA-Z']+)$/);
+          if (match) {
+            const rawWord = match[1];
+            const rawLower = rawWord.toLowerCase();
+
+            if (typoDictionary[rawLower]) {
+              e.preventDefault();
+              let corrected = typoDictionary[rawLower];
+
+              // Preserve Title Case or UPPERCASE
+              if (rawWord === rawWord.toUpperCase() && rawWord.length > 1) {
+                corrected = corrected.toUpperCase();
+              } else if (rawWord[0] === rawWord[0].toUpperCase()) {
+                corrected = corrected.charAt(0).toUpperCase() + corrected.slice(1);
+              }
+
+              const wordStart = cursorPos - rawWord.length;
+              demoInput.value = before.substring(0, wordStart) + corrected + ' ' + after;
+              const newCursor = wordStart + corrected.length + 1;
+              demoInput.setSelectionRange(newCursor, newCursor);
+
+              lastAutocorrect = {
+                raw: rawWord,
+                corrected: corrected,
+                start: wordStart,
+                end: newCursor
+              };
+
+              showStatus('Autocorrected: ' + rawWord + ' → ' + corrected);
+              updatePredictions();
+              return;
+            }
+          }
+          lastAutocorrect = null;
+        }
+
+        // 3. Single-Key Undo on Backspace
+        if (e.key === 'Backspace') {
+          const cursorPos = demoInput.selectionStart;
+          if (lastAutocorrect && cursorPos === lastAutocorrect.end && demoInput.selectionEnd === cursorPos) {
+            e.preventDefault();
+            const val = demoInput.value;
+            const before = val.substring(0, lastAutocorrect.start);
+            const after = val.substring(lastAutocorrect.end);
+
+            demoInput.value = before + lastAutocorrect.raw + after;
+            const newCursor = lastAutocorrect.start + lastAutocorrect.raw.length;
+            demoInput.setSelectionRange(newCursor, newCursor);
+
             showStatus('Undone: reverted to ' + lastAutocorrect.raw);
             lastAutocorrect = null;
             updatePredictions();
             return;
           }
+          lastAutocorrect = null;
         }
-        lastAutocorrect = null;
-      }
-    });
+      });
+    }
+
+    const typingContainer = document.getElementById('typingContainer');
+    if (typingContainer && demoInput) {
+      typingContainer.addEventListener('click', (e) => {
+        if (e.target !== demoInput) {
+          demoInput.focus();
+        }
+      });
+    }
 
     // Sample chip clicks
     document.querySelectorAll('.sample-chip').forEach(chip => {
       chip.addEventListener('click', () => {
         const text = chip.dataset.text;
+        if (!demoInput) return;
         demoInput.value = text;
         demoInput.focus();
+        demoInput.setSelectionRange(text.length, text.length);
         updatePredictions();
       });
     });
 
     // Initial placeholder state
-    demoInput.value = 'Looking forward';
-    updatePredictions();
+    if (demoInput) {
+      demoInput.value = 'Looking forward';
+      demoInput.setSelectionRange(demoInput.value.length, demoInput.value.length);
+      updatePredictions();
+    }
   </script>
 </body>
 </html>
