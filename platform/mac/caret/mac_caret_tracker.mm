@@ -134,8 +134,9 @@ static bool getWebKitTextMarkerCaretRect(AXUIElementRef elem, CGRect& outRect) {
     if (std::isnan(outRect.origin.x) || std::isnan(outRect.origin.y) ||
         std::isinf(outRect.origin.x) || std::isinf(outRect.origin.y)) return false;
 
-    // Reject dummy uninitialized bounds
+    // Reject dummy uninitialized bounds (e.g. Chrome returning web area origin with w=0, h=0)
     if (outRect.origin.x <= 1.0 && outRect.size.width <= 1.0) return false;
+    if (outRect.size.width == 0.0 && outRect.size.height == 0.0) return false;
 
     if (outRect.size.height < 4.0) {
         outRect.size.height = 18.0;
@@ -448,18 +449,33 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                                     }
                                 }
 
-                                // Extract text foreground color if specified
+                                // Extract text foreground color if specified (NSColor or CGColorRef in Chrome)
                                 CFTypeRef colorObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"NSColor", nullptr);
                                 if (!colorObj) {
                                     colorObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"NSForegroundColor", nullptr);
                                 }
-                                if (colorObj && [(__bridge id)colorObj isKindOfClass:[NSColor class]]) {
-                                    NSColor* col = [(__bridge NSColor*)colorObj colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
-                                    if (col) {
-                                        uint32_t r = static_cast<uint32_t>(std::clamp([col redComponent] * 255.0, 0.0, 255.0));
-                                        uint32_t g = static_cast<uint32_t>(std::clamp([col greenComponent] * 255.0, 0.0, 255.0));
-                                        uint32_t b = static_cast<uint32_t>(std::clamp([col blueComponent] * 255.0, 0.0, 255.0));
-                                        geom.textColorRGBA = (r << 24) | (g << 16) | (b << 8) | 0xFF;
+                                if (!colorObj) {
+                                    colorObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"AXForegroundColor", nullptr);
+                                }
+                                if (colorObj) {
+                                    if ([(__bridge id)colorObj isKindOfClass:[NSColor class]]) {
+                                        NSColor* col = [(__bridge NSColor*)colorObj colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+                                        if (col) {
+                                            uint32_t r = static_cast<uint32_t>(std::clamp([col redComponent] * 255.0, 0.0, 255.0));
+                                            uint32_t g = static_cast<uint32_t>(std::clamp([col greenComponent] * 255.0, 0.0, 255.0));
+                                            uint32_t b = static_cast<uint32_t>(std::clamp([col blueComponent] * 255.0, 0.0, 255.0));
+                                            geom.textColorRGBA = (r << 24) | (g << 16) | (b << 8) | 0xFF;
+                                        }
+                                    } else if (CFGetTypeID(colorObj) == CGColorGetTypeID()) {
+                                        CGColorRef cgCol = (CGColorRef)colorObj;
+                                        const CGFloat* comps = CGColorGetComponents(cgCol);
+                                        size_t numComps = CGColorGetNumberOfComponents(cgCol);
+                                        if (comps && numComps >= 3) {
+                                            uint32_t r = static_cast<uint32_t>(std::clamp(comps[0] * 255.0, 0.0, 255.0));
+                                            uint32_t g = static_cast<uint32_t>(std::clamp(comps[1] * 255.0, 0.0, 255.0));
+                                            uint32_t b = static_cast<uint32_t>(std::clamp(comps[2] * 255.0, 0.0, 255.0));
+                                            geom.textColorRGBA = (r << 24) | (g << 16) | (b << 8) | 0xFF;
+                                        }
                                     }
                                 }
                             }
@@ -514,48 +530,19 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
         bool gotCaret = false;
         wchar_t lastChar = geom.textTail.empty() ? L'\0' : geom.textTail.back();
 
-        // 7a. Try WebKit / Blink TextMarker first (Chromium, Electron, Discord, Slack, Chrome, Vivaldi, VS Code, Safari)
-        CGRect wkRect = CGRectZero;
-        if (getWebKitTextMarkerCaretRect(elem, wkRect)) {
-            if (wkRect.size.width <= 24.0) {
-                double caretX = (wkRect.size.width <= 4.0) ? wkRect.origin.x : (wkRect.origin.x + wkRect.size.width);
-                double caretH = (wkRect.size.height >= 8.0 && wkRect.size.height <= 200.0) ? wkRect.size.height : 18.0;
-                caretRect = CGRectMake(caretX, wkRect.origin.y, 2.0, caretH);
-                gotCaret = true;
-            }
-        }
-
-        // Try WebKit TextMarker on ancestors (Chromium inputs can be nested inside AXGroup elements or forms)
-        if (!gotCaret) {
-            AXUIElementRef curAncestor = elem;
-            CFRetain(curAncestor);
-            for (int depth = 0; depth < 8 && !gotCaret; ++depth) {
-                CFTypeRef parentVal = nullptr;
-                if (AXUIElementCopyAttributeValue(curAncestor, kAXParentAttribute, &parentVal) == kAXErrorSuccess && parentVal) {
-                    if (CFGetTypeID(parentVal) == AXUIElementGetTypeID()) {
-                        AXUIElementRef parentElem = static_cast<AXUIElementRef>(parentVal);
-                        if (getWebKitTextMarkerCaretRect(parentElem, wkRect)) {
-                            if (wkRect.size.width <= 24.0) {
-                                double caretX = (wkRect.size.width <= 4.0) ? wkRect.origin.x : (wkRect.origin.x + wkRect.size.width);
-                                double caretH = (wkRect.size.height >= 8.0 && wkRect.size.height <= 200.0) ? wkRect.size.height : 18.0;
-                                caretRect = CGRectMake(caretX, wkRect.origin.y, 2.0, caretH);
-                                gotCaret = true;
-                            }
-                        }
-                        CFRelease(curAncestor);
-                        curAncestor = parentElem; // retain transferred
-                    } else {
-                        CFRelease(parentVal);
-                        break;
-                    }
-                } else {
-                    break;
+        auto isCaretInsideField = [&](const CGRect& r) -> bool {
+            if (r.origin.x <= 1.0 || r.origin.y <= 1.0) return false;
+            if (r.size.height < 6.0 || r.size.height > 240.0) return false;
+            if (hasFieldFrame) {
+                CGRect expanded = CGRectInset(fieldFrame, -24.0, -24.0);
+                if (!CGRectContainsPoint(expanded, CGPointMake(r.origin.x, r.origin.y))) {
+                    return false;
                 }
             }
-            CFRelease(curAncestor);
-        }
+            return true;
+        };
 
-        // 7b. Native AppKit Range Ladder (Notes, TextEdit, Pages, Messages, Mail)
+        // 7a. Native AppKit & Chromium Range Ladder (Notes, TextEdit, Pages, Chrome web fields, Amazon, Google search)
         auto tryRangeLadder = [&]() -> bool {
             if (!hasSelRange) return false;
 
@@ -565,14 +552,16 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                 hasPrev = getAXRectForRange(elem, selRange.location - 1, 1, prevCharRect) &&
                           prevCharRect.origin.x > 1.0 &&
                           prevCharRect.size.width > 0.0 &&
-                          prevCharRect.size.width <= 160.0;
+                          prevCharRect.size.width <= 160.0 &&
+                          isCaretInsideField(prevCharRect);
             }
 
-            // Insertion point rect: exact cursor line in NSTextView
+            // Insertion point rect: exact cursor line in NSTextView and Chromium text inputs
             CGRect zeroRect = CGRectZero;
             bool hasZero = getAXRectForRange(elem, selRange.location, 0, zeroRect) &&
                            zeroRect.origin.x > 1.0 && zeroRect.size.width <= 14.0 &&
-                           zeroRect.size.height >= 8.0;
+                           zeroRect.size.height >= 8.0 &&
+                           isCaretInsideField(zeroRect);
 
             if (hasZero && hasPrev) {
                 double prevRight = prevCharRect.origin.x + prevCharRect.size.width;
@@ -582,7 +571,7 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                 }
                 // Caret X must never lag behind the preceding glyph's right edge during fast typing
                 double finalX = std::max((double)zeroRect.origin.x, prevRight);
-                // In AppKit, prevCharRect is the exact glyph typed on the active line.
+                // In AppKit and Blink, prevCharRect is the exact glyph typed on the active line.
                 // Always lock baseline Y and line height to prevCharRect so ghost text never floats above the typed line!
                 double finalY = prevCharRect.origin.y;
                 double finalH = prevCharRect.size.height;
@@ -609,7 +598,8 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
 
             CGRect nextCharRect = CGRectZero;
             if (getAXRectForRange(elem, selRange.location, 1, nextCharRect) &&
-                nextCharRect.origin.x > 1.0 && nextCharRect.size.width <= 160.0) {
+                nextCharRect.origin.x > 1.0 && nextCharRect.size.width <= 160.0 &&
+                isCaretInsideField(nextCharRect)) {
                 caretRect = CGRectMake(
                     nextCharRect.origin.x,
                     nextCharRect.origin.y,
@@ -622,22 +612,74 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             return false;
         };
 
-        if (!gotCaret) {
+        if (hasSelRange) {
             gotCaret = tryRangeLadder();
         }
 
-        // 7c. Fallback for text fields and search bars (when AX range queries are unsupported)
+        // 7b. Try WebKit / Blink TextMarker (Chromium, Electron, Discord, Slack, VS Code, Safari)
+        if (!gotCaret) {
+            CGRect wkRect = CGRectZero;
+            if (getWebKitTextMarkerCaretRect(elem, wkRect) && isCaretInsideField(wkRect)) {
+                if (wkRect.size.width <= 24.0) {
+                    double caretX = (wkRect.size.width <= 4.0) ? wkRect.origin.x : (wkRect.origin.x + wkRect.size.width);
+                    double caretH = (wkRect.size.height >= 8.0 && wkRect.size.height <= 200.0) ? wkRect.size.height : 18.0;
+                    caretRect = CGRectMake(caretX, wkRect.origin.y, 2.0, caretH);
+                    gotCaret = true;
+                }
+            }
+        }
+
+        // Try WebKit TextMarker on ancestors (Chromium inputs can be nested inside AXGroup elements or forms)
+        if (!gotCaret) {
+            AXUIElementRef curAncestor = elem;
+            CFRetain(curAncestor);
+            for (int depth = 0; depth < 8 && !gotCaret; ++depth) {
+                CFTypeRef parentVal = nullptr;
+                if (AXUIElementCopyAttributeValue(curAncestor, kAXParentAttribute, &parentVal) == kAXErrorSuccess && parentVal) {
+                    if (CFGetTypeID(parentVal) == AXUIElementGetTypeID()) {
+                        AXUIElementRef parentElem = static_cast<AXUIElementRef>(parentVal);
+                        CGRect wkRect = CGRectZero;
+                        if (getWebKitTextMarkerCaretRect(parentElem, wkRect) && isCaretInsideField(wkRect)) {
+                            if (wkRect.size.width <= 24.0) {
+                                double caretX = (wkRect.size.width <= 4.0) ? wkRect.origin.x : (wkRect.origin.x + wkRect.size.width);
+                                double caretH = (wkRect.size.height >= 8.0 && wkRect.size.height <= 200.0) ? wkRect.size.height : 18.0;
+                                caretRect = CGRectMake(caretX, wkRect.origin.y, 2.0, caretH);
+                                gotCaret = true;
+                            }
+                        }
+                        CFRelease(curAncestor);
+                        curAncestor = parentElem; // retain transferred
+                    } else {
+                        CFRelease(parentVal);
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            CFRelease(curAncestor);
+        }
+
+        // 7c. Fallback for text fields and search bars (when AX range and marker queries are unsupported)
         if (!gotCaret && hasFieldFrame && fieldFrame.size.height <= 80.0) {
             double h = std::clamp((double)fieldFrame.size.height - 8.0, 14.0, 24.0);
-            // In web search bars (Google, Vivaldi), vertical center of text line is ~2.5pt higher than fieldFrame physical center
+            // In web search bars, vertical center of text line is ~2.5pt higher than fieldFrame physical center
             double y = fieldFrame.origin.y + (fieldFrame.size.height - h) * 0.5 - 2.5;
-            double effectiveFontSize = (geom.fontSize >= 10.0 && geom.fontSize <= 36.0) ? geom.fontSize : 16.0;
+            double effectiveFontSize = 14.0;
+            if (geom.fontSize >= 10.0 && geom.fontSize <= 36.0) {
+                effectiveFontSize = geom.fontSize;
+            } else if (fieldFrame.size.height <= 32.0) {
+                effectiveFontSize = 13.0;
+            } else if (fieldFrame.size.height >= 48.0) {
+                effectiveFontSize = 16.0;
+            }
             double textW = 0.0;
             if (!geom.textTail.empty()) {
                 textW = GhostOverlay::measureTextWidth(geom.textTail, geom.fontName, effectiveFontSize);
             }
-            // Standard web search bar left padding (Google/Vivaldi/Safari search) is ~13pt
-            double x = std::min(fieldFrame.origin.x + fieldFrame.size.width - 12.0, fieldFrame.origin.x + 13.0 + textW);
+            bool isWideSearch = (geom.isSingleLine && (subroleStr == "AXSearchField" || lowerSub.find("search") != std::string::npos) && fieldFrame.size.width >= 400.0);
+            double padL = isWideSearch ? 36.0 : (geom.isSingleLine ? 10.0 : 8.0);
+            double x = std::min(fieldFrame.origin.x + fieldFrame.size.width - 12.0, fieldFrame.origin.x + padL + textW);
             caretRect = CGRectMake(x, y, 2.5, h);
             gotCaret = true;
         }
