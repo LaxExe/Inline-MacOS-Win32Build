@@ -167,6 +167,37 @@ void GhostOverlay::hide() {
     });
 }
 
+void GhostOverlay::advanceLayout(double deltaX, const std::wstring& remainingText) {
+    if (deltaX <= 0.0 || remainingText.empty()) return;
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @autoreleasepool {
+            if (!gGhostPanel || ![gGhostPanel isVisible] || !gGhostView) return;
+
+            NSRect curFrame = [gGhostPanel frame];
+            curFrame.origin.x += static_cast<CGFloat>(deltaX);
+            curFrame.size.width = std::max<CGFloat>(16.0, curFrame.size.width - static_cast<CGFloat>(deltaX));
+
+            [NSAnimationContext beginGrouping];
+            [[NSAnimationContext currentContext] setDuration:0.0];
+            [gGhostPanel setFrame:curFrame display:YES];
+            [gGhostView setFrame:NSMakeRect(0, 0, curFrame.size.width, curFrame.size.height)];
+
+            GhostLayoutResult updated = gGhostView.layoutData;
+            if (!updated.lines.empty()) {
+                updated.lines[0].text = remainingText;
+                updated.lines[0].x += deltaX;
+                updated.boundingBox.x += deltaX;
+                updated.boundingBox.width = std::max(4.0, updated.boundingBox.width - deltaX);
+                gGhostView.layoutData = updated;
+            }
+
+            [gGhostView setNeedsDisplay:YES];
+            [NSAnimationContext endGrouping];
+        }
+    });
+}
+
 double GhostOverlay::measureTextWidth(const std::wstring& text, const std::string& fontName, double fontSize) {
     if (text.empty()) return 0.0;
     @autoreleasepool {

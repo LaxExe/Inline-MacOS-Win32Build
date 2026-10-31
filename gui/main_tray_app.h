@@ -119,6 +119,9 @@ private:
     AppConfig cachedConfig_;
     QTimer* idleClearTimer_ = nullptr;
     std::atomic<int64_t> lastKeyTimeNs_{0};
+    std::atomic<int64_t> lastAutocorrectTimeNs_{0};
+    std::string cachedFontName_{""};
+    double cachedFontSize_{13.0};
     std::atomic<bool> hasBufferedData_{false};
     std::atomic<bool> clearRequested_{false};
 

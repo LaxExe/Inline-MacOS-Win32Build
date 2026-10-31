@@ -56,9 +56,11 @@ GhostLayoutResult computeGhostLayout(
         }
     }
 
-    // Place suggestion snug against the cursor, avoiding artificial gaps between the cursor and the inline suggestion.
+    // Place suggestion strictly to the right of the blinking cursor bar with 0.5pt breathing margin,
+    // guaranteeing that ghost text never renders under or overlapping the vertical cursor bar.
     const double caretOffset = 0.5;
-    const double caretRightX = geom.caret.x + caretOffset;
+    const double caretWidth = (geom.caret.width >= 1.0 && geom.caret.width <= 4.0) ? geom.caret.width : 2.0;
+    const double caretRightX = geom.caret.x + caretWidth + caretOffset;
     const double fieldLeft = (geom.field.width > 20.0) ? geom.field.x : (caretRightX - 40.0);
     const double fieldRight = (geom.field.width > 20.0) ? (geom.field.x + geom.field.width) : (caretRightX + 500.0);
     const double lineStartX = (geom.lineStartX >= fieldLeft && geom.lineStartX <= caretRightX + 4.0)

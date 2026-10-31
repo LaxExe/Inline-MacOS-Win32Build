@@ -536,25 +536,39 @@ std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::
         expectedLast = L' ';
     }
 
+    bool synced = false;
     std::optional<CaretGeometry> geom;
-    for (int attempt = 0; attempt < 3; ++attempt) {
+    for (int attempt = 0; attempt < 6; ++attempt) {
         geom = caretTracker_.getCaretGeometry();
         if (!geom) {
             // Give waking Chromium/Electron accessibility trees a brief moment to finish building
-            if (attempt < 2) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(6));
+            if (attempt < 5) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(4));
                 continue;
             }
             return std::nullopt;
         }
+
         if (expectedLast == L'\0' || geom->textTail.empty()) {
+            synced = true;
             break;
         }
+
         wchar_t actualLast = static_cast<wchar_t>(std::towlower(geom->textTail.back()));
         if (actualLast == expectedLast) {
+            synced = true;
             break; // Host app has processed the latest keystroke and updated its cursor!
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+
+        int sleepMs = 2 + attempt * 2; // 2ms, 4ms, 6ms, 8ms, 10ms
+        std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
+    }
+
+    if (!synced && expectedLast != L'\0') {
+        // Stale geometry! The host app's accessibility tree has not caught up to the user's keystroke.
+        // Returning stale geometry would place ghost text behind or under the cursor.
+        // Reject stale geometry so ghost text is never drawn out-of-sync or shifted left!
+        return std::nullopt;
     }
     return geom;
 #else
@@ -608,6 +622,9 @@ void MainTrayApp::ghostWorkerLoop() {
             continue;
         }
 
+        cachedFontName_ = geom->fontName;
+        cachedFontSize_ = geom->fontSize;
+
         // Build context string for rejection key and LLM prompt
         std::wstring contextKey;
         for (const auto& w : req.contextWords) {
@@ -624,7 +641,7 @@ void MainTrayApp::ghostWorkerLoop() {
         // re-anchor it immediately at the new cursor position, and if it's down to a short suffix, let Ngram/LLM extend it!
         bool renderedSomething = false;
         if (req.typeThroughOnly && !req.typeThroughRemaining.empty()) {
-            bool midWordNow = req.typeThroughRemaining.front() != L' ';
+            bool midWordNow = isMidWord;
             GhostLayoutResult layout = computeGhostLayout(
                 req.typeThroughRemaining,
                 *geom,
@@ -1033,11 +1050,30 @@ void MainTrayApp::handleCharacter(wchar_t ch) {
     currentWordToken_++;
     injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
 
+    const int64_t nowNs = std::chrono::steady_clock::now().time_since_epoch().count();
+    const int64_t lastAcNs = lastAutocorrectTimeNs_.load(std::memory_order_relaxed);
+    int settleMs = 0;
+    if (lastAcNs > 0) {
+        int64_t elapsedMs = (nowNs - lastAcNs) / 1000000LL;
+        if (elapsedMs < 45) {
+            settleMs = static_cast<int>(45 - elapsedMs);
+        }
+    }
+
     std::wstring remainingGhost;
     if (ghostSession_.onCharacterTyped(ch, remainingGhost)) {
-        scheduleGhostPrediction(true, remainingGhost);
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+        double charW = GhostOverlay::measureTextWidth(std::wstring(1, ch), cachedFontName_, cachedFontSize_);
+        ghostOverlay_.advanceLayout(charW, remainingGhost);
+#endif
+        scheduleGhostPrediction(true, remainingGhost, settleMs);
     } else {
-        scheduleGhostPrediction(false);
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+        // Mismatch: user typed a character different from prediction.
+        // Dismiss stale overlay immediately so it never lingers under the advancing cursor!
+        ghostOverlay_.hide();
+#endif
+        scheduleGhostPrediction(false, L"", settleMs);
     }
 
     if (settingsDialog_ && settingsDialog_->isVisible()) {
@@ -1174,6 +1210,8 @@ bool MainTrayApp::handleWordBoundary(wchar_t delimiter, bool isActiveTap) {
 
     if (correction.didCorrect) {
         dismissGhost();
+        const int64_t nowNs = std::chrono::steady_clock::now().time_since_epoch().count();
+        lastAutocorrectTimeNs_.store(nowNs, std::memory_order_relaxed);
         auto check = undoSM_.onWordCorrected(word, correction.corrected);
         if (!check.suppressed) {
             currentWordToken_++;
@@ -1231,12 +1269,14 @@ bool MainTrayApp::handleWordBoundary(wchar_t delimiter, bool isActiveTap) {
     if (delimiter == L' ') {
         std::wstring remGhost;
         if (!correction.didCorrect && ghostSession_.onCharacterTyped(L' ', remGhost)) {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+            double spaceW = GhostOverlay::measureTextWidth(L" ", cachedFontName_, cachedFontSize_);
+            ghostOverlay_.advanceLayout(spaceW, remGhost);
+#endif
             scheduleGhostPrediction(true, remGhost);
         } else {
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
-            if (correction.didCorrect) {
-                ghostOverlay_.hide();
-            }
+            ghostOverlay_.hide();
 #endif
             int settle = correction.didCorrect ? std::clamp(static_cast<int>(correction.corrected.size()) * 4 + 20, 25, 45) : 0;
             scheduleGhostPrediction(false, L"", settle);

@@ -26,7 +26,7 @@ TEST(GhostLayout, FitsEntirelyOnFirstLineWhenEnoughSpace) {
     ASSERT_TRUE(res.valid);
     ASSERT_EQ(res.lines.size(), 1u);
     EXPECT_EQ(res.lines[0].text, L"the meeting");
-    EXPECT_DOUBLE_EQ(res.lines[0].x, 100.5);
+    EXPECT_DOUBLE_EQ(res.lines[0].x, 102.5);
     EXPECT_DOUBLE_EQ(res.lines[0].y, 50.0);
 }
 
@@ -46,7 +46,7 @@ TEST(GhostLayout, WrapsOverflowingWordsToLineStartXOnNextLine) {
     ASSERT_TRUE(res.valid);
     ASSERT_GE(res.lines.size(), 2u);
     EXPECT_EQ(res.lines[0].text, L"to the");
-    EXPECT_DOUBLE_EQ(res.lines[0].x, 160.5);
+    EXPECT_DOUBLE_EQ(res.lines[0].x, 162.5);
     EXPECT_DOUBLE_EQ(res.lines[0].y, 50.0);
 
     EXPECT_DOUBLE_EQ(res.lines[1].x, 28.0);
@@ -225,7 +225,7 @@ TEST(NgramPredictor, CompletesActiveWordAndChainsNextWordsInstantly) {
     EXPECT_EQ(pSingle.wordCount, 1);
 }
 
-TEST(GhostLayout, PlacesMidWordSuggestionSnugToCaretWithoutArtificialGap) {
+TEST(GhostLayout, PlacesMidWordSuggestionStrictlyToRightOfCaret) {
     CaretGeometry cg;
     cg.caret = {100.0, 50.0, 2.5, 18.0};
     cg.field = {20.0, 40.0, 400.0, 200.0};
@@ -234,12 +234,12 @@ TEST(GhostLayout, PlacesMidWordSuggestionSnugToCaretWithoutArtificialGap) {
     cg.isSingleLine = false;
     cg.atEditableEnd = true;
 
-    // Mid-word suggestion should sit snug at caret.x + 0.5 (100.5), not caret.x + caret.width (102.5)
+    // Mid-word suggestion should sit strictly to the right of caret (100.0 + 2.5 + 0.5 = 103.0)
     GhostLayoutResult res = computeGhostLayout(L"nks", cg, true, mono8Measure);
     ASSERT_TRUE(res.valid);
     ASSERT_EQ(res.lines.size(), 1u);
     EXPECT_EQ(res.lines[0].text, L"nks");
-    EXPECT_DOUBLE_EQ(res.lines[0].x, 100.5);
+    EXPECT_DOUBLE_EQ(res.lines[0].x, 103.0);
     EXPECT_DOUBLE_EQ(res.lines[0].y, 50.0);
 }
 
@@ -260,7 +260,7 @@ TEST(GhostLayout, PreservesLeadingSpaceWhenDocumentEndsWithWordChar) {
     ASSERT_EQ(res.lines.size(), 1u);
     EXPECT_EQ(res.lines[0].text, L" tomorrow");
     EXPECT_EQ(res.fittedText, L" tomorrow");
-    EXPECT_DOUBLE_EQ(res.lines[0].x, 100.5);
+    EXPECT_DOUBLE_EQ(res.lines[0].x, 103.0);
 }
 
 TEST(GhostLayout, StripsRedundantLeadingSpaceWhenDocumentEndsWithSpace) {
@@ -280,5 +280,5 @@ TEST(GhostLayout, StripsRedundantLeadingSpaceWhenDocumentEndsWithSpace) {
     ASSERT_EQ(res.lines.size(), 1u);
     EXPECT_EQ(res.lines[0].text, L"tomorrow");
     EXPECT_EQ(res.fittedText, L"tomorrow");
-    EXPECT_DOUBLE_EQ(res.lines[0].x, 100.5);
+    EXPECT_DOUBLE_EQ(res.lines[0].x, 103.0);
 }
