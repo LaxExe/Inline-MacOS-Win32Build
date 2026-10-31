@@ -20,7 +20,7 @@ fi
 
 # Determine download URL for latest DMG release
 REPO="LaxExe/Inline-MacOS-Win32Build"
-FALLBACK_URL="https://github.com/${REPO}/releases/download/v1.1/Inline-v1.1-macOS.dmg"
+FALLBACK_URL="https://github.com/${REPO}/releases/download/v1.2/Inline-v1.2-macOS.dmg"
 
 echo "Locating latest release package..."
 LATEST_DMG=$(curl -sSL "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null | grep "browser_download_url.*\.dmg" | head -n 1 | cut -d '"' -f 4 || true)
