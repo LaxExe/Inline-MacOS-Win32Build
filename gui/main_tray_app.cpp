@@ -516,16 +516,26 @@ std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::
 
         // Caret forward monotonicity: if typing on the same line, and the host app reports
         // a caret position significantly to the left of minExpectedX, it has NOT processed the keystroke yet!
-        bool isSameLine = (lastCaretY > 0.0 && std::abs(geom->caret.y - lastCaretY) < 6.0);
+        bool isSameLine = geom->isSingleLine || (lastCaretY > 0.0 && std::abs(geom->caret.y - lastCaretY) < 12.0);
         if (isSameLine && minExpectedX > 0.0 && geom->caret.x + 1.2 < minExpectedX - 2.0) {
             int sleepMs = 3 + attempt * 2;
             std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
             continue;
         }
 
-        if (expectedLast == L'\0' || geom->textTail.empty()) {
+        if (expectedLast == L'\0') {
             synced = true;
             break;
+        }
+
+        if (geom->textTail.empty()) {
+            if (!isSameLine || minExpectedX <= 0.0 || geom->caret.x + 1.2 >= minExpectedX - 2.0) {
+                synced = true;
+                break;
+            }
+            int sleepMs = 3 + attempt * 2;
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
+            continue;
         }
 
         wchar_t actualLast = static_cast<wchar_t>(std::towlower(geom->textTail.back()));
@@ -541,7 +551,7 @@ std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::
     if (!geom) return std::nullopt;
 
     // Clamp caret.x so it NEVER moves backwards behind minExpectedX during typing on the same line!
-    bool isSameLine = (lastCaretY > 0.0 && std::abs(geom->caret.y - lastCaretY) < 6.0);
+    bool isSameLine = geom->isSingleLine || (lastCaretY > 0.0 && std::abs(geom->caret.y - lastCaretY) < 12.0);
     if (isSameLine && minExpectedX > 0.0 && geom->caret.x + 1.2 < minExpectedX) {
         geom->caret.x = minExpectedX - 1.2;
     }

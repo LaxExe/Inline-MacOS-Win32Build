@@ -353,3 +353,34 @@ TEST(GhostLayout, PreservesLeadingSpaceForNextWordWhenTypingCompletedWord) {
     EXPECT_EQ(res.lines[0].text, L" there");
     EXPECT_EQ(res.fittedText, L" there");
 }
+
+TEST(GhostLayout, CalculatesComfortableBaselineFontSizeForSingleLineSearchBars) {
+    CaretGeometry cg;
+    cg.caret = {100.0, 50.0, 2.0, 20.0};
+    cg.field = {20.0, 40.0, 500.0, 48.0}; // Google search bar / YouTube search bar height
+    cg.lineStartX = 28.0;
+    cg.lineHeight = 20.0;
+    cg.isSingleLine = true;
+    cg.atEditableEnd = true;
+    cg.fontSize = 0.0; // Unextracted font size
+
+    GhostLayoutResult res = computeGhostLayout(L" query", cg, false, mono8Measure);
+    ASSERT_TRUE(res.valid);
+    EXPECT_GE(res.fontSize, 15.0);
+    EXPECT_LE(res.fontSize, 17.0);
+}
+
+TEST(GhostLayout, ClampsFallbackFontSizeToAtLeast14ptAcrossAllFields) {
+    CaretGeometry cg;
+    cg.caret = {100.0, 50.0, 2.0, 14.0}; // Short caret height
+    cg.field = {20.0, 40.0, 400.0, 200.0};
+    cg.lineStartX = 28.0;
+    cg.lineHeight = 14.0;
+    cg.isSingleLine = false;
+    cg.atEditableEnd = true;
+    cg.fontSize = 0.0;
+
+    GhostLayoutResult res = computeGhostLayout(L" next word", cg, false, mono8Measure);
+    ASSERT_TRUE(res.valid);
+    EXPECT_GE(res.fontSize, 14.0);
+}

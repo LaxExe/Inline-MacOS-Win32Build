@@ -302,6 +302,18 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             }
         }
 
+        auto isCaretInsideField = [&](const CGRect& r) -> bool {
+            if (r.origin.x <= 1.0 || r.origin.y <= 1.0) return false;
+            if (r.size.height < 6.0 || r.size.height > 240.0) return false;
+            if (hasFieldFrame) {
+                CGRect expanded = CGRectInset(fieldFrame, -24.0, -24.0);
+                if (!CGRectContainsPoint(expanded, CGPointMake(r.origin.x, r.origin.y))) {
+                    return false;
+                }
+            }
+            return true;
+        };
+
         // 5. Query selected text range
         CFTypeRef selRangeVal = nullptr;
         CFRange selRange = CFRangeMake(0, 0);
@@ -325,6 +337,41 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             return std::nullopt;
         }
 
+        // 5b. Query full element value upfront (Chromium, Electron, web search fields, Safari, inputs)
+        CFTypeRef fullVal = nullptr;
+        std::wstring fullStr;
+        if (AXUIElementCopyAttributeValue(elem, kAXValueAttribute, &fullVal) == kAXErrorSuccess && fullVal) {
+            if (CFGetTypeID(fullVal) == CFStringGetTypeID()) {
+                fullStr = cfStringToWString(static_cast<CFStringRef>(fullVal));
+            }
+            CFRelease(fullVal);
+        }
+
+        // Determine effective caret location. In Chromium / Blink web inputs (Google search, YouTube),
+        // selRange is frequently delayed or unpopulated (loc = 0, len = 0) while typing at the end of the input.
+        // If loc == 0 but fullStr has text, probe whether fullStr.size() provides the true caret position:
+        CFIndex effectiveLoc = selRange.location;
+        if (hasSelRange && effectiveLoc == 0 && fullStr.size() > 0) {
+            CGRect testEndRect = CGRectZero;
+            CFIndex endIdx = static_cast<CFIndex>(fullStr.size());
+            bool validEnd = (getAXRectForRange(elem, endIdx, 0, testEndRect) ||
+                             getAXRectForRange(elem, endIdx - 1, 1, testEndRect)) &&
+                            isCaretInsideField(testEndRect);
+            if (validEnd) {
+                effectiveLoc = endIdx;
+            }
+        } else if (!hasSelRange && fullStr.size() > 0) {
+            CGRect testEndRect = CGRectZero;
+            CFIndex endIdx = static_cast<CFIndex>(fullStr.size());
+            bool validEnd = (getAXRectForRange(elem, endIdx, 0, testEndRect) ||
+                             getAXRectForRange(elem, endIdx - 1, 1, testEndRect)) &&
+                            isCaretInsideField(testEndRect);
+            if (validEnd) {
+                effectiveLoc = endIdx;
+                hasSelRange = true;
+            }
+        }
+
         CaretGeometry geom;
         geom.pid = static_cast<int>(pid);
         std::string lowerSub = subroleStr;
@@ -338,9 +385,34 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
         geom.caretAtEOF = true;
 
         // 6. Query recent text tail and font attributes
-        if (hasSelRange) {
-            CFIndex tailStart = std::max<CFIndex>(0, selRange.location - 160);
-            CFIndex tailLen = selRange.location - tailStart;
+        if (!fullStr.empty()) {
+            if (effectiveLoc <= static_cast<CFIndex>(fullStr.size())) {
+                size_t l = static_cast<size_t>(effectiveLoc);
+                size_t start = (l > 160) ? (l - 160) : 0;
+                geom.textTail = fullStr.substr(start, l - start);
+            } else {
+                size_t start = (fullStr.size() > 160) ? (fullStr.size() - 160) : 0;
+                geom.textTail = fullStr.substr(start);
+            }
+            while (!geom.textTail.empty() && isZeroWidthOrFormatting(geom.textTail.back())) {
+                geom.textTail.pop_back();
+            }
+
+            // Check if non-whitespace text follows the caret
+            if (effectiveLoc < static_cast<CFIndex>(fullStr.size())) {
+                for (size_t i = static_cast<size_t>(effectiveLoc); i < fullStr.size(); ++i) {
+                    if (!isZeroWidthOrWhitespace(fullStr[i])) {
+                        geom.atEditableEnd = false;
+                        geom.caretAtEOF = false;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (geom.textTail.empty() && hasSelRange && effectiveLoc > 0) {
+            CFIndex tailStart = std::max<CFIndex>(0, effectiveLoc - 160);
+            CFIndex tailLen = effectiveLoc - tailStart;
             if (tailLen > 0) {
                 CFRange tailR = CFRangeMake(tailStart, tailLen);
                 AXValueRef tailVal = AXValueCreate(kAXValueTypeCFRange, &tailR);
@@ -355,173 +427,135 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                     CFRelease(tailVal);
                 }
             }
+        }
 
-            // 6a. Check document character count and probe text following caret to verify atEditableEnd
-            CFTypeRef numCharsVal = nullptr;
-            CFIndex totalDocChars = -1;
-            if (AXUIElementCopyAttributeValue(elem, kAXNumberOfCharactersAttribute, &numCharsVal) == kAXErrorSuccess && numCharsVal) {
-                if (CFGetTypeID(numCharsVal) == CFNumberGetTypeID()) {
-                    CFNumberGetValue(static_cast<CFNumberRef>(numCharsVal), kCFNumberCFIndexType, &totalDocChars);
-                }
-                CFRelease(numCharsVal);
+        // 6a. Check document character count and probe text following caret to verify atEditableEnd (for AppKit NSTextView)
+        CFTypeRef numCharsVal = nullptr;
+        CFIndex totalDocChars = -1;
+        if (AXUIElementCopyAttributeValue(elem, kAXNumberOfCharactersAttribute, &numCharsVal) == kAXErrorSuccess && numCharsVal) {
+            if (CFGetTypeID(numCharsVal) == CFNumberGetTypeID()) {
+                CFNumberGetValue(static_cast<CFNumberRef>(numCharsVal), kCFNumberCFIndexType, &totalDocChars);
             }
+            CFRelease(numCharsVal);
+        }
 
-            if (totalDocChars > 0 && selRange.location < totalDocChars) {
-                CFIndex probeLen = std::min<CFIndex>(120, totalDocChars - selRange.location);
-                CFRange afterR = CFRangeMake(selRange.location, probeLen);
-                AXValueRef afterVal = AXValueCreate(kAXValueTypeCFRange, &afterR);
-                if (afterVal) {
-                    CFTypeRef afterStrRef = nullptr;
-                    if (AXUIElementCopyParameterizedAttributeValue(elem, kAXStringForRangeParameterizedAttribute, afterVal, &afterStrRef) == kAXErrorSuccess && afterStrRef) {
-                        if (CFGetTypeID(afterStrRef) == CFStringGetTypeID()) {
-                            std::wstring afterStr = cfStringToWString(static_cast<CFStringRef>(afterStrRef));
-                            for (wchar_t ch : afterStr) {
-                                if (!isZeroWidthOrWhitespace(ch)) {
-                                    geom.atEditableEnd = false;
-                                    geom.caretAtEOF = false;
-                                    break;
-                                }
-                            }
-                        }
-                        CFRelease(afterStrRef);
-                    }
-                    CFRelease(afterVal);
-                }
-            } else if (totalDocChars == -1) {
-                // If total character count is not reported by the host app, probe up to 80 chars after caret
-                CFRange afterR = CFRangeMake(selRange.location, 80);
-                AXValueRef afterVal = AXValueCreate(kAXValueTypeCFRange, &afterR);
-                if (afterVal) {
-                    CFTypeRef afterStrRef = nullptr;
-                    if (AXUIElementCopyParameterizedAttributeValue(elem, kAXStringForRangeParameterizedAttribute, afterVal, &afterStrRef) == kAXErrorSuccess && afterStrRef) {
-                        if (CFGetTypeID(afterStrRef) == CFStringGetTypeID()) {
-                            std::wstring afterStr = cfStringToWString(static_cast<CFStringRef>(afterStrRef));
-                            for (wchar_t ch : afterStr) {
-                                if (!isZeroWidthOrWhitespace(ch)) {
-                                    geom.atEditableEnd = false;
-                                    geom.caretAtEOF = false;
-                                    break;
-                                }
-                            }
-                        }
-                        CFRelease(afterStrRef);
-                    }
-                    CFRelease(afterVal);
-                }
-            }
-
-            // 6c. Query font attributes safely
-            if (selRange.location > 0 || totalDocChars > 0) {
-                CFIndex fontProbeIdx = (selRange.location > 0) ? (selRange.location - 1) : 0;
-                CFRange attrR = CFRangeMake(fontProbeIdx, 1);
-                AXValueRef attrRangeVal = AXValueCreate(kAXValueTypeCFRange, &attrR);
-                if (attrRangeVal) {
-                    CFTypeRef attrStrRef = nullptr;
-                    if (AXUIElementCopyParameterizedAttributeValue(elem, kAXAttributedStringForRangeParameterizedAttribute, attrRangeVal, &attrStrRef) == kAXErrorSuccess && attrStrRef) {
-                        if (CFGetTypeID(attrStrRef) == CFAttributedStringGetTypeID()) {
-                            CFAttributedStringRef attrStr = static_cast<CFAttributedStringRef>(attrStrRef);
-                            if (CFAttributedStringGetLength(attrStr) > 0) {
-                                // Try AppKit NSFontAttributeName directly
-                                CFTypeRef fontObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"NSFont", nullptr);
-                                if (fontObj && [(__bridge id)fontObj isKindOfClass:[NSFont class]]) {
-                                    NSFont* nsFont = (__bridge NSFont*)fontObj;
-                                    geom.fontSize = [nsFont pointSize];
-                                    if (nsFont.fontName && nsFont.fontName.length > 0) {
-                                        geom.fontName = [nsFont.fontName UTF8String];
-                                    }
-                                } else {
-                                    // Fallback to WebKit / AXFont dictionary
-                                    CFDictionaryRef fontDict = static_cast<CFDictionaryRef>(
-                                        CFAttributedStringGetAttribute(attrStr, 0, kAXFontTextAttribute, nullptr)
-                                    );
-                                    if (fontDict && CFGetTypeID(fontDict) == CFDictionaryGetTypeID()) {
-                                        CFStringRef fname = static_cast<CFStringRef>(CFDictionaryGetValue(fontDict, kAXFontNameKey));
-                                        if (fname && CFGetTypeID(fname) == CFStringGetTypeID()) {
-                                            geom.fontName = cfStringToStdString(fname);
-                                        }
-                                        CFNumberRef fsize = static_cast<CFNumberRef>(CFDictionaryGetValue(fontDict, kAXFontSizeKey));
-                                        if (fsize && CFGetTypeID(fsize) == CFNumberGetTypeID()) {
-                                            double sz = 0.0;
-                                            if (CFNumberGetValue(fsize, kCFNumberDoubleType, &sz) && sz >= 6.0 && sz <= 144.0) {
-                                                geom.fontSize = sz;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                // Extract text foreground color if specified (NSColor or CGColorRef in Chrome)
-                                CFTypeRef colorObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"NSColor", nullptr);
-                                if (!colorObj) {
-                                    colorObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"NSForegroundColor", nullptr);
-                                }
-                                if (!colorObj) {
-                                    colorObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"AXForegroundColor", nullptr);
-                                }
-                                if (colorObj) {
-                                    if ([(__bridge id)colorObj isKindOfClass:[NSColor class]]) {
-                                        NSColor* col = [(__bridge NSColor*)colorObj colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
-                                        if (col) {
-                                            uint32_t r = static_cast<uint32_t>(std::clamp([col redComponent] * 255.0, 0.0, 255.0));
-                                            uint32_t g = static_cast<uint32_t>(std::clamp([col greenComponent] * 255.0, 0.0, 255.0));
-                                            uint32_t b = static_cast<uint32_t>(std::clamp([col blueComponent] * 255.0, 0.0, 255.0));
-                                            geom.textColorRGBA = (r << 24) | (g << 16) | (b << 8) | 0xFF;
-                                        }
-                                    } else if (CFGetTypeID(colorObj) == CGColorGetTypeID()) {
-                                        CGColorRef cgCol = (CGColorRef)colorObj;
-                                        const CGFloat* comps = CGColorGetComponents(cgCol);
-                                        size_t numComps = CGColorGetNumberOfComponents(cgCol);
-                                        if (comps && numComps >= 3) {
-                                            uint32_t r = static_cast<uint32_t>(std::clamp(comps[0] * 255.0, 0.0, 255.0));
-                                            uint32_t g = static_cast<uint32_t>(std::clamp(comps[1] * 255.0, 0.0, 255.0));
-                                            uint32_t b = static_cast<uint32_t>(std::clamp(comps[2] * 255.0, 0.0, 255.0));
-                                            geom.textColorRGBA = (r << 24) | (g << 16) | (b << 8) | 0xFF;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        CFRelease(attrStrRef);
-                    }
-                    CFRelease(attrRangeVal);
-                }
-            }
-        } // end hasSelRange
-
-        // 6b. Check kAXValueAttribute (Chromium / Electron inputs, textareas, web fields, Google search)
-        // Runs for both single-line and multi-line fields even when hasSelRange is false!
-        if (geom.textTail.empty()) {
-            CFTypeRef fullVal = nullptr;
-            if (AXUIElementCopyAttributeValue(elem, kAXValueAttribute, &fullVal) == kAXErrorSuccess && fullVal) {
-                if (CFGetTypeID(fullVal) == CFStringGetTypeID()) {
-                    std::wstring fullStr = cfStringToWString(static_cast<CFStringRef>(fullVal));
-                    if (hasSelRange && selRange.location <= static_cast<CFIndex>(fullStr.size())) {
-                        size_t loc = static_cast<size_t>(selRange.location);
-                        size_t start = (loc > 160) ? (loc - 160) : 0;
-                        geom.textTail = fullStr.substr(start, loc - start);
-                    } else {
-                        size_t start = (fullStr.size() > 160) ? (fullStr.size() - 160) : 0;
-                        geom.textTail = fullStr.substr(start);
-                    }
-
-                    // Strip invisible zero-width formatting characters commonly inserted by Slate.js / Lexical / Electron
-                    while (!geom.textTail.empty() && isZeroWidthOrFormatting(geom.textTail.back())) {
-                        geom.textTail.pop_back();
-                    }
-
-                    // Only probe ahead if the host app explicitly reported a valid selection range!
-                    // In Chromium / Google search web inputs, selRange is not reported (hasSelRange = false),
-                    // so dummy selRange.location = 0 must NEVER falsely declare that text follows the caret.
-                    if (hasSelRange && selRange.location < static_cast<CFIndex>(fullStr.size())) {
-                        for (size_t i = static_cast<size_t>(selRange.location); i < fullStr.size(); ++i) {
-                            if (!isZeroWidthOrWhitespace(fullStr[i])) {
+        if (fullStr.empty() && totalDocChars > 0 && effectiveLoc < totalDocChars) {
+            CFIndex probeLen = std::min<CFIndex>(120, totalDocChars - effectiveLoc);
+            CFRange afterR = CFRangeMake(effectiveLoc, probeLen);
+            AXValueRef afterVal = AXValueCreate(kAXValueTypeCFRange, &afterR);
+            if (afterVal) {
+                CFTypeRef afterStrRef = nullptr;
+                if (AXUIElementCopyParameterizedAttributeValue(elem, kAXStringForRangeParameterizedAttribute, afterVal, &afterStrRef) == kAXErrorSuccess && afterStrRef) {
+                    if (CFGetTypeID(afterStrRef) == CFStringGetTypeID()) {
+                        std::wstring afterStr = cfStringToWString(static_cast<CFStringRef>(afterStrRef));
+                        for (wchar_t ch : afterStr) {
+                            if (!isZeroWidthOrWhitespace(ch)) {
                                 geom.atEditableEnd = false;
                                 geom.caretAtEOF = false;
                                 break;
                             }
                         }
                     }
+                    CFRelease(afterStrRef);
                 }
-                CFRelease(fullVal);
+                CFRelease(afterVal);
+            }
+        } else if (fullStr.empty() && totalDocChars == -1 && effectiveLoc > 0) {
+            // If total character count is not reported by the host app, probe up to 80 chars after caret
+            CFRange afterR = CFRangeMake(effectiveLoc, 80);
+            AXValueRef afterVal = AXValueCreate(kAXValueTypeCFRange, &afterR);
+            if (afterVal) {
+                CFTypeRef afterStrRef = nullptr;
+                if (AXUIElementCopyParameterizedAttributeValue(elem, kAXStringForRangeParameterizedAttribute, afterVal, &afterStrRef) == kAXErrorSuccess && afterStrRef) {
+                    if (CFGetTypeID(afterStrRef) == CFStringGetTypeID()) {
+                        std::wstring afterStr = cfStringToWString(static_cast<CFStringRef>(afterStrRef));
+                        for (wchar_t ch : afterStr) {
+                            if (!isZeroWidthOrWhitespace(ch)) {
+                                geom.atEditableEnd = false;
+                                geom.caretAtEOF = false;
+                                break;
+                            }
+                        }
+                    }
+                    CFRelease(afterStrRef);
+                }
+                CFRelease(afterVal);
+            }
+        }
+
+        // 6c. Query font attributes safely
+        if (effectiveLoc > 0 || totalDocChars > 0 || !fullStr.empty()) {
+            CFIndex fontProbeIdx = (effectiveLoc > 0) ? (effectiveLoc - 1) : 0;
+            CFRange attrR = CFRangeMake(fontProbeIdx, 1);
+            AXValueRef attrRangeVal = AXValueCreate(kAXValueTypeCFRange, &attrR);
+            if (attrRangeVal) {
+                CFTypeRef attrStrRef = nullptr;
+                if (AXUIElementCopyParameterizedAttributeValue(elem, kAXAttributedStringForRangeParameterizedAttribute, attrRangeVal, &attrStrRef) == kAXErrorSuccess && attrStrRef) {
+                    if (CFGetTypeID(attrStrRef) == CFAttributedStringGetTypeID()) {
+                        CFAttributedStringRef attrStr = static_cast<CFAttributedStringRef>(attrStrRef);
+                        if (CFAttributedStringGetLength(attrStr) > 0) {
+                            // Try AppKit NSFontAttributeName directly
+                            CFTypeRef fontObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"NSFont", nullptr);
+                            if (fontObj && [(__bridge id)fontObj isKindOfClass:[NSFont class]]) {
+                                NSFont* nsFont = (__bridge NSFont*)fontObj;
+                                geom.fontSize = [nsFont pointSize];
+                                if (nsFont.fontName && nsFont.fontName.length > 0) {
+                                    geom.fontName = [nsFont.fontName UTF8String];
+                                }
+                            } else {
+                                // Fallback to WebKit / AXFont dictionary
+                                CFDictionaryRef fontDict = static_cast<CFDictionaryRef>(
+                                    CFAttributedStringGetAttribute(attrStr, 0, kAXFontTextAttribute, nullptr)
+                                );
+                                if (fontDict && CFGetTypeID(fontDict) == CFDictionaryGetTypeID()) {
+                                    CFStringRef fname = static_cast<CFStringRef>(CFDictionaryGetValue(fontDict, kAXFontNameKey));
+                                    if (fname && CFGetTypeID(fname) == CFStringGetTypeID()) {
+                                        geom.fontName = cfStringToStdString(fname);
+                                    }
+                                    CFNumberRef fsize = static_cast<CFNumberRef>(CFDictionaryGetValue(fontDict, kAXFontSizeKey));
+                                    if (fsize && CFGetTypeID(fsize) == CFNumberGetTypeID()) {
+                                        double sz = 0.0;
+                                        if (CFNumberGetValue(fsize, kCFNumberDoubleType, &sz) && sz >= 6.0 && sz <= 144.0) {
+                                            geom.fontSize = sz;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Extract text foreground color if specified (NSColor or CGColorRef in Chrome)
+                            CFTypeRef colorObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"NSColor", nullptr);
+                            if (!colorObj) {
+                                colorObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"NSForegroundColor", nullptr);
+                            }
+                            if (!colorObj) {
+                                colorObj = CFAttributedStringGetAttribute(attrStr, 0, (CFStringRef)@"AXForegroundColor", nullptr);
+                            }
+                            if (colorObj) {
+                                if ([(__bridge id)colorObj isKindOfClass:[NSColor class]]) {
+                                    NSColor* col = [(__bridge NSColor*)colorObj colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
+                                    if (col) {
+                                        uint32_t r = static_cast<uint32_t>(std::clamp([col redComponent] * 255.0, 0.0, 255.0));
+                                        uint32_t g = static_cast<uint32_t>(std::clamp([col greenComponent] * 255.0, 0.0, 255.0));
+                                        uint32_t b = static_cast<uint32_t>(std::clamp([col blueComponent] * 255.0, 0.0, 255.0));
+                                        geom.textColorRGBA = (r << 24) | (g << 16) | (b << 8) | 0xFF;
+                                    }
+                                } else if (CFGetTypeID(colorObj) == CGColorGetTypeID()) {
+                                    CGColorRef cgCol = (CGColorRef)colorObj;
+                                    const CGFloat* comps = CGColorGetComponents(cgCol);
+                                    size_t numComps = CGColorGetNumberOfComponents(cgCol);
+                                    if (comps && numComps >= 3) {
+                                        uint32_t r = static_cast<uint32_t>(std::clamp(comps[0] * 255.0, 0.0, 255.0));
+                                        uint32_t g = static_cast<uint32_t>(std::clamp(comps[1] * 255.0, 0.0, 255.0));
+                                        uint32_t b = static_cast<uint32_t>(std::clamp(comps[2] * 255.0, 0.0, 255.0));
+                                        geom.textColorRGBA = (r << 24) | (g << 16) | (b << 8) | 0xFF;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    CFRelease(attrStrRef);
+                }
+                CFRelease(attrRangeVal);
             }
         }
 
@@ -530,26 +564,14 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
         bool gotCaret = false;
         wchar_t lastChar = geom.textTail.empty() ? L'\0' : geom.textTail.back();
 
-        auto isCaretInsideField = [&](const CGRect& r) -> bool {
-            if (r.origin.x <= 1.0 || r.origin.y <= 1.0) return false;
-            if (r.size.height < 6.0 || r.size.height > 240.0) return false;
-            if (hasFieldFrame) {
-                CGRect expanded = CGRectInset(fieldFrame, -24.0, -24.0);
-                if (!CGRectContainsPoint(expanded, CGPointMake(r.origin.x, r.origin.y))) {
-                    return false;
-                }
-            }
-            return true;
-        };
-
-        // 7a. Native AppKit & Chromium Range Ladder (Notes, TextEdit, Pages, Chrome web fields, Amazon, Google search)
+        // 7a. Native AppKit & Chromium Range Ladder (Notes, TextEdit, Pages, Chrome web fields, Amazon, Google search, YouTube)
         auto tryRangeLadder = [&]() -> bool {
             if (!hasSelRange) return false;
 
             CGRect prevCharRect = CGRectZero;
             bool hasPrev = false;
-            if (selRange.location > 0 && lastChar != L'\n' && lastChar != L'\r') {
-                hasPrev = getAXRectForRange(elem, selRange.location - 1, 1, prevCharRect) &&
+            if (effectiveLoc > 0 && lastChar != L'\n' && lastChar != L'\r') {
+                hasPrev = getAXRectForRange(elem, effectiveLoc - 1, 1, prevCharRect) &&
                           prevCharRect.origin.x > 1.0 &&
                           prevCharRect.size.width > 0.0 &&
                           prevCharRect.size.width <= 160.0 &&
@@ -558,7 +580,7 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
 
             // Insertion point rect: exact cursor line in NSTextView and Chromium text inputs
             CGRect zeroRect = CGRectZero;
-            bool hasZero = getAXRectForRange(elem, selRange.location, 0, zeroRect) &&
+            bool hasZero = getAXRectForRange(elem, effectiveLoc, 0, zeroRect) &&
                            zeroRect.origin.x > 1.0 && zeroRect.size.width <= 14.0 &&
                            zeroRect.size.height >= 8.0 &&
                            isCaretInsideField(zeroRect);
@@ -597,7 +619,7 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             }
 
             CGRect nextCharRect = CGRectZero;
-            if (getAXRectForRange(elem, selRange.location, 1, nextCharRect) &&
+            if (getAXRectForRange(elem, effectiveLoc, 1, nextCharRect) &&
                 nextCharRect.origin.x > 1.0 && nextCharRect.size.width <= 160.0 &&
                 isCaretInsideField(nextCharRect)) {
                 caretRect = CGRectMake(
@@ -673,6 +695,7 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             } else if (fieldFrame.size.height >= 48.0) {
                 effectiveFontSize = 16.0;
             }
+            geom.fontSize = effectiveFontSize;
             double textW = 0.0;
             if (!geom.textTail.empty()) {
                 textW = GhostOverlay::measureTextWidth(geom.textTail, geom.fontName, effectiveFontSize);
@@ -682,6 +705,17 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             double x = std::min(fieldFrame.origin.x + fieldFrame.size.width - 12.0, fieldFrame.origin.x + padL + textW);
             caretRect = CGRectMake(x, y, 2.5, h);
             gotCaret = true;
+        }
+
+        // Align single-line inputs & search bars to visual vertical line center if host app hugged container top edge
+        if (gotCaret && geom.isSingleLine && hasFieldFrame && fieldFrame.size.height <= 72.0) {
+            double fieldCenterY = fieldFrame.origin.y + (fieldFrame.size.height - caretRect.size.height) * 0.5 - 1.5;
+            if (caretRect.origin.y < fieldCenterY - 6.0) {
+                caretRect.origin.y = fieldCenterY;
+            }
+            if (fieldFrame.size.height >= 36.0 && caretRect.size.height < 16.0) {
+                caretRect.size.height = 18.0;
+            }
         }
 
         if (!gotCaret || caretRect.origin.x <= 1.0 || caretRect.origin.y <= 1.0 ||
@@ -708,7 +742,7 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
         geom.lineHeight = geom.caret.height;
 
         if (hasSelRange) {
-            CFIndex probeIdx = (selRange.location > 0) ? (selRange.location - 1) : 0;
+            CFIndex probeIdx = (effectiveLoc > 0) ? (effectiveLoc - 1) : 0;
             CFNumberRef idxNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberCFIndexType, &probeIdx);
             if (idxNum) {
                 CFTypeRef lineNumVal = nullptr;

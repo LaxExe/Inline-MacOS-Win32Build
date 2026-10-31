@@ -21,9 +21,18 @@ GhostLayoutResult computeGhostLayout(
 
     const double caretH = (geom.caret.height >= 6.0 && geom.caret.height <= 200.0) ? geom.caret.height : 18.0;
     res.lineHeight = (geom.lineHeight >= 6.0 && geom.lineHeight <= 240.0) ? geom.lineHeight : caretH;
-    res.fontSize = (geom.fontSize >= 6.0 && geom.fontSize <= 144.0)
-                 ? geom.fontSize
-                 : std::clamp(std::round(caretH * 0.77), 11.0, 72.0);
+    if (geom.fontSize >= 6.0 && geom.fontSize <= 144.0) {
+        res.fontSize = geom.fontSize;
+    } else {
+        // Dynamic font size matching line height. In single-line search fields and inputs,
+        // ensure a comfortable readable baseline (14.0 - 16.0pt) and never microscopic 11pt.
+        double baseSize = std::round(caretH * 0.82);
+        if (geom.isSingleLine && (geom.field.height >= 38.0 || caretH >= 18.0)) {
+            res.fontSize = std::clamp(baseSize, 15.0, 72.0);
+        } else {
+            res.fontSize = std::clamp(baseSize, 14.0, 72.0);
+        }
+    }
     res.fontName = geom.fontName;
 
     auto measure = [&](const std::wstring& s) -> double {
