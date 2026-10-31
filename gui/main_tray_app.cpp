@@ -926,11 +926,10 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
             }
 
             if (remainingVisible.empty()) {
-#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
-                ghostOverlay_.hide();
-#endif
-                // Immediately predict the next couple of words following the Tab-completed word/phrase!
-                scheduleGhostPrediction(false);
+                dismissGhost();
+                // Do not immediately predict new words on Tab accept!
+                // Allow the injected text to settle cleanly in the host application.
+                // When the user resumes typing or hits space, ghost predictions resume naturally.
             } else {
                 scheduleGhostPrediction(true, remainingVisible);
             }

@@ -64,9 +64,14 @@ static NSString* wstringToNSString(const std::wstring& ws) {
     for (const auto& run : self.layoutData.lines) {
         if (run.text.empty()) continue;
         NSString* str = wstringToNSString(run.text);
-        NSSize strSize = [str sizeWithAttributes:attrs];
         CGFloat relX = static_cast<CGFloat>(run.x - baseX);
-        CGFloat relY = static_cast<CGFloat>(run.y - baseY) + std::round((static_cast<CGFloat>(run.height) - strSize.height) * 0.5);
+        CGFloat relY = static_cast<CGFloat>(run.y - baseY);
+        CGFloat fontAscent = font.ascender;
+        CGFloat fontDescent = font.descender; // negative
+        CGFloat fontHeight = fontAscent - fontDescent;
+        if (run.height > fontHeight + 3.0) {
+            relY += std::round((static_cast<CGFloat>(run.height) - fontHeight) * 0.5);
+        }
         [str drawAtPoint:NSMakePoint(relX, relY) withAttributes:attrs];
     }
 }
@@ -127,6 +132,11 @@ void GhostOverlay::showLayout(const GhostLayoutResult& layout) {
             CGFloat h = std::max<CGFloat>(14.0, static_cast<CGFloat>(copy.boundingBox.height));
             CGFloat x = static_cast<CGFloat>(copy.boundingBox.x);
             CGFloat y = primaryHeight - static_cast<CGFloat>(copy.boundingBox.y) - h;
+
+            // Reject invalid/offscreen coords
+            if (x < -100.0 || y < -100.0 || y > primaryHeight + 100.0) {
+                return;
+            }
 
             NSAppearance* appAppearance = [NSApp effectiveAppearance];
             NSAppearanceName matched = [appAppearance bestMatchFromAppearancesWithNames:@[

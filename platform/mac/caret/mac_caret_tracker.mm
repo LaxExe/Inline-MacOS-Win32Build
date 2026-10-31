@@ -8,23 +8,15 @@
 #include <unordered_set>
 #include <mutex>
 
-static std::mutex gChromiumAxMutex;
-static std::unordered_set<int> gChromiumAxPids;
-
 MacCaretTracker::MacCaretTracker() = default;
 
 void MacCaretTracker::enableChromiumAccessibilityIfNeeded(int pid) {
     if (pid <= 0) return;
-    {
-        std::lock_guard<std::mutex> lock(gChromiumAxMutex);
-        if (gChromiumAxPids.count(pid)) return;
-        gChromiumAxPids.insert(pid);
-    }
     AXUIElementRef appElem = AXUIElementCreateApplication(pid);
     if (!appElem) return;
-    AXUIElementSetMessagingTimeout(appElem, 0.05f);
-    AXUIElementSetAttributeValue(appElem, CFSTR("AXManualAccessibility"), kCFBooleanTrue);
+    AXUIElementSetMessagingTimeout(appElem, 0.15f);
     AXUIElementSetAttributeValue(appElem, CFSTR("AXEnhancedUserInterface"), kCFBooleanTrue);
+    AXUIElementSetAttributeValue(appElem, CFSTR("AXManualAccessibility"), kCFBooleanTrue);
     CFRelease(appElem);
 }
 
@@ -88,9 +80,11 @@ static bool getAXRectForRange(AXUIElementRef elem, CFIndex loc, CFIndex len, CGR
     if (!ok) return false;
     if (std::isnan(outRect.origin.x) || std::isnan(outRect.origin.y) ||
         std::isinf(outRect.origin.x) || std::isinf(outRect.origin.y)) return false;
-    if (outRect.origin.x == 0.0 && outRect.origin.y == 0.0) return false;
 
-    // Chromium/Electron frequently returns height=0 for zero-length insertion point carets
+    // REJECT dummy/empty bounds returned by Chromium/Electron (e.g. (0.0, 1329.0, 0.0, 0.0))
+    if (outRect.origin.x <= 1.0 && outRect.size.width <= 1.0) return false;
+    if (outRect.size.width == 0.0 && outRect.size.height == 0.0) return false;
+
     if (len == 0 && outRect.size.height < 4.0) {
         outRect.size.height = 18.0;
     }
@@ -125,7 +119,9 @@ static bool getWebKitTextMarkerCaretRect(AXUIElementRef elem, CGRect& outRect) {
     if (!ok) return false;
     if (std::isnan(outRect.origin.x) || std::isnan(outRect.origin.y) ||
         std::isinf(outRect.origin.x) || std::isinf(outRect.origin.y)) return false;
-    if (outRect.origin.x == 0.0 && outRect.origin.y == 0.0) return false;
+
+    // Reject dummy uninitialized bounds
+    if (outRect.origin.x <= 1.0 && outRect.size.width <= 1.0) return false;
 
     if (outRect.size.height < 4.0) {
         outRect.size.height = 18.0;
@@ -395,106 +391,29 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             }
         }
 
-        // 7. Fallback ladder for Caret CGRect
+        // 7. Caret coordinate extraction:
         CGRect caretRect = CGRectZero;
         bool gotCaret = false;
         wchar_t lastChar = geom.textTail.empty() ? L'\0' : geom.textTail.back();
 
-        auto tryRangeLadder = [&]() -> bool {
-            if (!hasSelRange) return false;
-
-            CGRect zeroRect = CGRectZero;
-            bool hasZero = getAXRectForRange(elem, selRange.location, 0, zeroRect) &&
-                           zeroRect.size.width <= 14.0;
-
-            if (selRange.location > 0 && lastChar != L'\n' && lastChar != L'\r') {
-                CGRect prevCharRect = CGRectZero;
-                bool hasPrev = getAXRectForRange(elem, selRange.location - 1, 1, prevCharRect) &&
-                               prevCharRect.size.width <= 160.0;
-                if (hasPrev) {
-                    double rightX = prevCharRect.origin.x + prevCharRect.size.width;
-                    double topY = prevCharRect.origin.y;
-                    double h = prevCharRect.size.height;
-
-                    if (lastChar == L' ' && prevCharRect.size.width < 2.5) {
-                        double spaceW = std::max(4.0, (geom.fontSize > 0.0 ? geom.fontSize : 13.0) * 0.32);
-                        if (selRange.location >= 2) {
-                            CGRect prev2Rect = CGRectZero;
-                            if (getAXRectForRange(elem, selRange.location - 2, 1, prev2Rect) &&
-                                std::abs(prev2Rect.origin.y - topY) <= h * 0.6) {
-                                rightX = std::max(rightX, (double)(prev2Rect.origin.x + prev2Rect.size.width) + spaceW);
-                            } else {
-                                rightX += spaceW;
-                            }
-                        } else {
-                            rightX += spaceW;
-                        }
-                    }
-
-                    if (hasZero && std::abs(zeroRect.origin.y - topY) <= h * 0.6) {
-                        rightX = std::max(rightX, (double)(zeroRect.origin.x + zeroRect.size.width));
-                    }
-
-                    caretRect = CGRectMake(rightX, topY, 2.5, h);
-                    return true;
-                }
-            }
-
-            if (hasZero) {
-                caretRect = CGRectMake(
-                    zeroRect.origin.x + zeroRect.size.width,
-                    zeroRect.origin.y,
-                    2.5,
-                    zeroRect.size.height
-                );
-                return true;
-            }
-
-            CGRect nextCharRect = CGRectZero;
-            if (getAXRectForRange(elem, selRange.location, 1, nextCharRect) &&
-                nextCharRect.size.width <= 160.0) {
-                caretRect = CGRectMake(
-                    nextCharRect.origin.x,
-                    nextCharRect.origin.y,
-                    2.5,
-                    nextCharRect.size.height
-                );
-                return true;
-            }
-            return false;
-        };
-
-        gotCaret = tryRangeLadder();
-
-        // WebKit / Chromium TextMarker fallback
-        if (!gotCaret) {
-            CGRect wkRect = CGRectZero;
-            if (getWebKitTextMarkerCaretRect(elem, wkRect)) {
-                double offsetRight = 0.0;
-                if (wkRect.size.width > 0.0 && wkRect.size.width <= 40.0) {
-                    offsetRight = wkRect.size.width;
-                } else if (wkRect.size.width > 40.0) {
-                    offsetRight = 4.0;
-                }
-                caretRect = CGRectMake(wkRect.origin.x + offsetRight, wkRect.origin.y, 2.5, wkRect.size.height);
-                gotCaret = true;
-            }
+        // 7a. Try WebKit / Blink TextMarker first (Chromium, Electron, Discord, Slack, Chrome, Vivaldi, VS Code, Safari)
+        CGRect wkRect = CGRectZero;
+        if (getWebKitTextMarkerCaretRect(elem, wkRect)) {
+            double caretX = (wkRect.size.width <= 4.0) ? wkRect.origin.x : (wkRect.origin.x + wkRect.size.width);
+            double caretH = (wkRect.size.height >= 8.0 && wkRect.size.height <= 200.0) ? wkRect.size.height : 18.0;
+            caretRect = CGRectMake(caretX, wkRect.origin.y, 2.5, caretH);
+            gotCaret = true;
         }
 
-        // Try WebKit TextMarker on parent web area if child element does not hold the selection range
+        // Try WebKit TextMarker on parent web area if child element holds marker on parent
         if (!gotCaret) {
             CFTypeRef parentVal = nullptr;
             if (AXUIElementCopyAttributeValue(elem, kAXParentAttribute, &parentVal) == kAXErrorSuccess && parentVal) {
                 if (CFGetTypeID(parentVal) == AXUIElementGetTypeID()) {
-                    CGRect wkRect = CGRectZero;
                     if (getWebKitTextMarkerCaretRect(static_cast<AXUIElementRef>(parentVal), wkRect)) {
-                        double offsetRight = 0.0;
-                        if (wkRect.size.width > 0.0 && wkRect.size.width <= 40.0) {
-                            offsetRight = wkRect.size.width;
-                        } else if (wkRect.size.width > 40.0) {
-                            offsetRight = 4.0;
-                        }
-                        caretRect = CGRectMake(wkRect.origin.x + offsetRight, wkRect.origin.y, 2.5, wkRect.size.height);
+                        double caretX = (wkRect.size.width <= 4.0) ? wkRect.origin.x : (wkRect.origin.x + wkRect.size.width);
+                        double caretH = (wkRect.size.height >= 8.0 && wkRect.size.height <= 200.0) ? wkRect.size.height : 18.0;
+                        caretRect = CGRectMake(caretX, wkRect.origin.y, 2.5, caretH);
                         gotCaret = true;
                     }
                 }
@@ -502,13 +421,75 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             }
         }
 
-        if (!gotCaret && hasSelRange && selRange.location == 0 && hasFieldFrame && fieldFrame.size.height <= 48.0) {
+        // 7b. Native AppKit Range Ladder (Notes, TextEdit, Pages, Messages, Mail)
+        auto tryRangeLadder = [&]() -> bool {
+            if (!hasSelRange) return false;
+
+            // Insertion point rect: exact cursor line in NSTextView
+            CGRect zeroRect = CGRectZero;
+            bool hasZero = getAXRectForRange(elem, selRange.location, 0, zeroRect) &&
+                           zeroRect.origin.x > 1.0 && zeroRect.size.width <= 14.0 &&
+                           zeroRect.size.height >= 8.0;
+
+            if (hasZero) {
+                caretRect = CGRectMake(
+                    zeroRect.origin.x,
+                    zeroRect.origin.y,
+                    2.5,
+                    zeroRect.size.height
+                );
+                return true;
+            }
+
+            if (selRange.location > 0 && lastChar != L'\n' && lastChar != L'\r') {
+                CGRect prevCharRect = CGRectZero;
+                bool hasPrev = getAXRectForRange(elem, selRange.location - 1, 1, prevCharRect) &&
+                               prevCharRect.origin.x > 1.0 &&
+                               prevCharRect.size.width > 0.0 &&
+                               prevCharRect.size.width <= 160.0;
+                if (hasPrev) {
+                    double rightX = prevCharRect.origin.x + prevCharRect.size.width;
+                    double topY = prevCharRect.origin.y;
+                    double h = std::clamp((double)prevCharRect.size.height, 14.0, 200.0);
+
+                    if (lastChar == L' ' && prevCharRect.size.width < 2.5) {
+                        double spaceW = std::max(4.0, (geom.fontSize > 0.0 ? geom.fontSize : 13.0) * 0.32);
+                        rightX += spaceW;
+                    }
+
+                    caretRect = CGRectMake(rightX, topY, 2.5, h);
+                    return true;
+                }
+            }
+
+            CGRect nextCharRect = CGRectZero;
+            if (getAXRectForRange(elem, selRange.location, 1, nextCharRect) &&
+                nextCharRect.origin.x > 1.0 && nextCharRect.size.width <= 160.0) {
+                caretRect = CGRectMake(
+                    nextCharRect.origin.x,
+                    nextCharRect.origin.y,
+                    2.5,
+                    std::clamp((double)nextCharRect.size.height, 14.0, 200.0)
+                );
+                return true;
+            }
+
+            return false;
+        };
+
+        if (!gotCaret) {
+            gotCaret = tryRangeLadder();
+        }
+
+        // 7c. Fallback for empty text field (e.g. search fields, single-line inputs)
+        if (!gotCaret && hasSelRange && selRange.location == 0 && hasFieldFrame && fieldFrame.size.height <= 80.0) {
             double h = std::clamp((double)fieldFrame.size.height - 8.0, 14.0, 24.0);
             caretRect = CGRectMake(fieldFrame.origin.x + 6.0, fieldFrame.origin.y + (fieldFrame.size.height - h) * 0.5, 2.5, h);
             gotCaret = true;
         }
 
-        if (!gotCaret || caretRect.size.height < 6.0 || caretRect.size.height > 200.0) {
+        if (!gotCaret || caretRect.origin.x <= 1.0 || caretRect.origin.y <= 1.0 ||
+            caretRect.size.height < 6.0 || caretRect.size.height > 200.0) {
             CFRelease(elem);
             return std::nullopt;
         }
