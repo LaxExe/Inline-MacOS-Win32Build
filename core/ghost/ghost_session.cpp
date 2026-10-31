@@ -76,9 +76,24 @@ bool GhostSession::onCharacterTyped(wchar_t ch, std::wstring& outRemaining) {
         wchar_t expected = visibleText_.front();
         if (std::towlower(expected) == std::towlower(ch)) {
             visibleText_.erase(visibleText_.begin());
+            generation_.fetch_add(1, std::memory_order_acq_rel);
             if (visibleText_.empty()) {
                 visible_.store(false, std::memory_order_release);
-                generation_.fetch_add(1, std::memory_order_acq_rel);
+                return false;
+            }
+            outRemaining = visibleText_;
+            return true;
+        }
+
+        // If visibleText_ starts with a space (e.g. " steps") because it was a next-word prediction,
+        // and the user types the first letter of that word ('s') without explicitly pressing space first:
+        if (expected == L' ' && visibleText_.size() >= 2 &&
+            std::towlower(visibleText_[1]) == std::towlower(ch)) {
+            // Consume BOTH the leading space and the typed character!
+            visibleText_.erase(visibleText_.begin(), visibleText_.begin() + 2);
+            generation_.fetch_add(1, std::memory_order_acq_rel);
+            if (visibleText_.empty()) {
+                visible_.store(false, std::memory_order_release);
                 return false;
             }
             outRemaining = visibleText_;

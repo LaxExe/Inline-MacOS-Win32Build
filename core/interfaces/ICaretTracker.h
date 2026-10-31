@@ -22,6 +22,7 @@ struct CaretGeometry {
     bool isSingleLine = false;  // true for AXTextField / search bar / URL bar
     bool atEditableEnd = false; // true if char after caret is EOF or '\n'
     bool caretAtEOF = false;    // true if caret is at end of document
+    bool afterWordChar = false; // true if caret is immediately after a completed word (e.g. after Tab accept)
     std::wstring textTail;      // recent text before the caret (if reported by AX)
     int pid = 0;
 };

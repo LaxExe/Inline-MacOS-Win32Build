@@ -100,7 +100,10 @@ private:
         CaretGeometry geom;
         bool isSentenceStart = false;
         bool typeThroughOnly = false;
+        bool currentWordFromGhost = false;
         int settleMs = 0;
+        double minExpectedCaretX = 0.0;
+        double lastCaretY = 0.0;
         AppConfig config;
     };
     GhostWorkerRequest pendingGhostReq_;
@@ -120,6 +123,8 @@ private:
     QTimer* idleClearTimer_ = nullptr;
     std::atomic<int64_t> lastKeyTimeNs_{0};
     std::atomic<int64_t> lastAutocorrectTimeNs_{0};
+    std::atomic<double> lastRenderedCaretX_{0.0};
+    std::atomic<double> lastRenderedCaretY_{0.0};
     std::string cachedFontName_{""};
     double cachedFontSize_{13.0};
     std::atomic<bool> hasBufferedData_{false};
@@ -127,10 +132,10 @@ private:
 
     void setupTray();
     void dismissGhost();
-    void scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText = L"", int settleMs = 0);
+    void scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText = L"", int settleMs = 0, double minExpectedX = 0.0);
     void ghostWorkerLoop();
     void llmWorkerLoop();
-    std::optional<CaretGeometry> queryCaretGeometryWithSync(const std::wstring& partialWord, bool afterSpace);
+    std::optional<CaretGeometry> queryCaretGeometryWithSync(const std::wstring& partialWord, bool afterSpace, double minExpectedX = 0.0, double lastCaretY = 0.0);
     bool onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap = false);
     bool handleWordBoundary(wchar_t delimiter, bool isActiveTap);
     void handleCharacter(wchar_t ch);

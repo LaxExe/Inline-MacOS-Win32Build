@@ -35,7 +35,8 @@ GhostLayoutResult computeGhostLayout(
         return ch != L' ' && ch != L'\t' && ch != L'\n' && ch != L'\r' &&
                ch != 0x200B && ch != 0xFEFF && ch != 0x00A0 && ch != 0x200C && ch != 0x200D;
     };
-    const bool hostEndsWithWordChar = (!geom.textTail.empty() && isWordOrPunctChar(geom.textTail.back()));
+    const bool hostEndsWithWordChar = geom.afterWordChar ||
+        (!geom.textTail.empty() && isWordOrPunctChar(geom.textTail.back()));
 
     if (hostEndsWithWordChar && !isMidWord) {
         // Document cursor is resting against the end of a completed word (e.g. immediately after Tab-accepting
@@ -46,14 +47,12 @@ GhostLayoutResult computeGhostLayout(
         }
     } else {
         // Document either already ends with whitespace (space/newline/tab), or is empty (sentence start), or is mid-word.
-        if (!isMidWord) {
-            // Strip redundant leading spaces so the ghost text anchors snug against the cursor bar
-            // without an artificial double-space gap, and does not insert extra spaces into the host app.
-            while (!cleanSuggestion.empty() && cleanSuggestion.front() == L' ') {
-                cleanSuggestion.erase(cleanSuggestion.begin());
-            }
-            if (cleanSuggestion.empty()) return res;
+        // Strip redundant leading spaces so the ghost text anchors snug against the cursor bar
+        // without an artificial double-space gap, and does not insert extra spaces into the host app.
+        while (!cleanSuggestion.empty() && cleanSuggestion.front() == L' ') {
+            cleanSuggestion.erase(cleanSuggestion.begin());
         }
+        if (cleanSuggestion.empty()) return res;
     }
 
     // Place suggestion snug against the right edge of the cursor (1.2pt from cursor.x),

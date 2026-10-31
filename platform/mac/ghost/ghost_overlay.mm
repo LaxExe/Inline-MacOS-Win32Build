@@ -201,15 +201,6 @@ void GhostOverlay::advanceLayout(double deltaX, const std::wstring& remainingTex
             try {
                 if (!gGhostPanel || ![gGhostPanel isVisible] || !gGhostView) return;
 
-                NSRect curFrame = [gGhostPanel frame];
-                curFrame.origin.x += static_cast<CGFloat>(deltaX);
-                curFrame.size.width = std::max<CGFloat>(16.0, curFrame.size.width - static_cast<CGFloat>(deltaX));
-
-                [NSAnimationContext beginGrouping];
-                [[NSAnimationContext currentContext] setDuration:0.0];
-                [gGhostPanel setFrame:curFrame display:YES];
-                [gGhostView setFrame:NSMakeRect(0, 0, curFrame.size.width, curFrame.size.height)];
-
                 GhostLayoutResult updated = [gGhostView layoutData];
                 if (!updated.lines.empty()) {
                     updated.lines[0].text = textCopy;
@@ -219,7 +210,16 @@ void GhostOverlay::advanceLayout(double deltaX, const std::wstring& remainingTex
                     [gGhostView setLayoutData:updated];
                 }
 
+                NSRect curFrame = [gGhostPanel frame];
+                curFrame.origin.x += static_cast<CGFloat>(deltaX);
+                curFrame.size.width = std::max<CGFloat>(16.0, curFrame.size.width - static_cast<CGFloat>(deltaX));
+
+                [NSAnimationContext beginGrouping];
+                [[NSAnimationContext currentContext] setDuration:0.0];
+                [gGhostPanel setFrame:curFrame display:YES];
+                [gGhostView setFrame:NSMakeRect(0, 0, curFrame.size.width, curFrame.size.height)];
                 [gGhostView setNeedsDisplay:YES];
+                [gGhostView displayIfNeeded];
                 [NSAnimationContext endGrouping];
             } catch (const std::exception& e) {
                 // Safeguard against any C++ exception

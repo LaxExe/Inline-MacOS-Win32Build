@@ -282,3 +282,22 @@ TEST(GhostLayout, StripsRedundantLeadingSpaceWhenDocumentEndsWithSpace) {
     EXPECT_EQ(res.fittedText, L"tomorrow");
     EXPECT_DOUBLE_EQ(res.lines[0].x, 101.2);
 }
+
+TEST(GhostLayout, PreservesLeadingSpaceWhenAfterWordCharIsTrueEvenIfTextTailEmpty) {
+    CaretGeometry cg;
+    cg.caret = {100.0, 50.0, 2.5, 18.0};
+    cg.field = {20.0, 40.0, 400.0, 200.0};
+    cg.lineStartX = 28.0;
+    cg.lineHeight = 20.0;
+    cg.isSingleLine = false;
+    cg.atEditableEnd = true;
+    cg.textTail = L""; // Empty textTail as in Chrome/Electron
+    cg.afterWordChar = true; // Completed word via Tab accept
+
+    GhostLayoutResult res = computeGhostLayout(L" tomorrow", cg, false, mono8Measure);
+    ASSERT_TRUE(res.valid);
+    ASSERT_EQ(res.lines.size(), 1u);
+    EXPECT_EQ(res.lines[0].text, L" tomorrow");
+    EXPECT_EQ(res.fittedText, L" tomorrow");
+    EXPECT_DOUBLE_EQ(res.lines[0].x, 101.2);
+}
