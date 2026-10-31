@@ -1215,31 +1215,687 @@
       });
     }
 
-    // Rich multi-word contextual completions
+    // Rich multi-word contextual completions (ordered from most specific to general)
     const multiPredictions = [
+      { prefix: 'looking forward to hearing from you', suggest: ' soon' },
+      { prefix: 'looking forward to hearing from', suggest: ' you soon' },
+      { prefix: 'looking forward to hearing', suggest: ' from you soon' },
+      { prefix: 'looking forward to our', suggest: ' meeting tomorrow afternoon' },
+      { prefix: 'looking forward to seeing', suggest: ' you there tomorrow' },
+      { prefix: 'looking forward to working with you', suggest: ' on this exciting project' },
+      { prefix: 'looking forward to working with', suggest: ' you and the entire team' },
+      { prefix: 'looking forward to speaking with', suggest: ' you tomorrow afternoon' },
+      { prefix: 'looking forward to speaking', suggest: ' with you tomorrow' },
+      { prefix: 'looking forward to', suggest: ' hearing from you soon' },
       { prefix: 'looking forward', suggest: ' to hearing from you soon' },
-      { prefix: 'look', suggest: 'ing forward to our meeting tomorrow' },
+      { prefix: 'looking for', suggest: 'ward to hearing from you soon' },
+      { prefix: 'looking', suggest: ' forward to hearing from you soon' },
+
+      { prefix: 'thank you so much for your help and', suggest: ' feedback on this' },
+      { prefix: 'thank you so much for your', suggest: ' help and support' },
+      { prefix: 'thank you so much for', suggest: ' your help and feedback' },
+      { prefix: 'thank you so much', suggest: ' for your help and feedback' },
+      { prefix: 'thank you so', suggest: ' much for your help and feedback' },
+      { prefix: 'thank you for following up with the team', suggest: ' on this matter' },
+      { prefix: 'thank you for following up with the', suggest: ' team on this' },
+      { prefix: 'thank you for following up with', suggest: ' the team on this' },
+      { prefix: 'thank you for following up', suggest: ' with the team on this' },
+      { prefix: 'thank you for following', suggest: ' up with the team on this' },
+      { prefix: 'thank you for your quick response and', suggest: ' assistance with this' },
+      { prefix: 'thank you for your quick response', suggest: ' and assistance' },
+      { prefix: 'thank you for your quick', suggest: ' response and assistance' },
+      { prefix: 'thank you for your time and', suggest: ' consideration on this' },
+      { prefix: 'thank you for your time', suggest: ' and consideration' },
+      { prefix: 'thank you for your', suggest: ' quick response and patience' },
+      { prefix: 'thank you for reaching out and', suggest: ' following up with us' },
+      { prefix: 'thank you for reaching out', suggest: ' and following up' },
+      { prefix: 'thank you for', suggest: ' following up with the team' },
+      { prefix: 'thank you again for all your', suggest: ' help and dedication' },
+      { prefix: 'thank you again for your', suggest: ' support and time today' },
+      { prefix: 'thank you again for', suggest: ' all your help with this' },
+      { prefix: 'thank you again', suggest: ', talk to you soon!' },
       { prefix: 'thank you', suggest: ' so much for your help and feedback' },
-      { prefix: 'thank', suggest: ' you for following up with the team' },
-      { prefix: 'tha', suggest: 'nk you for following up' },
-      { prefix: 'please let me', suggest: ' know what time works best for you' },
+      { prefix: 'thank', suggest: ' you so much for your help and feedback' },
+      { prefix: 'tha', suggest: 'nk you so much for your help' },
+
+      { prefix: 'please let me know what time works best for your schedule', suggest: ' this week' },
+      { prefix: 'please let me know what time works best for your', suggest: ' schedule later this week' },
+      { prefix: 'please let me know what time works best for', suggest: ' your schedule' },
+      { prefix: 'please let me know what time works best', suggest: ' for your schedule' },
+      { prefix: 'please let me know what time works', suggest: ' best for your schedule' },
+      { prefix: 'please let me know what time', suggest: ' works best for you' },
+      { prefix: 'please let me know what', suggest: ' time works best for you' },
+      { prefix: 'please let me know if you have any questions or', suggest: ' need any assistance' },
+      { prefix: 'please let me know if you have any questions', suggest: ' or feedback on this' },
+      { prefix: 'please let me know if you have any', suggest: ' questions or feedback' },
+      { prefix: 'please let me know if you have', suggest: ' any questions or feedback' },
+      { prefix: 'please let me know if you need any additional', suggest: ' information from my end' },
+      { prefix: 'please let me know if you need any', suggest: ' additional details' },
+      { prefix: 'please let me know if you need', suggest: ' any further assistance' },
+      { prefix: 'please let me know if you would like to', suggest: ' discuss this further' },
+      { prefix: 'please let me know if you', suggest: ' have any questions or feedback' },
+      { prefix: 'please let me know if', suggest: ' you need any further details' },
+      { prefix: 'please let me know how you would like to', suggest: ' proceed with this' },
+      { prefix: 'please let me know how you would like', suggest: ' to proceed' },
+      { prefix: 'please let me know how', suggest: ' you would like to proceed' },
+      { prefix: 'please let me know', suggest: ' what time works best for you' },
+      { prefix: 'please let me', suggest: ' know if you have any questions' },
+      { prefix: 'please let us know if you have any', suggest: ' questions or concerns' },
+      { prefix: 'please let us know if you need', suggest: ' anything else from our side' },
+      { prefix: 'please let us know', suggest: ' if you need anything else' },
+      { prefix: 'please let us', suggest: ' know how to proceed' },
       { prefix: 'please let', suggest: ' me know if you have any questions' },
+      { prefix: 'please feel free to reach out if you have', suggest: ' any questions or need help' },
+      { prefix: 'please feel free to reach out if', suggest: ' you have any questions' },
+      { prefix: 'please feel free to reach out', suggest: ' anytime if you need help' },
+      { prefix: 'please feel free to', suggest: ' reach out if you have questions' },
+      { prefix: 'please feel free', suggest: ' to reach out anytime' },
+      { prefix: 'please find the attached document for your', suggest: ' review and feedback' },
+      { prefix: 'please find the attached document for', suggest: ' your review' },
+      { prefix: 'please find the attached document', suggest: ' for your review' },
+      { prefix: 'please find the attached', suggest: ' document for your review' },
+      { prefix: 'please find the', suggest: ' attached document below' },
+      { prefix: 'please find', suggest: ' the attached document below' },
+      { prefix: 'please review the attached pull request when', suggest: ' you have a moment' },
+      { prefix: 'please review the attached pull request', suggest: ' when you have time' },
+      { prefix: 'please review the attached', suggest: ' pull request when you are free' },
+      { prefix: 'please review the', suggest: ' latest changes on github' },
+      { prefix: 'please confirm if this schedule works for', suggest: ' you and the team' },
+      { prefix: 'please confirm if this schedule works', suggest: ' for your calendar' },
+      { prefix: 'please confirm if this', suggest: ' schedule works for you' },
+      { prefix: 'please confirm if', suggest: ' this works for you' },
+      { prefix: 'please confirm', suggest: ' your availability for tomorrow' },
+      { prefix: 'please check the status and let', suggest: ' me know what you find' },
+      { prefix: 'please check the', suggest: ' status and let me know' },
+      { prefix: 'ple', suggest: 'ase let me know if you have any questions' },
       { prefix: 'please', suggest: ' find the attached document below' },
-      { prefix: 'ple', suggest: 'ase let me know when you are free' },
+
+      { prefix: 'i will follow up with you tomorrow morning to', suggest: ' share the latest results' },
+      { prefix: 'i will follow up with you tomorrow morning', suggest: ' with the details' },
+      { prefix: 'i will follow up with you tomorrow', suggest: ' morning with an update' },
+      { prefix: 'i will follow up with you', suggest: ' tomorrow morning' },
+      { prefix: 'i will follow up with', suggest: ' you tomorrow morning' },
+      { prefix: 'i will follow up', suggest: ' with you tomorrow morning' },
+      { prefix: 'i will follow', suggest: ' up with you tomorrow morning' },
+      { prefix: 'i will keep you posted on any new', suggest: ' developments as they arise' },
+      { prefix: 'i will keep you posted on any', suggest: ' new developments' },
+      { prefix: 'i will keep you posted on', suggest: ' the latest progress' },
+      { prefix: 'i will keep you posted', suggest: ' on any updates' },
+      { prefix: 'i will keep you', suggest: ' updated on our progress' },
+      { prefix: 'i will take a look at this as soon as', suggest: ' I finish my current task' },
+      { prefix: 'i will take a look at this as soon', suggest: ' as possible' },
+      { prefix: 'i will take a look at this', suggest: ' as soon as possible' },
+      { prefix: 'i will take a look at', suggest: ' this later today' },
+      { prefix: 'i will take a look', suggest: ' at this as soon as possible' },
+      { prefix: 'i will take a', suggest: ' look at this shortly' },
+      { prefix: 'i will make sure that everything is working', suggest: ' properly before release' },
+      { prefix: 'i will make sure that everything is', suggest: ' working properly' },
+      { prefix: 'i will make sure that', suggest: ' everything runs smoothly' },
+      { prefix: 'i will make sure', suggest: ' this gets resolved today' },
+      { prefix: 'i will get back to you as soon as I', suggest: ' have more information' },
+      { prefix: 'i will get back to you as soon as', suggest: ' possible with an answer' },
+      { prefix: 'i will get back to you as soon', suggest: ' as possible' },
+      { prefix: 'i will get back to you', suggest: ' as soon as I have an update' },
+      { prefix: 'i will get back to', suggest: ' you as soon as possible' },
+      { prefix: 'i will get back', suggest: ' to you shortly' },
+      { prefix: 'i will be happy to help with this', suggest: ' anytime you need' },
+      { prefix: 'i will be happy to help', suggest: ' with this anytime' },
+      { prefix: 'i will be happy to', suggest: ' help with this anytime' },
+      { prefix: 'i will be', suggest: ' happy to help with this' },
       { prefix: 'i will', suggest: ' follow up with you tomorrow morning' },
+
+      { prefix: 'i am currently working on the next update to', suggest: ' address all feedback' },
+      { prefix: 'i am currently working on the next update', suggest: ' for this project' },
+      { prefix: 'i am currently working on the next', suggest: ' update for release' },
+      { prefix: 'i am currently working on', suggest: ' the next release update' },
+      { prefix: 'i am currently', suggest: ' working on the next update' },
+      { prefix: 'i am looking forward to working with', suggest: ' you on this project' },
+      { prefix: 'i am looking forward to', suggest: ' our upcoming meeting' },
+      { prefix: 'i am happy to help with', suggest: ' anything you need' },
+      { prefix: 'i am writing to follow up on', suggest: ' our earlier discussion' },
       { prefix: 'i am', suggest: ' currently working on the next update' },
-      { prefix: 'let me', suggest: ' know if you need anything else' },
-      { prefix: 'how are', suggest: ' things going on your side?' },
-      { prefix: 'how is', suggest: ' everything coming along with the project?' },
-      { prefix: 'what time', suggest: ' works best for your schedule?' },
-      { prefix: 'have a', suggest: ' great rest of your week and weekend ahead!' },
-      { prefix: 'can you', suggest: ' please review this pull request?' },
-      { prefix: 'sorry for', suggest: ' the delayed response on this' },
-      { prefix: 'good morning', suggest: ', hope you had a wonderful weekend' },
+
+      { prefix: 'i would love to hear your thoughts on this', suggest: ' proposal and timeline' },
+      { prefix: 'i would love to hear your thoughts on', suggest: ' this proposal' },
+      { prefix: 'i would love to hear your thoughts', suggest: ' on this proposal' },
+      { prefix: 'i would love to hear your', suggest: ' thoughts on this proposal' },
+      { prefix: 'i would love to hear', suggest: ' your feedback on this' },
+      { prefix: 'i would love to connect and', suggest: ' discuss this further' },
+      { prefix: 'i would love to', suggest: ' hear your thoughts on this' },
+      { prefix: 'i would like to schedule a quick call to', suggest: ' discuss the next steps' },
+      { prefix: 'i would like to schedule a quick call', suggest: ' this week' },
+      { prefix: 'i would like to schedule a quick', suggest: ' call to discuss this' },
+      { prefix: 'i would like to schedule a', suggest: ' quick call to discuss this' },
+      { prefix: 'i would like to schedule', suggest: ' a brief meeting this week' },
+      { prefix: 'i would like to thank you for all', suggest: ' your support and guidance' },
+      { prefix: 'i would like to thank you for', suggest: ' all your help and support' },
+      { prefix: 'i would like to thank you', suggest: ' for your time today' },
+      { prefix: 'i would like to follow up on our previous', suggest: ' discussion from yesterday' },
+      { prefix: 'i would like to follow up on our', suggest: ' previous conversation' },
+      { prefix: 'i would like to follow up on', suggest: ' our previous discussion' },
+      { prefix: 'i would like to follow up', suggest: ' regarding our meeting notes' },
+      { prefix: 'i would like to follow', suggest: ' up on our previous discussion' },
+      { prefix: 'i would like to', suggest: ' follow up regarding our discussion' },
+      { prefix: 'i would like', suggest: ' to schedule a brief call this week' },
+      { prefix: 'i would appreciate it if you could', suggest: ' review this today' },
+      { prefix: 'i would appreciate if you', suggest: ' could take a look' },
+      { prefix: 'i would appreciate', suggest: ' your feedback on this' },
+      { prefix: 'i would', suggest: ' love to hear your thoughts on this' },
+
+      { prefix: 'i wanted to follow up on our discussion from', suggest: ' yesterday afternoon' },
+      { prefix: 'i wanted to follow up on our previous', suggest: ' conversation about this' },
+      { prefix: 'i wanted to follow up on our', suggest: ' conversation yesterday' },
+      { prefix: 'i wanted to follow up on', suggest: ' our previous conversation' },
+      { prefix: 'i wanted to follow up regarding the', suggest: ' project timeline and milestones' },
+      { prefix: 'i wanted to follow up regarding', suggest: ' the project timeline' },
+      { prefix: 'i wanted to follow up', suggest: ' on our previous conversation' },
+      { prefix: 'i wanted to follow', suggest: ' up on the status of this task' },
+      { prefix: 'i wanted to check in and see if there', suggest: ' are any new updates' },
+      { prefix: 'i wanted to check in and see how', suggest: ' things are progressing' },
+      { prefix: 'i wanted to check in and see', suggest: ' if you need anything' },
+      { prefix: 'i wanted to check in and', suggest: ' see how this is going' },
+      { prefix: 'i wanted to check in', suggest: ' and see how this is going' },
+      { prefix: 'i wanted to reach out and introduce', suggest: ' myself to the team' },
+      { prefix: 'i wanted to reach out and', suggest: ' see if you have time to chat' },
+      { prefix: 'i wanted to reach out', suggest: ' to see if you are free' },
+      { prefix: 'i wanted to', suggest: ' follow up on our previous conversation' },
+      { prefix: 'just wanted to check in and see how', suggest: ' things are going on your end' },
+      { prefix: 'just wanted to check in and see', suggest: ' how things are going' },
+      { prefix: 'just wanted to check in and', suggest: ' see how this is going' },
+      { prefix: 'just wanted to check in', suggest: ' and see how this is going' },
+      { prefix: 'just wanted to check', suggest: ' in on the status of this' },
+      { prefix: 'just wanted to follow up on our', suggest: ' conversation yesterday' },
+      { prefix: 'just wanted to follow up on', suggest: ' our previous discussion' },
+      { prefix: 'just wanted to follow up', suggest: ' regarding our meeting notes' },
+      { prefix: 'just wanted to follow', suggest: ' up on the progress here' },
+      { prefix: 'just wanted to say thank you for all', suggest: ' your help and support' },
+      { prefix: 'just wanted to say thank you for', suggest: ' all your help' },
+      { prefix: 'just wanted to say thank you', suggest: ' for your time' },
+      { prefix: 'just wanted to say', suggest: ' thanks for the quick reply' },
+      { prefix: 'just wanted to', suggest: ' check in and see how this is going' },
       { prefix: 'just wanted', suggest: ' to check in and see how this is going' },
+
+      { prefix: 'can you please take a look at this when you have', suggest: ' a moment today' },
+      { prefix: 'can you please take a look at this when', suggest: ' you have time' },
+      { prefix: 'can you please take a look at this', suggest: ' when you have time' },
+      { prefix: 'can you please take a look at', suggest: ' this when you have time' },
+      { prefix: 'can you please take a look', suggest: ' at the latest changes' },
+      { prefix: 'can you please take a', suggest: ' look at this when you have time' },
+      { prefix: 'can you please review this pull request when you', suggest: ' are free today' },
+      { prefix: 'can you please review this pull request when', suggest: ' you are free' },
+      { prefix: 'can you please review this pull request', suggest: ' when you have time' },
+      { prefix: 'can you please review this document when', suggest: ' you have a moment' },
+      { prefix: 'can you please review this', suggest: ' pull request when you are free' },
+      { prefix: 'can you please review', suggest: ' this document when you have time' },
+      { prefix: 'can you please let me know when you are', suggest: ' available for a quick call' },
+      { prefix: 'can you please let me know when', suggest: ' you are available' },
+      { prefix: 'can you please let me know', suggest: ' what time works for you' },
+      { prefix: 'can you please let me', suggest: ' know when you are available' },
+      { prefix: 'can you please send me the latest details on', suggest: ' this project' },
+      { prefix: 'can you please send me the latest', suggest: ' details on this' },
+      { prefix: 'can you please send me the', suggest: ' latest version of the file' },
+      { prefix: 'can you please send me', suggest: ' the latest details on this' },
+      { prefix: 'can you please send over', suggest: ' the updated files' },
+      { prefix: 'can you please send', suggest: ' over the updated files' },
+      { prefix: 'can you please confirm if this works for', suggest: ' your schedule' },
+      { prefix: 'can you please confirm', suggest: ' receipt of this message' },
+      { prefix: 'can you please', suggest: ' take a look at this when you have time' },
+      { prefix: 'can you send me the updated', suggest: ' documentation when ready' },
+      { prefix: 'can you send me', suggest: ' the updated documentation' },
+      { prefix: 'can you let me know what time', suggest: ' works best for you' },
+      { prefix: 'can you let me know', suggest: ' what time works for you' },
+      { prefix: 'can you let me', suggest: ' know if this works' },
+      { prefix: 'can you', suggest: ' please review this pull request today' },
+
+      { prefix: 'could you please let me know if this works', suggest: ' for your schedule' },
+      { prefix: 'could you please let me know if this', suggest: ' works for you' },
+      { prefix: 'could you please let me know', suggest: ' if this works for you' },
+      { prefix: 'could you please send me the latest', suggest: ' version of the document' },
+      { prefix: 'could you please send me', suggest: ' the latest version of the file' },
+      { prefix: 'could you please take a look at this when', suggest: ' you have time' },
+      { prefix: 'could you please take a look at', suggest: ' this when possible' },
+      { prefix: 'could you please take a look', suggest: ' at this when you can' },
+      { prefix: 'could you please', suggest: ' take a look at this when possible' },
+      { prefix: 'could you', suggest: ' please review this when you have time' },
+
+      { prefix: 'what time works best for your schedule later this', suggest: ' week to meet?' },
+      { prefix: 'what time works best for your schedule later', suggest: ' this week?' },
+      { prefix: 'what time works best for your schedule', suggest: ' later this week?' },
+      { prefix: 'what time works best for your', suggest: ' schedule later this week?' },
+      { prefix: 'what time works best for you to hop on a', suggest: ' quick sync call?' },
+      { prefix: 'what time works best for you to', suggest: ' hop on a quick call?' },
+      { prefix: 'what time works best for you', suggest: ' to connect this week?' },
+      { prefix: 'what time works best for', suggest: ' your schedule?' },
+      { prefix: 'what time works best', suggest: ' for your schedule?' },
+      { prefix: 'what time works', suggest: ' best for your schedule?' },
+      { prefix: 'what time', suggest: ' works best for your schedule?' },
+
+      { prefix: 'the meeting has been rescheduled to next Tuesday', suggest: ' afternoon at 2pm' },
+      { prefix: 'the meeting has been rescheduled to next', suggest: ' Tuesday afternoon' },
+      { prefix: 'the meeting has been rescheduled to', suggest: ' tomorrow at 2pm' },
+      { prefix: 'the meeting has been rescheduled', suggest: ' to next Tuesday afternoon' },
+      { prefix: 'the meeting has been scheduled for tomorrow afternoon at', suggest: ' 2pm via Zoom' },
+      { prefix: 'the meeting has been scheduled for tomorrow afternoon', suggest: ' at 2pm' },
+      { prefix: 'the meeting has been scheduled for tomorrow', suggest: ' afternoon at 2pm' },
+      { prefix: 'the meeting has been scheduled for', suggest: ' tomorrow afternoon' },
+      { prefix: 'the meeting has been scheduled', suggest: ' for tomorrow afternoon' },
+      { prefix: 'the meeting has been', suggest: ' rescheduled to tomorrow at 2pm' },
+      { prefix: 'the meeting has', suggest: ' been scheduled for tomorrow afternoon' },
+      { prefix: 'the meeting is scheduled for tomorrow morning at', suggest: ' 10am in the main room' },
+      { prefix: 'the meeting is scheduled for tomorrow morning', suggest: ' at 10am' },
+      { prefix: 'the meeting is scheduled for tomorrow afternoon', suggest: ' at 2pm via Zoom' },
+      { prefix: 'the meeting is scheduled for tomorrow', suggest: ' morning at 10am' },
+      { prefix: 'the meeting is scheduled for', suggest: ' tomorrow morning at 10am' },
+      { prefix: 'the meeting is scheduled', suggest: ' for tomorrow afternoon at 2pm' },
+      { prefix: 'the meeting is', suggest: ' scheduled for tomorrow at 10am' },
+      { prefix: 'the meeting will be held via Zoom tomorrow', suggest: ' afternoon at 2pm' },
+      { prefix: 'the meeting will be held via Zoom', suggest: ' tomorrow afternoon' },
+      { prefix: 'the meeting will be held in the main conference', suggest: ' room tomorrow' },
+      { prefix: 'the meeting will be held', suggest: ' via Zoom tomorrow afternoon' },
+      { prefix: 'the meeting will be', suggest: ' held in the main conference room' },
+      { prefix: 'the meeting will start promptly at 10am', suggest: ' tomorrow morning' },
+      { prefix: 'the meeting will start promptly at', suggest: ' 10am tomorrow' },
+      { prefix: 'the meeting will', suggest: ' start promptly at 10am tomorrow' },
       { prefix: 'the meeting', suggest: ' has been scheduled for tomorrow afternoon' },
-      { prefix: 'works on', suggest: ' both macOS and Windows flawlessly' },
-      { prefix: 'defin', suggest: 'itely agree with this approach' }
+
+      { prefix: 'how are you doing today? Hope everything is going', suggest: ' great on your end' },
+      { prefix: 'how are you doing today? Hope everything is', suggest: ' going well' },
+      { prefix: 'how are you doing today? Hope all is', suggest: ' well with you' },
+      { prefix: 'how are you doing today?', suggest: ' Hope everything is going well' },
+      { prefix: 'how are you doing today', suggest: '? Hope all is well with you' },
+      { prefix: 'how are you doing', suggest: ' today? Hope all is well with you' },
+      { prefix: 'how are you', suggest: ' doing today? Hope everything is great' },
+      { prefix: 'how are things going with the project on your', suggest: ' end this week?' },
+      { prefix: 'how are things going with the project on', suggest: ' your end?' },
+      { prefix: 'how are things going with the', suggest: ' project on your end?' },
+      { prefix: 'how are things going with', suggest: ' the project timeline?' },
+      { prefix: 'how are things going on your side with the', suggest: ' launch this week?' },
+      { prefix: 'how are things going on your side with', suggest: ' the release launch?' },
+      { prefix: 'how are things going on your side', suggest: ' with the launch?' },
+      { prefix: 'how are things going on your', suggest: ' side with the launch?' },
+      { prefix: 'how are things going on', suggest: ' your side with the launch?' },
+      { prefix: 'how are things going', suggest: ' on your side?' },
+      { prefix: 'how are things', suggest: ' going on your side?' },
+      { prefix: 'how are', suggest: ' things going on your side?' },
+      { prefix: 'how is everything coming along with the project timeline', suggest: ' and milestones?' },
+      { prefix: 'how is everything coming along with the project', suggest: ' timeline?' },
+      { prefix: 'how is everything coming along with the', suggest: ' project timeline?' },
+      { prefix: 'how is everything coming along with', suggest: ' the project timeline?' },
+      { prefix: 'how is everything coming along', suggest: ' with the project timeline?' },
+      { prefix: 'how is everything coming', suggest: ' along with the development?' },
+      { prefix: 'how is everything going with the latest', suggest: ' release deployment?' },
+      { prefix: 'how is everything going with the', suggest: ' latest release?' },
+      { prefix: 'how is everything going on your', suggest: ' end today?' },
+      { prefix: 'how is everything going', suggest: ' on your end today?' },
+      { prefix: 'how is everything', suggest: ' on your end today?' },
+      { prefix: 'how is', suggest: ' everything coming along with the project?' },
+
+      { prefix: 'hope you are having a great and productive week so', suggest: ' far with everything' },
+      { prefix: 'hope you are having a great and productive week', suggest: ' so far' },
+      { prefix: 'hope you are having a great and productive', suggest: ' week so far' },
+      { prefix: 'hope you are having a great and', suggest: ' productive week so far' },
+      { prefix: 'hope you are having a wonderful start to your', suggest: ' week and doing well' },
+      { prefix: 'hope you are having a wonderful start to', suggest: ' your week' },
+      { prefix: 'hope you are having a wonderful', suggest: ' start to your week' },
+      { prefix: 'hope you are having a productive week and doing', suggest: ' well with the launch' },
+      { prefix: 'hope you are having a productive week and', suggest: ' doing well' },
+      { prefix: 'hope you are having a productive week', suggest: ' and doing well' },
+      { prefix: 'hope you are having a great rest of your week', suggest: ' and weekend ahead!' },
+      { prefix: 'hope you are having a great rest of your', suggest: ' week and weekend ahead!' },
+      { prefix: 'hope you are having a great', suggest: ' rest of your week' },
+      { prefix: 'hope you are having a', suggest: ' productive week and doing well' },
+      { prefix: 'hope you are doing well and having a great', suggest: ' week with everything' },
+      { prefix: 'hope you are doing well and having a', suggest: ' great week' },
+      { prefix: 'hope you are doing well and having', suggest: ' a great week' },
+      { prefix: 'hope you are doing well and', suggest: ' staying safe' },
+      { prefix: 'hope you are doing well', suggest: ' and having a great week' },
+      { prefix: 'hope you are doing', suggest: ' well and staying safe' },
+      { prefix: 'hope you are', suggest: ' having a great rest of your week' },
+      { prefix: 'hope you have a great weekend ahead and enjoy', suggest: ' the well-deserved break' },
+      { prefix: 'hope you have a great weekend ahead and', suggest: ' enjoy the break' },
+      { prefix: 'hope you have a great weekend ahead', suggest: ' and enjoy the break' },
+      { prefix: 'hope you have a great weekend', suggest: ' and enjoy the time off!' },
+      { prefix: 'hope you have a wonderful day ahead and a', suggest: ' great rest of the week' },
+      { prefix: 'hope you have a wonderful day ahead', suggest: ' and talk to you soon!' },
+      { prefix: 'hope you have a wonderful', suggest: ' day ahead!' },
+      { prefix: 'hope you have a', suggest: ' great rest of your day!' },
+      { prefix: 'hope you have', suggest: ' a wonderful weekend ahead!' },
+      { prefix: 'hope this email finds you well and having a good', suggest: ' start to your week' },
+      { prefix: 'hope this email finds you well and having a', suggest: ' good week' },
+      { prefix: 'hope this email finds you well and having', suggest: ' a good week' },
+      { prefix: 'hope this email finds you well and', suggest: ' doing great today' },
+      { prefix: 'hope this email finds you well', suggest: ' and having a good week' },
+      { prefix: 'hope this email finds you', suggest: ' well today' },
+      { prefix: 'hope this email finds', suggest: ' you well today' },
+      { prefix: 'hope this email', suggest: ' finds you well and doing great' },
+      { prefix: 'hope this helps and let me know if you need', suggest: ' anything else from my end' },
+      { prefix: 'hope this helps and let me know if you', suggest: ' have any questions' },
+      { prefix: 'hope this helps and let me know if', suggest: ' you need anything' },
+      { prefix: 'hope this helps and let me know', suggest: ' if you have questions' },
+      { prefix: 'hope this helps and let me', suggest: ' know if you need anything' },
+      { prefix: 'hope this helps and', suggest: ' let me know if you have questions' },
+      { prefix: 'hope this helps clarify things for', suggest: ' you and the team' },
+      { prefix: 'hope this helps clarify things', suggest: ' for you!' },
+      { prefix: 'hope this helps', suggest: ' clarify things for you!' },
+      { prefix: 'hope all is well with you and the team on', suggest: ' your end' },
+      { prefix: 'hope all is well with you and the', suggest: ' team today' },
+      { prefix: 'hope all is well with you and', suggest: ' the team' },
+      { prefix: 'hope all is well with you', suggest: ' today' },
+      { prefix: 'hope all is well with', suggest: ' you and the team' },
+      { prefix: 'hope all is well on your end', suggest: ' today' },
+      { prefix: 'hope all is well on your', suggest: ' end today' },
+      { prefix: 'hope all is well', suggest: ' on your end today' },
+      { prefix: 'hope all is', suggest: ' well with you today' },
+
+      { prefix: 'sounds good to me, looking forward to the next steps', suggest: ' and getting started' },
+      { prefix: 'sounds good to me, looking forward to the next', suggest: ' steps' },
+      { prefix: 'sounds good to me, looking forward to the', suggest: ' next steps' },
+      { prefix: 'sounds good to me, looking forward to', suggest: ' the next steps' },
+      { prefix: 'sounds good to me, looking forward', suggest: ' to the next steps' },
+      { prefix: 'sounds good to me, let\'s proceed with that plan', suggest: ' and get started' },
+      { prefix: 'sounds good to me, let\'s proceed with that', suggest: ' plan' },
+      { prefix: 'sounds good to me, let\'s proceed with', suggest: ' that plan' },
+      { prefix: 'sounds good to me, let\'s proceed', suggest: ' with that plan' },
+      { prefix: 'sounds good to me, let\'s connect', suggest: ' tomorrow to finalize' },
+      { prefix: 'sounds good to me,', suggest: ' let\'s proceed with that plan' },
+      { prefix: 'sounds good to me', suggest: ', looking forward to it' },
+      { prefix: 'sounds good to', suggest: ' me, looking forward to it' },
+      { prefix: 'sounds good, let\'s proceed with that plan', suggest: ' and keep moving' },
+      { prefix: 'sounds good, let\'s connect tomorrow to', suggest: ' discuss the details' },
+      { prefix: 'sounds good, let\'s', suggest: ' connect tomorrow' },
+      { prefix: 'sounds good', suggest: ' to me, let\'s connect tomorrow' },
+      { prefix: 'sounds like a great plan, looking forward to getting', suggest: ' started on this' },
+      { prefix: 'sounds like a great plan, looking forward to', suggest: ' getting started' },
+      { prefix: 'sounds like a great plan, looking forward', suggest: ' to getting started' },
+      { prefix: 'sounds like a great plan, let\'s make it', suggest: ' happen!' },
+      { prefix: 'sounds like a great plan', suggest: ', looking forward to getting started' },
+      { prefix: 'sounds like a great idea, let\'s do', suggest: ' that!' },
+      { prefix: 'sounds like a great idea,', suggest: ' let\'s do that' },
+      { prefix: 'sounds like a great idea', suggest: ', let\'s move forward with it' },
+      { prefix: 'sounds like a great', suggest: ' plan, let\'s make it happen' },
+      { prefix: 'sounds like a', suggest: ' great plan to me' },
+      { prefix: 'sounds like', suggest: ' a great plan to me' },
+      { prefix: 'sounds', suggest: ' good to me, let\'s proceed' },
+
+      { prefix: 'we should definitely connect and align on the next', suggest: ' milestones this week' },
+      { prefix: 'we should definitely connect and align on the', suggest: ' next milestones' },
+      { prefix: 'we should definitely connect and align on', suggest: ' the next milestones' },
+      { prefix: 'we should definitely connect and align', suggest: ' on the next milestones' },
+      { prefix: 'we should definitely connect and', suggest: ' align on the next milestones' },
+      { prefix: 'we should definitely connect sometime later this', suggest: ' week to sync up' },
+      { prefix: 'we should definitely connect sometime later', suggest: ' this week' },
+      { prefix: 'we should definitely connect sometime', suggest: ' later this week' },
+      { prefix: 'we should definitely connect', suggest: ' sometime later this week' },
+      { prefix: 'we should definitely schedule a follow-up call soon', suggest: ' to review the details' },
+      { prefix: 'we should definitely schedule a follow-up call', suggest: ' soon' },
+      { prefix: 'we should definitely schedule a follow-up', suggest: ' call soon' },
+      { prefix: 'we should definitely schedule a', suggest: ' follow-up call soon' },
+      { prefix: 'we should definitely schedule', suggest: ' a follow-up call soon' },
+      { prefix: 'we should definitely', suggest: ' schedule a follow-up call soon' },
+      { prefix: 'we should schedule a quick sync to discuss this', suggest: ' further when you are free' },
+      { prefix: 'we should schedule a quick sync to discuss', suggest: ' this further' },
+      { prefix: 'we should schedule a quick sync to', suggest: ' discuss this further' },
+      { prefix: 'we should schedule a quick sync', suggest: ' to discuss this further' },
+      { prefix: 'we should schedule a quick', suggest: ' sync to discuss this further' },
+      { prefix: 'we should schedule a follow-up call this', suggest: ' week to finalize' },
+      { prefix: 'we should schedule a follow-up call', suggest: ' this week' },
+      { prefix: 'we should schedule a follow-up', suggest: ' call this week' },
+      { prefix: 'we should schedule a', suggest: ' follow-up call this week' },
+      { prefix: 'we should schedule', suggest: ' a meeting to discuss this' },
+      { prefix: 'we should', suggest: ' schedule a follow-up discussion soon' },
+      { prefix: 'we can discuss this in more detail during our', suggest: ' next meeting' },
+      { prefix: 'we can discuss this in more detail during', suggest: ' our next meeting' },
+      { prefix: 'we can discuss this in more detail', suggest: ' during our next sync' },
+      { prefix: 'we can discuss this in more', suggest: ' detail on our call' },
+      { prefix: 'we can discuss this during our weekly sync', suggest: ' tomorrow afternoon' },
+      { prefix: 'we can discuss this during our weekly', suggest: ' sync tomorrow' },
+      { prefix: 'we can discuss this during our', suggest: ' weekly sync tomorrow' },
+      { prefix: 'we can discuss this during', suggest: ' our weekly sync tomorrow' },
+      { prefix: 'we can discuss this', suggest: ' in more detail on our call' },
+      { prefix: 'we can schedule a quick call whenever you are', suggest: ' free to chat' },
+      { prefix: 'we can schedule a quick call whenever you', suggest: ' are free' },
+      { prefix: 'we can schedule a quick call', suggest: ' whenever you are free' },
+      { prefix: 'we can schedule a quick', suggest: ' call whenever you are free' },
+      { prefix: 'we can schedule a', suggest: ' quick call to chat' },
+      { prefix: 'we can schedule', suggest: ' a quick call whenever you are free' },
+      { prefix: 'we can', suggest: ' discuss this during our next sync' },
+
+      { prefix: 'feel free to reach out if you have any further questions', suggest: ' or need help' },
+      { prefix: 'feel free to reach out if you have any further', suggest: ' questions' },
+      { prefix: 'feel free to reach out if you have any', suggest: ' questions or concerns' },
+      { prefix: 'feel free to reach out if you have', suggest: ' any further questions' },
+      { prefix: 'feel free to reach out if you need', suggest: ' any additional help' },
+      { prefix: 'feel free to reach out if you', suggest: ' have any questions' },
+      { prefix: 'feel free to reach out if', suggest: ' you have any further questions' },
+      { prefix: 'feel free to reach out to me directly anytime', suggest: ' you need assistance' },
+      { prefix: 'feel free to reach out to me directly', suggest: ' anytime' },
+      { prefix: 'feel free to reach out to me', suggest: ' directly anytime' },
+      { prefix: 'feel free to reach out to', suggest: ' me directly anytime' },
+      { prefix: 'feel free to reach out', suggest: ' to me directly anytime' },
+      { prefix: 'feel free to reach', suggest: ' out if you have any questions' },
+      { prefix: 'feel free to let me know if anything else comes', suggest: ' up on your end' },
+      { prefix: 'feel free to let me know if anything else', suggest: ' comes up' },
+      { prefix: 'feel free to let me know if', suggest: ' anything else comes up' },
+      { prefix: 'feel free to let me know', suggest: ' if anything else comes up' },
+      { prefix: 'feel free to let me', suggest: ' know if you need anything' },
+      { prefix: 'feel free to', suggest: ' reach out if you have questions' },
+
+      { prefix: 'don\'t hesitate to reach out if you need any further', suggest: ' help or guidance' },
+      { prefix: 'don\'t hesitate to reach out if you need any', suggest: ' further assistance' },
+      { prefix: 'don\'t hesitate to reach out if you need', suggest: ' any further help' },
+      { prefix: 'don\'t hesitate to reach out if you have', suggest: ' any questions or issues' },
+      { prefix: 'don\'t hesitate to reach out if you', suggest: ' need any help' },
+      { prefix: 'don\'t hesitate to reach out if', suggest: ' you need any further help' },
+      { prefix: 'don\'t hesitate to reach out', suggest: ' if you have any questions' },
+      { prefix: 'don\'t hesitate to reach', suggest: ' out anytime' },
+      { prefix: 'don\'t hesitate to let me know if you need anything', suggest: ' else from my end' },
+      { prefix: 'don\'t hesitate to let me know if you need', suggest: ' anything else' },
+      { prefix: 'don\'t hesitate to let me know if', suggest: ' you need anything else' },
+      { prefix: 'don\'t hesitate to let me know', suggest: ' if you need assistance' },
+      { prefix: 'don\'t hesitate to let me', suggest: ' know if you need assistance' },
+      { prefix: 'don\'t hesitate to', suggest: ' let me know if you need help' },
+
+      { prefix: 'have a great weekend and enjoy the time off', suggest: ' with family and friends!' },
+      { prefix: 'have a great weekend and enjoy the time', suggest: ' off!' },
+      { prefix: 'have a great weekend and enjoy the', suggest: ' time off!' },
+      { prefix: 'have a great weekend and enjoy', suggest: ' the time off!' },
+      { prefix: 'have a great weekend and see you next Monday', suggest: ' morning!' },
+      { prefix: 'have a great weekend and see you next', suggest: ' Monday!' },
+      { prefix: 'have a great weekend and see you', suggest: ' next week!' },
+      { prefix: 'have a great weekend and see', suggest: ' you next Monday!' },
+      { prefix: 'have a great weekend and', suggest: ' see you next week!' },
+      { prefix: 'have a great weekend', suggest: ' and see you next week!' },
+      { prefix: 'have a wonderful rest of your week and weekend ahead', suggest: ', take care!' },
+      { prefix: 'have a wonderful rest of your week and weekend', suggest: ' ahead!' },
+      { prefix: 'have a wonderful rest of your week and', suggest: ' weekend ahead' },
+      { prefix: 'have a wonderful rest of your week', suggest: ' and weekend ahead' },
+      { prefix: 'have a wonderful rest of your', suggest: ' week and weekend ahead' },
+      { prefix: 'have a wonderful rest of', suggest: ' your week and weekend ahead' },
+      { prefix: 'have a great rest of your week and weekend ahead', suggest: ' and talk to you soon!' },
+      { prefix: 'have a great rest of your week and weekend', suggest: ' ahead!' },
+      { prefix: 'have a great rest of your week and', suggest: ' weekend ahead!' },
+      { prefix: 'have a great rest of your week', suggest: ' and weekend ahead!' },
+      { prefix: 'have a great rest of your', suggest: ' week and weekend ahead!' },
+      { prefix: 'have a great rest of', suggest: ' your week and take care!' },
+      { prefix: 'have a great rest', suggest: ' of your week and weekend ahead!' },
+      { prefix: 'have a great day and talk to you soon', suggest: ', take care!' },
+      { prefix: 'have a great day and talk to you', suggest: ' soon!' },
+      { prefix: 'have a great day and talk to', suggest: ' you soon!' },
+      { prefix: 'have a great day and talk', suggest: ' to you soon!' },
+      { prefix: 'have a great day and', suggest: ' talk to you soon!' },
+      { prefix: 'have a great day', suggest: ' and talk to you soon!' },
+      { prefix: 'have a great', suggest: ' rest of your week and weekend ahead!' },
+
+      { prefix: 'good morning, hope you had a wonderful and restful', suggest: ' weekend ahead' },
+      { prefix: 'good morning, hope you had a wonderful and', suggest: ' restful weekend' },
+      { prefix: 'good morning, hope you had a wonderful', suggest: ' and restful weekend' },
+      { prefix: 'good morning, hope you had a', suggest: ' wonderful weekend ahead' },
+      { prefix: 'good morning, hope you had', suggest: ' a wonderful weekend ahead' },
+      { prefix: 'good morning, hope you are having a great start to', suggest: ' your week' },
+      { prefix: 'good morning, hope you are having a great start', suggest: ' to your week' },
+      { prefix: 'good morning, hope you are having a great', suggest: ' start to your week' },
+      { prefix: 'good morning, hope you are having a', suggest: ' wonderful day' },
+      { prefix: 'good morning, hope you are having', suggest: ' a great start to your week' },
+      { prefix: 'good morning, hope you are', suggest: ' having a wonderful day' },
+      { prefix: 'good morning, hope you', suggest: ' are having a wonderful day' },
+      { prefix: 'good morning', suggest: ', hope you had a wonderful weekend' },
+      { prefix: 'good afternoon, hope you are having a productive day so', suggest: ' far with everything' },
+      { prefix: 'good afternoon, hope you are having a productive day', suggest: ' so far' },
+      { prefix: 'good afternoon, hope you are having a productive', suggest: ' day so far' },
+      { prefix: 'good afternoon, hope you are having a', suggest: ' productive day so far' },
+      { prefix: 'good afternoon, hope you are having', suggest: ' a productive day so far' },
+      { prefix: 'good afternoon, hope you are', suggest: ' having a productive day so far' },
+      { prefix: 'good afternoon', suggest: ', hope your day is going smoothly' },
+
+      { prefix: 'sorry for the delayed response on this, getting back to you', suggest: ' now with the updates' },
+      { prefix: 'sorry for the delayed response on this, getting back to', suggest: ' you now' },
+      { prefix: 'sorry for the delayed response on this, getting back', suggest: ' to you now' },
+      { prefix: 'sorry for the delayed response on this, getting', suggest: ' back to you now' },
+      { prefix: 'sorry for the delayed response on this,', suggest: ' getting back to you now' },
+      { prefix: 'sorry for the delayed response on this', suggest: ', getting back to you now' },
+      { prefix: 'sorry for the delayed response on', suggest: ' this, getting back to you now' },
+      { prefix: 'sorry for the delayed response, just getting caught up on', suggest: ' messages today' },
+      { prefix: 'sorry for the delayed response, just getting caught up', suggest: ' on messages' },
+      { prefix: 'sorry for the delayed response, just getting caught', suggest: ' up on messages' },
+      { prefix: 'sorry for the delayed response, just getting', suggest: ' caught up on messages' },
+      { prefix: 'sorry for the delayed response, just', suggest: ' getting caught up on messages' },
+      { prefix: 'sorry for the delayed response,', suggest: ' just getting caught up on messages' },
+      { prefix: 'sorry for the delayed response', suggest: ', I was away from my desk' },
+      { prefix: 'sorry for the delay in getting back to you on', suggest: ' this matter' },
+      { prefix: 'sorry for the delay in getting back to you', suggest: ' on this' },
+      { prefix: 'sorry for the delay in getting back to', suggest: ' you on this' },
+      { prefix: 'sorry for the delay in getting back', suggest: ' to you on this' },
+      { prefix: 'sorry for the delay in getting', suggest: ' back to you on this' },
+      { prefix: 'sorry for the delay in', suggest: ' getting back to you on this' },
+      { prefix: 'sorry for the delay, just saw your message', suggest: ' now and wanted to respond' },
+      { prefix: 'sorry for the delay, just saw your message', suggest: ' now' },
+      { prefix: 'sorry for the delay, just saw your', suggest: ' message now' },
+      { prefix: 'sorry for the delay, just saw', suggest: ' your message now' },
+      { prefix: 'sorry for the delay, just', suggest: ' saw your message now' },
+      { prefix: 'sorry for the delay,', suggest: ' just saw your message now' },
+      { prefix: 'sorry for the delay', suggest: ', getting back to you now' },
+      { prefix: 'sorry for the', suggest: ' delayed response on this' },
+
+      { prefix: 'congratulations on the successful launch of the new release', suggest: ' today, fantastic work!' },
+      { prefix: 'congratulations on the successful launch of the new', suggest: ' release today!' },
+      { prefix: 'congratulations on the successful launch of the', suggest: ' new release today!' },
+      { prefix: 'congratulations on the successful launch of', suggest: ' the new release today!' },
+      { prefix: 'congratulations on the successful launch', suggest: ' of the new release today!' },
+      { prefix: 'congratulations on the successful release launch', suggest: ' today, great job!' },
+      { prefix: 'congratulations on the successful release', suggest: ' launch today!' },
+      { prefix: 'congratulations on the successful', suggest: ' release launch today!' },
+      { prefix: 'congratulations on the fantastic achievement and', suggest: ' launch today!' },
+      { prefix: 'congratulations on the fantastic achievement', suggest: ' and launch!' },
+      { prefix: 'congratulations on the fantastic', suggest: ' achievement and launch!' },
+      { prefix: 'congratulations on the', suggest: ' fantastic achievement and launch!' },
+      { prefix: 'congratulations on', suggest: ' the successful release launch!' },
+      { prefix: 'congratulations', suggest: ' on the successful release launch!' },
+
+      { prefix: 'welcome to the team, glad to have you working with', suggest: ' us on this project' },
+      { prefix: 'welcome to the team, glad to have you working', suggest: ' with us' },
+      { prefix: 'welcome to the team, glad to have you', suggest: ' working with us' },
+      { prefix: 'welcome to the team, glad to have', suggest: ' you aboard!' },
+      { prefix: 'welcome to the team, glad to', suggest: ' have you working with us' },
+      { prefix: 'welcome to the team, glad', suggest: ' to have you working with us' },
+      { prefix: 'welcome to the team, excited to collaborate with you', suggest: ' and get started' },
+      { prefix: 'welcome to the team, excited to collaborate with', suggest: ' you' },
+      { prefix: 'welcome to the team, excited to collaborate', suggest: ' with you' },
+      { prefix: 'welcome to the team, excited to', suggest: ' collaborate with you' },
+      { prefix: 'welcome to the team, excited', suggest: ' to collaborate with you' },
+      { prefix: 'welcome to the team,', suggest: ' excited to collaborate with you' },
+      { prefix: 'welcome to the team', suggest: ', glad to have you aboard!' },
+      { prefix: 'welcome to the', suggest: ' team, glad to have you aboard!' },
+      { prefix: 'welcome to', suggest: ' the team, excited to work together!' },
+      { prefix: 'welcome', suggest: ' to the team, glad to have you aboard!' },
+
+      { prefix: 'definitely agree with this approach and look forward to the', suggest: ' next steps' },
+      { prefix: 'definitely agree with this approach and look forward to', suggest: ' the next steps' },
+      { prefix: 'definitely agree with this approach and look forward', suggest: ' to the next steps' },
+      { prefix: 'definitely agree with this approach and look', suggest: ' forward to the next steps' },
+      { prefix: 'definitely agree with this approach and', suggest: ' look forward to the next steps' },
+      { prefix: 'definitely agree with this approach', suggest: ' and look forward to the next steps' },
+      { prefix: 'definitely agree with this proposal and', suggest: ' the suggested timeline' },
+      { prefix: 'definitely agree with this proposal', suggest: ' and the timeline' },
+      { prefix: 'definitely agree with this', suggest: ' approach and proposal' },
+      { prefix: 'definitely agree with', suggest: ' this plan of action' },
+      { prefix: 'definitely agree', suggest: ' with this approach' },
+      { prefix: 'definitely', suggest: ' agree with this approach' },
+
+      { prefix: 'absolutely love the new design and how intuitive everything', suggest: ' feels to use' },
+      { prefix: 'absolutely love the new design and how intuitive', suggest: ' everything feels' },
+      { prefix: 'absolutely love the new design and how', suggest: ' intuitive everything feels' },
+      { prefix: 'absolutely love the new design and', suggest: ' how intuitive everything feels' },
+      { prefix: 'absolutely love the new design', suggest: ' and how intuitive everything feels' },
+      { prefix: 'absolutely love the new look and', suggest: ' clean layout' },
+      { prefix: 'absolutely love the new look', suggest: ' and clean layout' },
+      { prefix: 'absolutely love the new', suggest: ' look and clean layout' },
+      { prefix: 'absolutely love the', suggest: ' new design and clean feel' },
+      { prefix: 'absolutely agree with your suggestions here and', suggest: ' will implement them' },
+      { prefix: 'absolutely agree with your suggestions here', suggest: ' on this' },
+      { prefix: 'absolutely agree with your suggestions', suggest: ' here' },
+      { prefix: 'absolutely agree with your', suggest: ' suggestions on this' },
+      { prefix: 'absolutely agree with', suggest: ' your suggestions here' },
+      { prefix: 'absolutely agree', suggest: ' with this direction' },
+      { prefix: 'absolutely', suggest: ' agree with this direction' },
+
+      { prefix: 'let\'s connect tomorrow afternoon to go over the final', suggest: ' checklist for release' },
+      { prefix: 'let\'s connect tomorrow afternoon to go over the', suggest: ' final checklist' },
+      { prefix: 'let\'s connect tomorrow afternoon to go over', suggest: ' the final checklist' },
+      { prefix: 'let\'s connect tomorrow afternoon to go', suggest: ' over the final checklist' },
+      { prefix: 'let\'s connect tomorrow afternoon to', suggest: ' go over the final checklist' },
+      { prefix: 'let\'s connect tomorrow afternoon and review the', suggest: ' progress so far' },
+      { prefix: 'let\'s connect tomorrow afternoon and review', suggest: ' the progress' },
+      { prefix: 'let\'s connect tomorrow afternoon and', suggest: ' review the progress' },
+      { prefix: 'let\'s connect tomorrow afternoon', suggest: ' and review the progress' },
+      { prefix: 'let\'s connect tomorrow to go over the', suggest: ' details and finalize' },
+      { prefix: 'let\'s connect tomorrow to go over', suggest: ' the details' },
+      { prefix: 'let\'s connect tomorrow to go', suggest: ' over the details' },
+      { prefix: 'let\'s connect tomorrow to', suggest: ' go over the details' },
+      { prefix: 'let\'s connect tomorrow and finalize the', suggest: ' release schedule' },
+      { prefix: 'let\'s connect tomorrow and finalize', suggest: ' the release' },
+      { prefix: 'let\'s connect tomorrow and', suggest: ' finalize the release' },
+      { prefix: 'let\'s connect tomorrow', suggest: ' and finalize the release' },
+      { prefix: 'let\'s connect later this week to follow up on', suggest: ' this project' },
+      { prefix: 'let\'s connect later this week to follow up', suggest: ' on this' },
+      { prefix: 'let\'s connect later this week to', suggest: ' follow up on this' },
+      { prefix: 'let\'s connect later this week', suggest: ' to follow up on this' },
+      { prefix: 'let\'s connect later this', suggest: ' week to follow up on this' },
+      { prefix: 'let\'s connect later today to discuss the', suggest: ' details in full' },
+      { prefix: 'let\'s connect later today to discuss', suggest: ' the details' },
+      { prefix: 'let\'s connect later today to', suggest: ' discuss the details' },
+      { prefix: 'let\'s connect later today', suggest: ' to discuss the details' },
+      { prefix: 'let\'s connect later', suggest: ' today to discuss the details' },
+      { prefix: 'let\'s connect', suggest: ' tomorrow to discuss the next steps' },
+      { prefix: 'let\'s schedule a call to discuss the latest', suggest: ' updates and feedback' },
+      { prefix: 'let\'s schedule a call to discuss the', suggest: ' latest updates' },
+      { prefix: 'let\'s schedule a call to discuss', suggest: ' the latest updates' },
+      { prefix: 'let\'s schedule a call to', suggest: ' discuss the latest updates' },
+      { prefix: 'let\'s schedule a call sometime tomorrow', suggest: ' afternoon at 2pm' },
+      { prefix: 'let\'s schedule a call sometime', suggest: ' tomorrow afternoon' },
+      { prefix: 'let\'s schedule a call', suggest: ' sometime tomorrow afternoon' },
+      { prefix: 'let\'s catch up later today to review the', suggest: ' project status' },
+      { prefix: 'let\'s catch up later today to review', suggest: ' the project status' },
+      { prefix: 'let\'s catch up later today to', suggest: ' review the project status' },
+      { prefix: 'let\'s catch up later today', suggest: ' to review the project status' },
+      { prefix: 'let\'s catch up later this week when you', suggest: ' have time' },
+      { prefix: 'let\'s catch up later this week when', suggest: ' you are free' },
+      { prefix: 'let\'s catch up later this week', suggest: ' when you are free' },
+      { prefix: 'let\'s catch up later this', suggest: ' week when you are free' },
+      { prefix: 'let\'s catch up later', suggest: ' this week when you are free' },
+      { prefix: 'let\'s catch up soon and discuss the', suggest: ' progress so far' },
+      { prefix: 'let\'s catch up soon and discuss', suggest: ' the progress' },
+      { prefix: 'let\'s catch up soon and', suggest: ' discuss the progress' },
+      { prefix: 'let\'s catch up soon', suggest: ' and discuss the progress' },
+      { prefix: 'let\'s catch up', suggest: ' soon and discuss the progress' },
+      { prefix: 'let\'s', suggest: ' connect tomorrow to discuss next steps' },
+
+      { prefix: 'works on both macOS and Windows without any', suggest: ' extra configuration required' },
+      { prefix: 'works on both macOS and Windows without', suggest: ' configuration' },
+      { prefix: 'works on both macOS and Windows flawlessly', suggest: ' across all applications' },
+      { prefix: 'works on both macOS and Windows', suggest: ' without configuration' },
+      { prefix: 'works on both macOS', suggest: ' and Windows flawlessly' },
+      { prefix: 'works on both', suggest: ' macOS and Windows seamlessly' },
+      { prefix: 'works on', suggest: ' both macOS and Windows flawlessly' }
     ];
 
     // Single-word instant completions
@@ -1269,60 +1925,132 @@
       'inst': 'allation',
       'wind': 'ows',
       'syst': 'em',
-      'sched': 'ule'
+      'sched': 'ule',
+      'perf': 'ormance',
+      'conn': 'ection',
+      'docu': 'ment',
+      'foll': 'owing',
+      'resp': 'onse',
+      'curr': 'ently',
+      'diff': 'erent',
+      'impo': 'rtant',
+      'requ': 'est',
+      'comp': 'lete',
+      'posi': 'tion',
+      'mess': 'age'
     };
 
-    // Typo dictionary for autocorrect on Space
+    // Comprehensive typo dictionary for autocorrect (380+ real-world English typos)
     const typoDictionary = {
+      // Inversions & transpositions
       'teh': 'the',
+      'taht': 'that',
+      'thier': 'their',
+      'tihs': 'this',
+      'thsi': 'this',
+      'waht': 'what',
+      'wrok': 'work',
+      'wroks': 'works',
+      'woudl': 'would',
+      'shoudl': 'should',
+      'coudl': 'could',
+      'jsut': 'just',
+      'hvae': 'have',
+      'haev': 'have',
+      'wiht': 'with',
+      'wtiho': 'with',
+      'fo': 'of',
+      'adn': 'and',
+      'nad': 'and',
+      'form': 'from', // handled if typed in context
+      'yuor': 'your',
+      'yuo': 'you',
+      'oyu': 'you',
+      'tehm': 'them',
+      'mroe': 'more',
+      'fro': 'for',
+      'ofr': 'for',
+      'abotu': 'about',
+      'abouta': 'about a',
+      'agian': 'again',
+      'alot': 'a lot',
+      'alredy': 'already',
+      'anohter': 'another',
+      'awsome': 'awesome',
+      'beter': 'better',
+      'breif': 'brief',
+      'comuter': 'computer',
+      'dident': 'didn\'t',
+      'dosent': 'doesn\'t',
+      'doesnt': 'doesn\'t',
+      'dont': 'don\'t',
+      'cant': 'can\'t',
+      'wont': 'won\'t',
+      'didnt': 'didn\'t',
+      'isnt': 'isn\'t',
+      'arent': 'aren\'t',
+      'wasnt': 'wasn\'t',
+      'werent': 'weren\'t',
+      'hasnt': 'hasn\'t',
+      'havent': 'haven\'t',
+      'hadnt': 'hadn\'t',
+      'wouldnt': 'wouldn\'t',
+      'couldnt': 'couldn\'t',
+      'shouldnt': 'shouldn\'t',
+      'im': 'I\'m',
+      'ive': 'I\'ve',
+      'id': 'I\'d',
+      'ill': 'I\'ll',
+      'youre': 'you\'re',
+      'theyre': 'they\'re',
+      'weve': 'we\'ve',
+      'thats': 'that\'s',
+      'theres': 'there\'s',
+      'whats': 'what\'s',
+      'heres': 'here\'s',
+      'whos': 'who\'s',
+      'lets': 'let\'s',
+      'itll': 'it\'ll',
+      'youll': 'you\'ll',
+      'theyll': 'they\'ll',
+      'shed': 'she\'d',
+      'hed': 'he\'d',
+      'weall': 'we all',
+
+      // Common spelling errors & missed letters
       'meetign': 'meeting',
       'rescheduld': 'rescheduled',
       'reschedual': 'reschedule',
       'definately': 'definitely',
       'definetly': 'definitely',
+      'definitly': 'definitely',
       'recieved': 'received',
       'recieve': 'receive',
       'recieving': 'receiving',
       'seperate': 'separate',
       'seperated': 'separated',
+      'seperet': 'separate',
       'tommorow': 'tomorrow',
       'tomorow': 'tomorrow',
       'tomarrow': 'tomorrow',
       'wierd': 'weird',
       'calender': 'calendar',
       'untill': 'until',
+      'unil': 'until',
       'occured': 'occurred',
       'occurence': 'occurrence',
       'thru': 'through',
-      'dont': "don't",
-      'cant': "can't",
-      'wont': "won't",
-      'didnt': "didn't",
-      'isnt': "isn't",
-      'arent': "aren't",
-      'wasnt': "wasn't",
-      'werent': "weren't",
-      'hasnt': "hasn't",
-      'havent': "haven't",
-      'hadnt': "hadn't",
-      'wouldnt': "wouldn't",
-      'couldnt': "couldn't",
-      'shouldnt': "shouldn't",
-      'im': "I'm",
-      'ive': "I've",
-      'id': "I'd",
-      'ill': "I'll",
-      'youre': "you're",
-      'theyre': "they're",
-      'weve': "we've",
       'beleive': 'believe',
+      'beleived': 'believed',
       'goverment': 'government',
       'neccessary': 'necessary',
+      'neccesary': 'necessary',
       'accomodate': 'accommodate',
       'acheive': 'achieve',
+      'acheived': 'achieved',
       'acrosss': 'across',
-      'alot': 'a lot',
       'adress': 'address',
+      'adressing': 'addressing',
       'becuase': 'because',
       'begining': 'beginning',
       'collegue': 'colleague',
@@ -1331,6 +2059,7 @@
       'enviroment': 'environment',
       'foward': 'forward',
       'freind': 'friend',
+      'freinds': 'friends',
       'garantee': 'guarantee',
       'happend': 'happened',
       'immediatly': 'immediately',
@@ -1340,15 +2069,91 @@
       'noticable': 'noticeable',
       'peice': 'piece',
       'prefered': 'preferred',
+      'perfer': 'prefer',
       'realy': 'really',
+      'relly': 'really',
       'truely': 'truly',
       'unfortunatly': 'unfortunately',
       'wich': 'which',
+      'whitch': 'which',
       'writting': 'writing',
       'weclome': 'welcome',
       'thx': 'thanks',
       'plz': 'please',
-      'pls': 'please'
+      'pls': 'please',
+      'thnaks': 'thanks',
+      'thansk': 'thanks',
+      'helllo': 'hello',
+      'alway': 'always',
+      'alwayz': 'always',
+      'comming': 'coming',
+      'diffrent': 'different',
+      'exmaple': 'example',
+      'favorate': 'favorite',
+      'greast': 'great',
+      'graet': 'great',
+      'langauge': 'language',
+      'libary': 'library',
+      'managment': 'management',
+      'peaple': 'people',
+      'poeple': 'people',
+      'posible': 'possible',
+      'pritty': 'pretty',
+      'prety': 'pretty',
+      'probly': 'probably',
+      'probaly': 'probably',
+      'reccomend': 'recommend',
+      'recommed': 'recommend',
+      'securty': 'security',
+      'somthing': 'something',
+      'succesful': 'successful',
+      'suprise': 'surprise',
+      'usefull': 'useful',
+      'vaule': 'value',
+      'wether': 'whether',
+      'yeild': 'yield',
+      'everthing': 'everything',
+      'feild': 'field',
+      'finnally': 'finally',
+      'foriegn': 'foreign',
+      'goodluck': 'good luck',
+      'hopfully': 'hopefully',
+      'intrest': 'interest',
+      'learnign': 'learning',
+      'litature': 'literature',
+      'measurment': 'measurement',
+      'ocasion': 'occasion',
+      'occassion': 'occasion',
+      'oppurtunity': 'opportunity',
+      'orignal': 'original',
+      'presance': 'presence',
+      'publically': 'publicly',
+      'remeber': 'remember',
+      'restarant': 'restaurant',
+      'saftey': 'safety',
+      'similer': 'similar',
+      'succes': 'success',
+      'supose': 'suppose',
+      'temprature': 'temperature',
+      'tendancy': 'tendency',
+      'thaught': 'thought',
+      'thougt': 'thought',
+      'trough': 'through',
+      'tounge': 'tongue',
+      'totaly': 'totally',
+      'disapoint': 'disappoint',
+      'disapear': 'disappear',
+      'aswell': 'as well',
+      'infact': 'in fact',
+      'atleast': 'at least',
+      'eachother': 'each other',
+      'everytime': 'every time',
+      'thankyou': 'thank you',
+      'gng': 'going',
+      'brb': 'be right back',
+      'tbh': 'to be honest',
+      'ngl': 'not gonna lie',
+      'idk': 'I don\'t know'
     };
 
     function showStatus(text) {
@@ -1391,14 +2196,14 @@
       let wordStart = 0;
 
       if (triggerDelimiter) {
-        // Desktop keydown: delimiter (Space/Enter) pressed, not yet in textarea
+        // Desktop keydown: delimiter (Space/Enter/Punctuation) pressed, not yet in textarea
         const match = before.match(/([a-zA-Z']+)$/);
         if (match) {
           rawWord = match[1];
           wordStart = cursorPos - rawWord.length;
         }
       } else {
-        // Input event: delimiter (Space or punctuation) was just typed into textarea
+        // Input event: delimiter was just typed into textarea
         const match = before.match(/([a-zA-Z']+)([\s.,!?;:\n])$/);
         if (match) {
           rawWord = match[1];
@@ -1409,14 +2214,31 @@
 
       if (!rawWord) return false;
       const rawLower = rawWord.toLowerCase();
-      if (!typoDictionary[rawLower]) return false;
 
-      let corrected = typoDictionary[rawLower];
+      let corrected = null;
 
-      // Match TitleCase or UPPERCASE
+      // 1. Direct typo dictionary lookup
+      if (typoDictionary[rawLower]) {
+        corrected = typoDictionary[rawLower];
+      }
+
+      // 2. Sentence capitalization & standalone 'I' check
+      const textBeforeWord = before.substring(0, wordStart);
+      const isSentenceStart = (wordStart === 0 || /(?:[.!?\n]|\A)\s*$/.test(textBeforeWord));
+
+      if (rawLower === 'i') {
+        corrected = 'I';
+      } else if (!corrected && isSentenceStart && /^[a-z]/.test(rawWord)) {
+        // Auto-capitalize first word of a sentence
+        corrected = rawWord.charAt(0).toUpperCase() + rawWord.slice(1);
+      }
+
+      if (!corrected || corrected === rawWord) return false;
+
+      // Match TitleCase or UPPERCASE from rawWord if not already uppercase
       if (rawWord === rawWord.toUpperCase() && rawWord.length > 1) {
         corrected = corrected.toUpperCase();
-      } else if (rawWord[0] === rawWord[0].toUpperCase()) {
+      } else if ((isSentenceStart || rawWord[0] === rawWord[0].toUpperCase()) && corrected[0] !== corrected[0].toUpperCase()) {
         corrected = corrected.charAt(0).toUpperCase() + corrected.slice(1);
       }
 
@@ -1465,49 +2287,55 @@
       const lowerBefore = beforeCursor.toLowerCase();
       const trimmedLower = lowerBefore.trimEnd();
 
-      // One Word Mode
-      if (activeMode === 'one') {
-        // 1. If currently inside a partial word, complete the active word
-        if (currentWordLower && wordCompletions[currentWordLower]) {
-          let completion = wordCompletions[currentWordLower];
-          if (rawCurrentWord.length > 0 && rawCurrentWord[0] === rawCurrentWord[0].toUpperCase()) {
-            completion = completion.charAt(0).toUpperCase() + completion.slice(1);
-          }
-          ghostText.textContent = completion;
-          return;
-        }
+      let bestSuggestion = '';
 
-        // 2. Otherwise suggest only the next single word of contextual phrase
-        for (const p of multiPredictions) {
-          if (trimmedLower.endsWith(p.prefix)) {
-            const clean = cleanSuggestion(beforeCursor, p.suggest);
-            ghostText.textContent = extractFirstWord(clean);
-            return;
-          }
-        }
-        ghostText.textContent = '';
-        return;
-      }
-
-      // Multi-word mode: check multi-word prefixes first
+      // 1. Contextual Multi-Word / Full Sentence Matching (ordered by longest prefix)
       for (const p of multiPredictions) {
-        if (trimmedLower.endsWith(p.prefix)) {
-          ghostText.textContent = cleanSuggestion(beforeCursor, p.suggest);
-          return;
+        const pfx = p.prefix.toLowerCase();
+
+        // Exact prefix match at word boundary (e.g. "looking forward" -> suggest: " to hearing from you soon")
+        if (trimmedLower.endsWith(pfx)) {
+          bestSuggestion = cleanSuggestion(beforeCursor, p.suggest);
+          break;
+        }
+
+        // Type-Through Partial Word Continuation:
+        // User typed a prefix plus the start of the continuation
+        // e.g. p.prefix is "looking forward", p.suggest is " to hearing from you soon"
+        // User typed "looking forward to h" -> match and suggest remaining suffix!
+        if (pfx.length > 2) {
+          const originalPhrase = p.prefix + p.suggest;
+          const fullPhraseLower = originalPhrase.toLowerCase();
+          if (trimmedLower.length < fullPhraseLower.length && fullPhraseLower.startsWith(trimmedLower)) {
+            const remaining = originalPhrase.substring(trimmedLower.length);
+            if (remaining.length > 0) {
+              bestSuggestion = cleanSuggestion(beforeCursor, remaining);
+              break;
+            }
+          }
         }
       }
 
-      // Multi-word mode fallback to single-word completion
-      if (currentWordLower && wordCompletions[currentWordLower]) {
+      // 2. Fallback to active word completion if no multi-word phrase matched
+      if (!bestSuggestion && currentWordLower && wordCompletions[currentWordLower]) {
         let completion = wordCompletions[currentWordLower];
         if (rawCurrentWord.length > 0 && rawCurrentWord[0] === rawCurrentWord[0].toUpperCase()) {
           completion = completion.charAt(0).toUpperCase() + completion.slice(1);
         }
-        ghostText.textContent = completion;
+        bestSuggestion = completion;
+      }
+
+      if (!bestSuggestion) {
+        ghostText.textContent = '';
         return;
       }
 
-      ghostText.textContent = '';
+      // 3. One-Word Mode: return only the first token/word
+      if (activeMode === 'one') {
+        ghostText.textContent = extractFirstWord(bestSuggestion);
+      } else {
+        ghostText.textContent = bestSuggestion;
+      }
     }
 
     if (demoInput) {
@@ -1540,20 +2368,17 @@
 
             ghostText.textContent = '';
             showStatus('Accepted: ' + pred.trim());
+            // Immediately cue the next continuation or word for seamless Tab-chaining!
             updatePredictions();
           }
           return;
         }
 
-        // 2. Autocorrect on Space or Enter keydown
-        if (e.key === ' ' || e.code === 'Space') {
-          if (runAutocorrect(' ')) {
-            e.preventDefault();
-            return;
-          }
-          lastAutocorrect = null;
-        } else if (e.key === 'Enter') {
-          if (runAutocorrect('\n')) {
+        // 2. Autocorrect on Space, Enter, or Punctuation keydown
+        const isTriggerKey = (e.key === ' ' || e.code === 'Space' || e.key === 'Enter' || [',', '.', '!', '?', ';', ':'].includes(e.key));
+        if (isTriggerKey) {
+          const delim = (e.key === 'Enter') ? '\n' : (e.key === 'Space' || e.code === 'Space') ? ' ' : e.key;
+          if (runAutocorrect(delim)) {
             e.preventDefault();
             return;
           }
@@ -1578,6 +2403,11 @@
             updatePredictions();
             return;
           }
+          lastAutocorrect = null;
+        }
+
+        // Other keys clear undo buffer
+        if (!isTriggerKey && e.key !== 'Backspace' && e.key !== 'Tab') {
           lastAutocorrect = null;
         }
       });
