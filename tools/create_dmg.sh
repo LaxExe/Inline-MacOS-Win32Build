@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Build and Package Inline macOS DMG (v1.2)
+# Build and Package Inline macOS DMG (v1.3)
 # ==============================================================================
 set -e
 
@@ -13,7 +13,7 @@ NC='\033[0m'
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-echo -e "${BOLD}${BLUE}=== Building and Packaging Inline v1.2 for macOS ===${NC}\n"
+echo -e "${BOLD}${BLUE}=== Building and Packaging Inline v1.3 for macOS ===${NC}\n"
 
 # 0. Ensure bundled GGUF model & llama.cpp are fetched
 ./tools/fetch_model.sh
@@ -57,7 +57,7 @@ cp -R "$APP_SRC" "$STAGING_DIR/"
 ln -s /Applications "$STAGING_DIR/Applications"
 
 # 5. Generate Compressed DMG
-DMG_NAME="Inline-v1.2-macOS.dmg"
+DMG_NAME="Inline-v1.3-macOS.dmg"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 rm -f "$DMG_PATH"
 
@@ -65,6 +65,7 @@ echo -e "\n${BOLD}Generating $DMG_NAME via hdiutil...${NC}"
 hdiutil create \
     -volname "Inline" \
     -srcfolder "$STAGING_DIR" \
+    -noatomic \
     -ov \
     -format UDZO \
     "$DMG_PATH"
