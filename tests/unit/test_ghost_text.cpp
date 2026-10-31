@@ -242,3 +242,43 @@ TEST(GhostLayout, PlacesMidWordSuggestionSnugToCaretWithoutArtificialGap) {
     EXPECT_DOUBLE_EQ(res.lines[0].x, 100.5);
     EXPECT_DOUBLE_EQ(res.lines[0].y, 50.0);
 }
+
+TEST(GhostLayout, PreservesLeadingSpaceWhenDocumentEndsWithWordChar) {
+    CaretGeometry cg;
+    cg.caret = {100.0, 50.0, 2.5, 18.0};
+    cg.field = {20.0, 40.0, 400.0, 200.0};
+    cg.lineStartX = 28.0;
+    cg.lineHeight = 20.0;
+    cg.isSingleLine = false;
+    cg.atEditableEnd = true;
+    cg.textTail = L"meeting"; // Document ends with letter 'g' (no trailing space)
+
+    // In One-Word mode or word completion, " tomorrow" must retain its leading space
+    // so it doesn't touch or collide with "meeting"
+    GhostLayoutResult res = computeGhostLayout(L" tomorrow", cg, false, mono8Measure);
+    ASSERT_TRUE(res.valid);
+    ASSERT_EQ(res.lines.size(), 1u);
+    EXPECT_EQ(res.lines[0].text, L" tomorrow");
+    EXPECT_EQ(res.fittedText, L" tomorrow");
+    EXPECT_DOUBLE_EQ(res.lines[0].x, 100.5);
+}
+
+TEST(GhostLayout, StripsRedundantLeadingSpaceWhenDocumentEndsWithSpace) {
+    CaretGeometry cg;
+    cg.caret = {100.0, 50.0, 2.5, 18.0};
+    cg.field = {20.0, 40.0, 400.0, 200.0};
+    cg.lineStartX = 28.0;
+    cg.lineHeight = 20.0;
+    cg.isSingleLine = false;
+    cg.atEditableEnd = true;
+    cg.textTail = L"meeting "; // Document already ends with space
+
+    // When document already has space, " tomorrow" must have its leading space stripped
+    // so no double space is displayed or injected
+    GhostLayoutResult res = computeGhostLayout(L" tomorrow", cg, false, mono8Measure);
+    ASSERT_TRUE(res.valid);
+    ASSERT_EQ(res.lines.size(), 1u);
+    EXPECT_EQ(res.lines[0].text, L"tomorrow");
+    EXPECT_EQ(res.fittedText, L"tomorrow");
+    EXPECT_DOUBLE_EQ(res.lines[0].x, 100.5);
+}

@@ -31,13 +31,29 @@ GhostLayoutResult computeGhostLayout(
     };
 
     std::wstring cleanSuggestion = suggestion;
-    if (!isMidWord) {
-        // At word boundary (after space or sentence start), strip redundant leading spaces
-        // so the suggestion anchors snug against the cursor bar and doesn't inject double spaces on Tab.
-        while (!cleanSuggestion.empty() && cleanSuggestion.front() == L' ') {
-            cleanSuggestion.erase(cleanSuggestion.begin());
+    auto isWordOrPunctChar = [](wchar_t ch) -> bool {
+        return ch != L' ' && ch != L'\t' && ch != L'\n' && ch != L'\r' &&
+               ch != 0x200B && ch != 0xFEFF && ch != 0x00A0 && ch != 0x200C && ch != 0x200D;
+    };
+    const bool hostEndsWithWordChar = (!geom.textTail.empty() && isWordOrPunctChar(geom.textTail.back()));
+
+    if (hostEndsWithWordChar && !isMidWord) {
+        // Document cursor is resting against the end of a completed word (e.g. immediately after Tab-accepting
+        // a word in One-Word mode, or continuing a sentence where no space has been typed in the document yet).
+        // Ensure exactly ONE leading space so words never touch, collide, or overlap visually or on Tab accept!
+        if (!cleanSuggestion.empty() && cleanSuggestion.front() != L' ') {
+            cleanSuggestion.insert(cleanSuggestion.begin(), L' ');
         }
-        if (cleanSuggestion.empty()) return res;
+    } else {
+        // Document either already ends with whitespace (space/newline/tab), or is empty (sentence start), or is mid-word.
+        if (!isMidWord) {
+            // Strip redundant leading spaces so the ghost text anchors snug against the cursor bar
+            // without an artificial double-space gap, and does not insert extra spaces into the host app.
+            while (!cleanSuggestion.empty() && cleanSuggestion.front() == L' ') {
+                cleanSuggestion.erase(cleanSuggestion.begin());
+            }
+            if (cleanSuggestion.empty()) return res;
+        }
     }
 
     // Place suggestion snug against the cursor, avoiding artificial gaps between the cursor and the inline suggestion.

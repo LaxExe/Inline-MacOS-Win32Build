@@ -326,39 +326,85 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                 }
             }
 
-            // Fallback for Chromium / Electron web inputs where kAXStringForRange is not supported:
-            if (geom.textTail.empty()) {
-                CFTypeRef fullVal = nullptr;
-                if (AXUIElementCopyAttributeValue(elem, kAXValueAttribute, &fullVal) == kAXErrorSuccess && fullVal) {
-                    if (CFGetTypeID(fullVal) == CFStringGetTypeID()) {
-                        std::wstring fullStr = cfStringToWString(static_cast<CFStringRef>(fullVal));
-                        if (selRange.location <= static_cast<CFIndex>(fullStr.size())) {
-                            size_t start = (selRange.location > 160) ? (selRange.location - 160) : 0;
-                            geom.textTail = fullStr.substr(start, selRange.location - start);
+            // 6a. Check document character count and probe text following caret to verify atEditableEnd
+            CFTypeRef numCharsVal = nullptr;
+            CFIndex totalDocChars = -1;
+            if (AXUIElementCopyAttributeValue(elem, kAXNumberOfCharactersAttribute, &numCharsVal) == kAXErrorSuccess && numCharsVal) {
+                if (CFGetTypeID(numCharsVal) == CFNumberGetTypeID()) {
+                    CFNumberGetValue(static_cast<CFNumberRef>(numCharsVal), kCFNumberCFIndexType, &totalDocChars);
+                }
+                CFRelease(numCharsVal);
+            }
 
-                            // Strip invisible zero-width formatting characters commonly inserted by Slate.js / Lexical / Electron
-                            while (!geom.textTail.empty() && isZeroWidthOrFormatting(geom.textTail.back())) {
-                                geom.textTail.pop_back();
-                            }
-
-                            bool onlyTrailingFormatting = true;
-                            for (size_t i = selRange.location; i < fullStr.size(); ++i) {
-                                if (!isZeroWidthOrWhitespace(fullStr[i])) {
-                                    onlyTrailingFormatting = false;
+            if (totalDocChars > 0 && selRange.location < totalDocChars) {
+                CFIndex probeLen = std::min<CFIndex>(120, totalDocChars - selRange.location);
+                CFRange afterR = CFRangeMake(selRange.location, probeLen);
+                AXValueRef afterVal = AXValueCreate(kAXValueTypeCFRange, &afterR);
+                if (afterVal) {
+                    CFTypeRef afterStrRef = nullptr;
+                    if (AXUIElementCopyParameterizedAttributeValue(elem, kAXStringForRangeParameterizedAttribute, afterVal, &afterStrRef) == kAXErrorSuccess && afterStrRef) {
+                        if (CFGetTypeID(afterStrRef) == CFStringGetTypeID()) {
+                            std::wstring afterStr = cfStringToWString(static_cast<CFStringRef>(afterStrRef));
+                            for (wchar_t ch : afterStr) {
+                                if (!isZeroWidthOrWhitespace(ch)) {
+                                    geom.atEditableEnd = false;
+                                    geom.caretAtEOF = false;
                                     break;
                                 }
                             }
-                            if (onlyTrailingFormatting) {
-                                geom.atEditableEnd = true;
-                                geom.caretAtEOF = true;
-                            } else {
+                        }
+                        CFRelease(afterStrRef);
+                    }
+                    CFRelease(afterVal);
+                }
+            } else if (totalDocChars == -1) {
+                // If total character count is not reported by the host app, probe up to 80 chars after caret
+                CFRange afterR = CFRangeMake(selRange.location, 80);
+                AXValueRef afterVal = AXValueCreate(kAXValueTypeCFRange, &afterR);
+                if (afterVal) {
+                    CFTypeRef afterStrRef = nullptr;
+                    if (AXUIElementCopyParameterizedAttributeValue(elem, kAXStringForRangeParameterizedAttribute, afterVal, &afterStrRef) == kAXErrorSuccess && afterStrRef) {
+                        if (CFGetTypeID(afterStrRef) == CFStringGetTypeID()) {
+                            std::wstring afterStr = cfStringToWString(static_cast<CFStringRef>(afterStrRef));
+                            for (wchar_t ch : afterStr) {
+                                if (!isZeroWidthOrWhitespace(ch)) {
+                                    geom.atEditableEnd = false;
+                                    geom.caretAtEOF = false;
+                                    break;
+                                }
+                            }
+                        }
+                        CFRelease(afterStrRef);
+                    }
+                    CFRelease(afterVal);
+                }
+            }
+
+            // 6b. Check kAXValueAttribute (Chromium / Electron inputs, textareas, web fields)
+            CFTypeRef fullVal = nullptr;
+            if (AXUIElementCopyAttributeValue(elem, kAXValueAttribute, &fullVal) == kAXErrorSuccess && fullVal) {
+                if (CFGetTypeID(fullVal) == CFStringGetTypeID()) {
+                    std::wstring fullStr = cfStringToWString(static_cast<CFStringRef>(fullVal));
+                    if (geom.textTail.empty() && selRange.location <= static_cast<CFIndex>(fullStr.size())) {
+                        size_t start = (selRange.location > 160) ? (selRange.location - 160) : 0;
+                        geom.textTail = fullStr.substr(start, selRange.location - start);
+
+                        // Strip invisible zero-width formatting characters commonly inserted by Slate.js / Lexical / Electron
+                        while (!geom.textTail.empty() && isZeroWidthOrFormatting(geom.textTail.back())) {
+                            geom.textTail.pop_back();
+                        }
+                    }
+                    if (selRange.location < static_cast<CFIndex>(fullStr.size())) {
+                        for (size_t i = selRange.location; i < fullStr.size(); ++i) {
+                            if (!isZeroWidthOrWhitespace(fullStr[i])) {
                                 geom.atEditableEnd = false;
                                 geom.caretAtEOF = false;
+                                break;
                             }
                         }
                     }
-                    CFRelease(fullVal);
                 }
+                CFRelease(fullVal);
             }
 
             if (selRange.location > 0) {
@@ -403,10 +449,12 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
         // 7a. Try WebKit / Blink TextMarker first (Chromium, Electron, Discord, Slack, Chrome, Vivaldi, VS Code, Safari)
         CGRect wkRect = CGRectZero;
         if (getWebKitTextMarkerCaretRect(elem, wkRect)) {
-            double caretX = (wkRect.size.width <= 4.0) ? wkRect.origin.x : (wkRect.origin.x + wkRect.size.width);
-            double caretH = (wkRect.size.height >= 8.0 && wkRect.size.height <= 200.0) ? wkRect.size.height : 18.0;
-            caretRect = CGRectMake(caretX, wkRect.origin.y, 2.5, caretH);
-            gotCaret = true;
+            if (wkRect.size.width <= 24.0) {
+                double caretX = (wkRect.size.width <= 4.0) ? wkRect.origin.x : (wkRect.origin.x + wkRect.size.width);
+                double caretH = (wkRect.size.height >= 8.0 && wkRect.size.height <= 200.0) ? wkRect.size.height : 18.0;
+                caretRect = CGRectMake(caretX, wkRect.origin.y, 2.0, caretH);
+                gotCaret = true;
+            }
         }
 
         // Try WebKit TextMarker on parent web area if child element holds marker on parent
@@ -415,10 +463,12 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
             if (AXUIElementCopyAttributeValue(elem, kAXParentAttribute, &parentVal) == kAXErrorSuccess && parentVal) {
                 if (CFGetTypeID(parentVal) == AXUIElementGetTypeID()) {
                     if (getWebKitTextMarkerCaretRect(static_cast<AXUIElementRef>(parentVal), wkRect)) {
-                        double caretX = (wkRect.size.width <= 4.0) ? wkRect.origin.x : (wkRect.origin.x + wkRect.size.width);
-                        double caretH = (wkRect.size.height >= 8.0 && wkRect.size.height <= 200.0) ? wkRect.size.height : 18.0;
-                        caretRect = CGRectMake(caretX, wkRect.origin.y, 2.5, caretH);
-                        gotCaret = true;
+                        if (wkRect.size.width <= 24.0) {
+                            double caretX = (wkRect.size.width <= 4.0) ? wkRect.origin.x : (wkRect.origin.x + wkRect.size.width);
+                            double caretH = (wkRect.size.height >= 8.0 && wkRect.size.height <= 200.0) ? wkRect.size.height : 18.0;
+                            caretRect = CGRectMake(caretX, wkRect.origin.y, 2.0, caretH);
+                            gotCaret = true;
+                        }
                     }
                 }
                 CFRelease(parentVal);
@@ -429,41 +479,50 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
         auto tryRangeLadder = [&]() -> bool {
             if (!hasSelRange) return false;
 
+            CGRect prevCharRect = CGRectZero;
+            bool hasPrev = false;
+            if (selRange.location > 0 && lastChar != L'\n' && lastChar != L'\r') {
+                hasPrev = getAXRectForRange(elem, selRange.location - 1, 1, prevCharRect) &&
+                          prevCharRect.origin.x > 1.0 &&
+                          prevCharRect.size.width > 0.0 &&
+                          prevCharRect.size.width <= 160.0;
+            }
+
             // Insertion point rect: exact cursor line in NSTextView
             CGRect zeroRect = CGRectZero;
             bool hasZero = getAXRectForRange(elem, selRange.location, 0, zeroRect) &&
                            zeroRect.origin.x > 1.0 && zeroRect.size.width <= 14.0 &&
                            zeroRect.size.height >= 8.0;
 
-            if (hasZero) {
-                caretRect = CGRectMake(
-                    zeroRect.origin.x,
-                    zeroRect.origin.y,
-                    2.5,
-                    zeroRect.size.height
-                );
+            if (hasZero && hasPrev) {
+                double prevRight = prevCharRect.origin.x + prevCharRect.size.width;
+                if (lastChar == L' ' && prevCharRect.size.width < 2.5) {
+                    double spaceW = std::max(4.0, (geom.fontSize > 0.0 ? geom.fontSize : 13.0) * 0.32);
+                    prevRight = prevCharRect.origin.x + spaceW;
+                }
+                // Caret X must never lag behind the preceding glyph's right edge during fast typing
+                double finalX = std::max((double)zeroRect.origin.x, prevRight);
+                double finalY = (zeroRect.origin.y > 1.0) ? zeroRect.origin.y : prevCharRect.origin.y;
+                double finalH = (zeroRect.size.height >= 8.0) ? zeroRect.size.height : prevCharRect.size.height;
+                caretRect = CGRectMake(finalX, finalY, 2.0, finalH);
                 return true;
             }
 
-            if (selRange.location > 0 && lastChar != L'\n' && lastChar != L'\r') {
-                CGRect prevCharRect = CGRectZero;
-                bool hasPrev = getAXRectForRange(elem, selRange.location - 1, 1, prevCharRect) &&
-                               prevCharRect.origin.x > 1.0 &&
-                               prevCharRect.size.width > 0.0 &&
-                               prevCharRect.size.width <= 160.0;
-                if (hasPrev) {
-                    double rightX = prevCharRect.origin.x + prevCharRect.size.width;
-                    double topY = prevCharRect.origin.y;
-                    double h = std::clamp((double)prevCharRect.size.height, 14.0, 200.0);
+            if (hasZero) {
+                caretRect = CGRectMake(zeroRect.origin.x, zeroRect.origin.y, 2.0, zeroRect.size.height);
+                return true;
+            }
 
-                    if (lastChar == L' ' && prevCharRect.size.width < 2.5) {
-                        double spaceW = std::max(4.0, (geom.fontSize > 0.0 ? geom.fontSize : 13.0) * 0.32);
-                        rightX += spaceW;
-                    }
-
-                    caretRect = CGRectMake(rightX, topY, 2.5, h);
-                    return true;
+            if (hasPrev) {
+                double rightX = prevCharRect.origin.x + prevCharRect.size.width;
+                double topY = prevCharRect.origin.y;
+                double h = std::clamp((double)prevCharRect.size.height, 14.0, 200.0);
+                if (lastChar == L' ' && prevCharRect.size.width < 2.5) {
+                    double spaceW = std::max(4.0, (geom.fontSize > 0.0 ? geom.fontSize : 13.0) * 0.32);
+                    rightX += spaceW;
                 }
+                caretRect = CGRectMake(rightX, topY, 2.0, h);
+                return true;
             }
 
             CGRect nextCharRect = CGRectZero;
@@ -472,7 +531,7 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                 caretRect = CGRectMake(
                     nextCharRect.origin.x,
                     nextCharRect.origin.y,
-                    2.5,
+                    2.0,
                     std::clamp((double)nextCharRect.size.height, 14.0, 200.0)
                 );
                 return true;
@@ -536,32 +595,6 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                     CFRelease(lineNumVal);
                 }
                 CFRelease(idxNum);
-            }
-
-            CFRange afterR = CFRangeMake(selRange.location, 1);
-            AXValueRef afterVal = AXValueCreate(kAXValueTypeCFRange, &afterR);
-            if (afterVal) {
-                CFTypeRef afterStrRef = nullptr;
-                if (AXUIElementCopyParameterizedAttributeValue(elem, kAXStringForRangeParameterizedAttribute, afterVal, &afterStrRef) == kAXErrorSuccess && afterStrRef) {
-                    if (CFGetTypeID(afterStrRef) == CFStringGetTypeID()) {
-                        std::wstring afterStr = cfStringToWString(static_cast<CFStringRef>(afterStrRef));
-                        if (!afterStr.empty()) {
-                            bool onlyFormatting = true;
-                            for (wchar_t ch : afterStr) {
-                                if (!isZeroWidthOrWhitespace(ch)) {
-                                    onlyFormatting = false;
-                                    break;
-                                }
-                            }
-                            if (!onlyFormatting) {
-                                geom.atEditableEnd = false;
-                                geom.caretAtEOF = false;
-                            }
-                        }
-                    }
-                    CFRelease(afterStrRef);
-                }
-                CFRelease(afterVal);
             }
         }
 

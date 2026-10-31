@@ -554,10 +554,6 @@ std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::
         if (actualLast == expectedLast) {
             break; // Host app has processed the latest keystroke and updated its cursor!
         }
-        // If textTail is already longer than partialWord, the host app is ahead or has extra context: do not stall!
-        if (!partialWord.empty() && geom->textTail.size() >= partialWord.size()) {
-            break;
-        }
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
     return geom;
@@ -900,6 +896,9 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
         std::wstring acceptedChunk;
         std::wstring remainingVisible;
         if (ghostSession_.consumeAccept(cachedConfig_.ghostAcceptMode, nowNs, acceptedChunk, remainingVisible)) {
+            // Dismiss current overlay immediately so old ghost text vanishes instantly while synthetic keystrokes are typed
+            ghostOverlay_.hide();
+
             currentWordToken_++;
             injector_.setValidToken(InjectionOp::GHOST_ACCEPT, currentWordToken_);
 
