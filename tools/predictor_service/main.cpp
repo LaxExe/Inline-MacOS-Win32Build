@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
         std::string outUTF8;
 
         if (req.op == 1) {
-            PredictionResult r = predictor.predict(context, partial, std::max<int>(1, req.maxWords), 0.26f);
+            PredictionResult r = predictor.predict(context, partial, std::max<int>(1, req.maxWords), 0.06f);
             resp.latencyUs = r.latencyUs;
             resp.confidence = static_cast<float>(r.confidence);
             outUTF8 = LlmPredictor::wstringToUtf8(r.text);

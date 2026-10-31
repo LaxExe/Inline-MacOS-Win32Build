@@ -69,8 +69,11 @@ static NSString* wstringToNSString(const std::wstring& ws) {
         CGFloat fontAscent = font.ascender;
         CGFloat fontDescent = font.descender; // negative
         CGFloat fontHeight = fontAscent - fontDescent;
-        if (run.height > fontHeight + 3.0) {
-            relY += std::round((static_cast<CGFloat>(run.height) - fontHeight) * 0.5);
+        CGFloat diff = static_cast<CGFloat>(run.height) - fontHeight;
+        if (diff > 0.0) {
+            relY += std::floor(diff * 0.5);
+        } else if (diff < -1.0) {
+            relY += std::ceil(diff * 0.5);
         }
         [str drawAtPoint:NSMakePoint(relX, relY) withAttributes:attrs];
     }

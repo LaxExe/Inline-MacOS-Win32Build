@@ -407,10 +407,10 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                 CFRelease(fullVal);
             }
 
-            if (selRange.location > 0) {
-                CFRange attrR = CFRangeMake(selRange.location - 1, 1);
-                AXValueRef attrRangeVal = AXValueCreate(kAXValueTypeCFRange, &attrR);
-                if (attrRangeVal) {
+            CFIndex fontProbeIdx = (selRange.location > 0) ? (selRange.location - 1) : 0;
+            CFRange attrR = CFRangeMake(fontProbeIdx, 1);
+            AXValueRef attrRangeVal = AXValueCreate(kAXValueTypeCFRange, &attrR);
+            if (attrRangeVal) {
                     CFTypeRef attrStrRef = nullptr;
                     if (AXUIElementCopyParameterizedAttributeValue(elem, kAXAttributedStringForRangeParameterizedAttribute, attrRangeVal, &attrStrRef) == kAXErrorSuccess && attrStrRef) {
                         if (CFGetTypeID(attrStrRef) == CFAttributedStringGetTypeID()) {
@@ -438,7 +438,6 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
                     }
                     CFRelease(attrRangeVal);
                 }
-            }
         }
 
         // 7. Caret coordinate extraction:

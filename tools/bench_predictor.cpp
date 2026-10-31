@@ -96,7 +96,7 @@ int main() {
                   << "  Load time: " << std::setprecision(1) << loadMs << " ms\n";
         for (const auto& s : samples) {
             auto t0 = std::chrono::steady_clock::now();
-            auto r = llm.predict(s.context, s.partial, 3, 0.20f);
+            auto r = llm.predict(s.context, s.partial, 3, 0.06f);
             auto t1 = std::chrono::steady_clock::now();
             double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
             timesMs.push_back(ms);

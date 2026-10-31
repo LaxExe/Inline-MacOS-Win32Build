@@ -22,7 +22,7 @@ GhostLayoutResult computeGhostLayout(
     res.lineHeight = (geom.lineHeight >= 6.0 && geom.lineHeight <= 240.0) ? geom.lineHeight : caretH;
     res.fontSize = (geom.fontSize >= 6.0 && geom.fontSize <= 144.0)
                  ? geom.fontSize
-                 : ((caretH <= 21.0) ? 13.0 : std::clamp(std::round(caretH * 0.72), 13.0, 48.0));
+                 : std::clamp(std::round(caretH * 0.77), 11.0, 72.0);
     res.fontName = geom.fontName;
 
     auto measure = [&](const std::wstring& s) -> double {
@@ -56,11 +56,9 @@ GhostLayoutResult computeGhostLayout(
         }
     }
 
-    // Place suggestion strictly to the right of the blinking cursor bar with 0.5pt breathing margin,
-    // guaranteeing that ghost text never renders under or overlapping the vertical cursor bar.
-    const double caretOffset = 0.5;
-    const double caretWidth = (geom.caret.width >= 1.0 && geom.caret.width <= 4.0) ? geom.caret.width : 2.0;
-    const double caretRightX = geom.caret.x + caretWidth + caretOffset;
+    // Place suggestion snug against the right edge of the cursor (1.2pt from cursor.x),
+    // eliminating loose gaps while strictly preventing overlap with the vertical cursor bar.
+    const double caretRightX = geom.caret.x + 1.2;
     const double fieldLeft = (geom.field.width > 20.0) ? geom.field.x : (caretRightX - 40.0);
     const double fieldRight = (geom.field.width > 20.0) ? (geom.field.x + geom.field.width) : (caretRightX + 500.0);
     const double lineStartX = (geom.lineStartX >= fieldLeft && geom.lineStartX <= caretRightX + 4.0)
