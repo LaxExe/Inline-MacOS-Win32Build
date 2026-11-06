@@ -78,6 +78,10 @@ add_executable(test_engine_mode unit/test_engine_mode.cpp)
 target_link_libraries(test_engine_mode PRIVATE core_lib GTest::gtest_main)
 add_test(NAME EngineMode COMMAND test_engine_mode)
 
+add_executable(test_ghost_text unit/test_ghost_text.cpp)
+target_link_libraries(test_ghost_text PRIVATE core_lib GTest::gtest_main)
+add_test(NAME GhostText COMMAND test_ghost_text)
+
 # Integration tests
 if(APPLE AND NOT BUILD_WINDOWS)
     add_executable(hook_synth_test integration/mac/hook_synth_test.mm)

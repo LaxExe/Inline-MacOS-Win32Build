@@ -8,3 +8,7 @@ build*/
 *.dylib
 tools/generate_app_icon
 tools/live_e2e_test
+dist/
+third_party/models/
+third_party/llama.cpp/
+

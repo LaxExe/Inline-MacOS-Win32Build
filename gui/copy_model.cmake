@@ -1,0 +1,5 @@
+if(DEFINED MODEL_SRC AND EXISTS "${MODEL_SRC}")
+    get_filename_component(DEST_DIR "${MODEL_DST}" DIRECTORY)
+    file(MAKE_DIRECTORY "${DEST_DIR}")
+    execute_process(COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MODEL_SRC}" "${MODEL_DST}")
+endif()

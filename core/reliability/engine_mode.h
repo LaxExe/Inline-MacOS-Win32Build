@@ -12,4 +12,5 @@ enum class EngineMode {
     IdleOnlyTier2AndNgramGhost
 };
 
-EngineMode decideEngineMode(bool onBattery, ThermalState thermal);
+EngineMode decideEngineMode(bool onBattery, ThermalState thermal, bool lowPowerMode = false);
+int ghostDebounceMsFor(bool onBattery, ThermalState thermal, bool lowPowerMode = false);

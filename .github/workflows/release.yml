@@ -1,0 +1,83 @@
+name: Release macOS DMG
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build macOS DMG & Publish Release
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Build Dependencies
+        run: |
+          brew install qt ninja
+          echo "CMAKE_PREFIX_PATH=$(brew --prefix qt)" >> $GITHUB_ENV
+          echo "$(brew --prefix qt)/bin" >> $GITHUB_PATH
+
+      - name: Build and Package DMG
+        run: |
+          chmod +x tools/fetch_model.sh tools/create_dmg.sh
+          ./tools/create_dmg.sh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Inline ${{ github.ref_name }} (macOS)"
+          files: dist/Inline-*.dmg
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body: |
+            ### Inline macOS Release ${{ github.ref_name }}
+            
+            Lightweight, instantaneous on-device autocorrect engine with macOS System Settings styling.
+
+            #### What's New in v1.4:
+            - **Production Automated CI/CD Pipeline**: GitHub Actions workflow (`ci.yml`) runs full static validation, architecture zero-emoji enforcement, CTest 19-suite harness, codesign verification, and automated build artifact generation.
+            - **Ghost Writer Default State & Compatibility Status**: Ghost text predictions are disabled by default (`ghostTextEnabled = false`) and classified as an experimental beta feature under active testing that will not work on all Mac hardware and macOS configurations.
+            - **Cross-Platform Clarity**: Native Windows build on `windows-branch` explicitly marked as unstable alpha preview under active refactoring.
+            - **Revamped Architecture & Walkthrough Documentation**: Comprehensive, engineering-first technical walkthrough added to website and repository documentation covering all 7 pipeline stages.
+            - **Asset Bundling Safeguard**: Robust fallback handling in CMake for model bundling without blocking clean build environments.
+
+            #### What's New in v1.3:
+            - **Google Chrome & Web App Caret Tracking**: Resolved Chromium selection sync lag across web inputs, Google search, YouTube, Amazon, and web apps (`effectiveLoc` end-of-text range ladder). Ghost text follows typing in real-time with zero character overlap.
+            - **Universal Search Bar Baseline & Font Scaling**: Automatic vertical baseline centering and dynamic proportional font scaling (14–16pt) for web search bars and inputs, eliminating microscopic fonts and high container floating.
+            - **Seamless Tab Chaining**: Instant zero-latency sequential word completions without overlay flickering or synthetic key delays.
+            - **Strict Right-of-Caret Alignment & Forward Monotonicity**: Sub-millisecond type-through advance keeps suggestions locked strictly to the right of the blinking cursor bar.
+            - **Completed Word Leading Space Preservation**: Ensures smart spacing when completing words or chaining predictions so text never collides.
+            - **Crash Root-Cause Elimination & Concurrency Hardening**: Memory safety hardening across multi-threaded layout and accessibility tracking routines.
+            - **Ghost Text Predictive Writing**: Predicts the next few words immediately to the right of your cursor across native macOS apps, wraps cleanly to the focused text box's width, and inserts on `Tab`.
+            - **One Word Mode**: New setting allows autocompleting only the active word you are typing, or multi-word sentence continuations.
+            - **Hybrid On-Device AI Engine**: Combines sub-millisecond N-gram completions with a bundled `SmolLM2-135M (Q8_0)` neural model running locally in an isolated helper process (~15 ms latency on 2 Apple Silicon CPU threads, zero external app dependencies).
+            - **No Autocorrect on Enter**: Pressing Enter commits text untouched without modifying your words.
+            - **Single-Key Undo on Backspace**: Pressing Backspace right after an autocorrection instantly reverts to your raw input.
+            - **Menu Bar Dynamic Contrast**: Adaptive white vertical bar on dark/black menu bars; dark charcoal on light menu bars.
+            - **Modern System Settings GUI**: Redesigned System Settings dialog with authentic macOS styling, responsive card layout, custom vocabulary, and real-time live feed.
+            - **Redesigned Permissions Dialog**: Modern native macOS card interface with live status pills for Input Monitoring and Accessibility.
+            - **Slang & Tech Term Whitelist**: Native protection for chat acronyms (`gng`, `brb`, `ttyl`, `idk`, `ngl`, `tbh`) and developer jargon (`repo`, `pr`, `cli`, `sdk`, `api`, `async`).
+            - **Run-Together Word Splitting**: Intelligently splits concatenated words (`whenI` -> `when I`, `twowords` -> `two words`).
+
+            #### Installation:
+            Install via Terminal so macOS runs without Gatekeeper quarantine warnings:
+
+            **Homebrew:**
+            ```bash
+            brew install LaxExe/tap/inline
+            ```
+
+            **Or One-Line Installer:**
+            ```bash
+            curl -fsSL https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/install.sh | bash
+            ```

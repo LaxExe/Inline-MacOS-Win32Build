@@ -8,6 +8,7 @@ struct RawKeyEvent {
     uint64_t flags = 0;
     uint32_t type = 0;
     uint64_t timestampNs = 0;
+    bool isAutorepeat = false;
 };
 
 class IKeyboardHook {

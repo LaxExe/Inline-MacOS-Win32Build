@@ -17,6 +17,14 @@ CorrectResult UndoStateMachine::onWordCorrected(const std::wstring& original, co
     return res;
 }
 
+void UndoStateMachine::onGhostAccepted(const std::wstring& acceptedText, const std::wstring& priorWordBuffer) {
+    if (acceptedText.empty()) return;
+    state_ = State::EligibleForGhostUndo;
+    lastOriginal_ = priorWordBuffer;
+    lastCorrected_ = acceptedText;
+    suppressedWord_.clear();
+}
+
 UndoActionResult UndoStateMachine::onBackspace() {
     UndoActionResult action;
     if (state_ == State::EligibleForUndo) {
@@ -25,6 +33,13 @@ UndoActionResult UndoStateMachine::onBackspace() {
         action.correctedText = lastCorrected_;
         state_ = State::Suppressed;
         suppressedWord_ = lastOriginal_;
+        return action;
+    }
+    if (state_ == State::EligibleForGhostUndo) {
+        action.type = UndoAction::RevertGhostAccept;
+        action.revertedText = lastOriginal_;
+        action.correctedText = lastCorrected_;
+        state_ = State::Idle;
         return action;
     }
 
