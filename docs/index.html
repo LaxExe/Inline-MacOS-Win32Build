@@ -77,7 +77,7 @@
     }
 
     .nav-inner {
-      max-width: 680px;
+      max-width: 720px;
       margin: 0 auto;
       padding: 0 20px;
       display: flex;
@@ -152,7 +152,7 @@
 
     /* Main Container */
     .container {
-      max-width: 680px;
+      max-width: 720px;
       margin: 0 auto;
       padding: 48px 20px 80px;
     }
@@ -474,19 +474,20 @@
 
     /* Headings & Paragraphs */
     h2 {
-      font-size: 20px;
+      font-size: 22px;
       font-weight: 600;
       letter-spacing: -0.02em;
-      margin-top: 40px;
+      margin-top: 48px;
       margin-bottom: 12px;
       color: var(--ink);
     }
 
     h3 {
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 600;
-      margin-top: 24px;
-      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+      margin-top: 32px;
+      margin-bottom: 8px;
       color: var(--ink);
     }
 
@@ -510,9 +511,94 @@
       color: var(--ink);
     }
 
+    /* Diagrams & Code Snippets */
+    pre.diagram {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--ink);
+      overflow-x: auto;
+      margin: 16px 0 20px;
+    }
+
+    pre.code-snippet {
+      background-color: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--ink);
+      overflow-x: auto;
+      margin: 14px 0 20px;
+    }
+
+    .code-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--ink-muted);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .code-title-dot {
+      width: 4px;
+      height: 4px;
+      background-color: var(--ink-muted);
+      border-radius: 50%;
+    }
+
+    /* Syntax Highlighting */
+    .kw { color: #8b5cf6; font-weight: 600; }
+    .fn { color: #0284c7; font-weight: 600; }
+    .str { color: #059669; }
+    .cm { color: #737373; }
+    .num { color: #d97706; }
+
+    [data-theme="dark"] .kw { color: #c084fc; }
+    [data-theme="dark"] .fn { color: #38bdf8; }
+    [data-theme="dark"] .str { color: #34d399; }
+    [data-theme="dark"] .cm { color: #71717a; }
+    [data-theme="dark"] .num { color: #fbbf24; }
+
+    /* Performance Metrics Table */
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      margin: 20px 0 28px;
+    }
+
+    .metric-card {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 2px;
+    }
+
+    .metric-lbl {
+      font-size: 11.5px;
+      color: var(--ink-muted);
+    }
+
     /* Windows Beta Section */
     .windows-note {
-      margin-top: 40px;
+      margin-top: 48px;
       padding-top: 24px;
       border-top: 1px solid var(--border);
       font-size: 13.5px;
@@ -532,7 +618,7 @@
     }
 
     .footer-inner {
-      max-width: 680px;
+      max-width: 720px;
       margin: 0 auto;
       padding: 0 20px;
       display: flex;
@@ -561,6 +647,7 @@
         <span>Inline</span>
       </div>
       <div class="nav-right">
+        <a href="#pipeline" class="nav-link">Architecture</a>
         <a href="#how-it-works" class="nav-link">How it works</a>
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" class="nav-link" target="_blank" rel="noopener">GitHub</a>
         <button class="theme-btn" id="themeToggleBtn" aria-label="Toggle theme">
@@ -651,59 +738,292 @@
       </div>
     </section>
 
-    <!-- Core Features -->
-    <section>
-      <h2>What it does</h2>
-
+    <!-- System Architecture Pipeline Overview -->
+    <section id="pipeline">
+      <h2>Architecture & Pipeline Overview</h2>
       <p>
-        <strong>Sub-microsecond typo correction:</strong> On Space, words are matched against an 82,765 unigram dictionary and 243,342 bigrams using SymSpell with Damerau-Levenshtein distance &le; 2 in under 40 microseconds. Preceding context resolves homophones like "there" vs "their".
+        Every keystroke is evaluated through a synchronous, lock-free C++20 pipeline. Interception runs on a dedicated high-priority event thread (<span class="num">&le; 2 &mu;s</span>) to guarantee zero perceptible typing lag.
       </p>
 
-      <p>
-        <strong>Single-key undo:</strong> If a word is corrected that you intended to keep, pressing Backspace once immediately restores your raw keystrokes without cursor drift. The engine flags the rejection so it will not re-correct it.
-      </p>
+      <pre class="diagram">Hardware Keystroke
+       │
+       ▼
+[ CGEventTap (kCGSessionEventTap) ] ── (isSyntheticEvent?) ──► [ Loopback Drop ]
+       │
+       ▼ (Pass Key / Append Buffer)
+[ Password & PIN Classifier ] ── (AXSecureTextField?) ──► [ Dormant Bypass ]
+       │
+       ▼
+┌─────────────────────────────┬─────────────────────────────┐
+│ Space / Delimiter Pressed   │ Typing Pause (&gt; 40ms)       │
+▼                             ▼                             ▼
+[ SymSpell Tier 1 Lookup ]    [ Tier 0 n-gram Trie ]        [ Tier 1 SmolLM2-135M ]
+(Damerau-Levenshtein &le; 2)      (Synchronous &lt; 1ms)           (2 CPU Threads, KV Cache)
+       │                                                    │
+       ▼                                                    ▼
+[ Undo State Machine ]                              [ NSPanel Overlay Window ]
+(Single-Key Revert)                                 (Sub-0.2ms advanceLayout)</pre>
 
-      <p>
-        <strong>Run-together word splitting:</strong> Missed spaces between words (such as <code>whenI</code> or <code>twowords</code>) are segmented into <code>when I</code> and <code>two words</code> using dynamic programming.
-      </p>
-
-      <p>
-        <strong>Protected terms:</strong> Over 180 developer terms and chat acronyms are whitelisted out of the box (<code>repo</code>, <code>pr</code>, <code>cli</code>, <code>sdk</code>, <code>api</code>, <code>async</code>, <code>gng</code>, <code>idk</code>, <code>ngl</code>, <code>tbh</code>).
-      </p>
-
-      <p>
-        <strong>Zero telemetry:</strong> Everything runs locally in memory. No network sockets are opened, no keystrokes are logged to disk, and the engine automatically suspends inside password and PIN inputs (<code>AXSecureTextField</code>).
-      </p>
+      <div class="metric-row">
+        <div class="metric-card">
+          <div class="metric-val">&le; 2 &mu;s</div>
+          <div class="metric-lbl">Hook latency</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val">&lt; 40 &mu;s</div>
+          <div class="metric-lbl">Dictionary lookup</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val">&lt; 120 MB</div>
+          <div class="metric-lbl">Active RSS memory</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-val">0.0%</div>
+          <div class="metric-lbl">Idle CPU drain</div>
+        </div>
+      </div>
     </section>
 
-    <!-- How it works under the hood (Paragraph Style) -->
+    <!-- Deep Dive Features Walkthrough -->
     <section id="how-it-works">
       <h2>How it works under the hood</h2>
 
-      <h3>1. Event interception</h3>
+      <!-- Feature 1: Event Interception -->
+      <h3>1. Event Interception & Loopback Elimination</h3>
       <p>
-        Inline hooks into macOS at the session level using <code>CGEventTap</code> (<code>kCGSessionEventTap</code>, <code>kCGHeadInsertEventTap</code>) listening for <code>kCGEventKeyDown</code>. Interception runs on a dedicated real-time thread in &le; 2 microseconds without heap allocations. Injected corrections carry a custom tag in <code>kCGEventSourceUserData</code> so synthetic loopback events are dropped immediately. Enter and Return clear the buffer and pass through untouched.
+        Inline hooks into the operating system at the session level using macOS <code>CGEventTap</code> (<code>kCGSessionEventTap</code>, inserted at <code>kCGTailAppendEventTap</code>) listening exclusively for <code>kCGEventKeyDown</code>. This ensures mouse clicks across macOS are never routed through our tap, preserving native window responsiveness.
+      </p>
+      <p>
+        When Inline injects replacement keystrokes to fix a typo or accept ghost text, those synthesized events would normally re-trigger our own hook, causing an infinite loop. To eliminate this without locks or sleep delays, every synthesized event is tagged with a custom 64-bit integer signature in <code>kCGEventSourceUserData</code>. The tap checks this field in under 0.001 ms and immediately drops synthetic loopback events.
       </p>
 
-      <h3>2. Caret localization</h3>
+      <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/hook/mac_keyboard_hook.mm</span></div>
+      <pre class="code-snippet"><span class="cm">// Low-latency CGEventTap callback running on real-time QOS thread</span>
+CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapProxy proxy,
+                                           CGEventType type,
+                                           CGEventRef event,
+                                           <span class="kw">void</span>* refcon) {
+    <span class="cm">// 1. Drop our own synthetic events FIRST (&lt; 0.001 ms)</span>
+    <span class="kw">int64_t</span> tag = CGEventGetIntegerValueField(event, kCGEventSourceUserData);
+    <span class="kw">if</span> (<span class="fn">isSyntheticEvent</span>(tag)) {
+        <span class="kw">return</span> event; <span class="cm">// Pass through without re-processing</span>
+    }
+
+    <span class="cm">// 2. Zero-allocation event extraction</span>
+    RawKeyEvent raw;
+    raw.keyCode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+    raw.flags = CGEventGetFlags(event);
+    raw.timestampNs = CGEventGetTimestamp(event);
+
+    <span class="cm">// 3. Conditional Tab swallow if Ghost Text prediction is visible</span>
+    <span class="kw">bool</span> swallow = (type == kCGEventKeyDown &amp;&amp; raw.keyCode == <span class="num">48</span> <span class="cm">/* Tab */</span> &amp;&amp;
+                    self-&gt;shouldInterceptTab_ &amp;&amp; self-&gt;<span class="fn">shouldInterceptTab_</span>());
+
+    <span class="kw">if</span> (self-&gt;filterCallback_ &amp;&amp; self-&gt;<span class="fn">filterCallback_</span>(raw, activeTap)) {
+        swallow = <span class="kw">true</span>;
+    }
+
+    <span class="kw">return</span> swallow ? <span class="kw">nullptr</span> : event;
+}</pre>
+
+      <!-- Feature 2: Caret Localization Ladder -->
+      <h3>2. Caret Localization Across Native and Web Apps</h3>
       <p>
-        To position ghost text beside the cursor, Inline queries Accessibility attributes via <code>kAXSelectedTextRangeAttribute</code> and converts character ranges into screen coordinates using <code>kAXBoundsForRangeParameterizedAttribute</code>. For Chromium-based browsers (Chrome, Electron, web inputs) where selection updates lag behind fast typing, Inline uses an <code>effectiveLoc</code> probe and vertical baseline centering so text never floats or renders microscopic.
+        To render ghost text flush against the insertion point, Inline queries the focused UI element's Accessibility attributes via <code>kAXSelectedTextRangeAttribute</code> and maps the range to screen coordinates using <code>kAXBoundsForRangeParameterizedAttribute</code>.
+      </p>
+      <p>
+        Web browsers like Google Chrome, Vivaldi, and Brave present an asynchronous selection lag: during rapid bursts of typing, Chromium's internal accessibility thread lags behind DOM changes, returning dummy zero-sized bounds (such as <code>(0.0, 1329.0, 0.0, 0.0)</code>) or outdated coordinates. To prevent ghost text from jumping behind the cursor or rendering in microscopic fonts on web search bars, Inline runs a 4-tier localization ladder.
       </p>
 
-      <h3>3. Dual-tier predictions</h3>
+      <pre class="diagram">Caret Localization Ladder:
+
+Focused UI Element (PID, kAXRoleAttribute)
+       │
+       ├──► Tier 1: AXSelectedTextRange + AXBoundsForRange
+       │           (Standard Cocoa apps, TextEdit, Notes, Safari)
+       │
+       ├──► Tier 2: Chromium effectiveLoc Ladder
+       │           (Google Chrome, Vivaldi, YouTube, Amazon search)
+       │           Probes [textLength - 1, 1] when selection range is outdated
+       │
+       ├──► Tier 3: WebKit AXSelectedTextMarkerRange
+       │           (Safari contenteditable &amp; rich web editors)
+       │
+       └──► Tier 4: Vertical Baseline Centering &amp; Forward Monotonicity
+                   (Aligns center Y on single-line inputs; prevents cursor overlap)</pre>
+
+      <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/caret/mac_caret_tracker.mm</span></div>
+      <pre class="code-snippet"><span class="cm">// Multi-tier bounds resolution with Chromium anomaly rejection</span>
+<span class="kw">static bool</span> <span class="fn">getAXRectForRange</span>(AXUIElementRef elem, CFIndex loc, CFIndex len, CGRect&amp; outRect) {
+    CFRange r = CFRangeMake(loc, len);
+    AXValueRef rangeVal = AXValueCreate(kAXValueTypeCFRange, &amp;r);
+
+    CFTypeRef boundsVal = <span class="kw">nullptr</span>;
+    AXError err = AXUIElementCopyParameterizedAttributeValue(
+        elem, kAXBoundsForRangeParameterizedAttribute, rangeVal, &amp;boundsVal);
+    CFRelease(rangeVal);
+
+    <span class="kw">if</span> (err != kAXErrorSuccess || !boundsVal) <span class="kw">return false</span>;
+    <span class="kw">bool</span> ok = AXValueGetValue((AXValueRef)boundsVal, kAXValueTypeCGRect, &amp;outRect);
+    CFRelease(boundsVal);
+
+    <span class="cm">// Reject dummy/empty bounds emitted by Chromium asynchronous threads</span>
+    <span class="kw">if</span> (outRect.origin.x &lt;= <span class="num">1.0</span> &amp;&amp; outRect.size.width &lt;= <span class="num">1.0</span>) <span class="kw">return false</span>;
+    <span class="kw">if</span> (outRect.size.width == <span class="num">0.0</span> &amp;&amp; outRect.size.height == <span class="num">0.0</span>) <span class="kw">return false</span>;
+
+    <span class="cm">// Enforce standard single-line baseline height</span>
+    <span class="kw">if</span> (len == <span class="num">0</span> &amp;&amp; outRect.size.height &lt; <span class="num">4.0</span>) {
+        outRect.size.height = <span class="num">18.0</span>;
+    }
+    <span class="kw">return</span> outRect.size.height &gt;= <span class="num">4.0</span> &amp;&amp; outRect.size.height &lt;= <span class="num">240.0</span>;
+}</pre>
+
+      <!-- Feature 3: SymSpell Typo Correction -->
+      <h3>3. SymSpell Typo Correction &amp; Bigram Ranking</h3>
       <p>
-        Predictions combine two local tiers. Tier 0 uses an in-memory prefix trie and bigram dictionary to suggest word continuations in under 1 millisecond on every key. Tier 1 optionally runs a local 4-bit neural model (<code>SmolLM2-135M</code>) via <code>llama.cpp</code> over 2 CPU threads during typing pauses, preserving its KV cache between keystrokes.
+        Typo correction triggers on word delimiters (Space or punctuation). Inline uses the SymSpell Symmetric Delete algorithm: by precomputing deletions for words in the dictionary, candidate lookups only require deleting characters from the input word rather than calculating all transpositions and insertions at runtime.
+      </p>
+      <p>
+        The dictionary contains 82,765 unigrams and 243,342 bigrams. When multiple candidates exist within Damerau-Levenshtein distance &le; 2, bigram frequencies conditioned on the previous word are evaluated using logarithmic probability scoring to resolve homophones (e.g. "their" vs "there").
       </p>
 
-      <h3>4. Non-activating overlay</h3>
+      <div class="code-title"><span class="code-title-dot"></span><span>core/tier1/corrector.cpp</span></div>
+      <pre class="code-snippet"><span class="cm">// Word evaluation with Damerau-Levenshtein &le; 2 and bigram context scoring</span>
+CorrectionResult <span class="fn">correctWord</span>(<span class="kw">const</span> std::wstring&amp; typed,
+                             <span class="kw">const</span> SymSpellDict&amp; dict,
+                             <span class="kw">const</span> AppConfig&amp; cfg,
+                             <span class="kw">bool</span> isSentenceStart,
+                             <span class="kw">const</span> std::wstring&amp; prevWord) {
+    <span class="kw">if</span> (dict.<span class="fn">isProtected</span>(typed)) {
+        <span class="kw">return</span> {<span class="kw">false</span>, typed}; <span class="cm">// Developer jargon and slang preserved</span>
+    }
+
+    <span class="kw">auto</span> candidates = dict.<span class="fn">lookup</span>(typed, cfg.maxDictionaryEditDistance);
+    <span class="kw">if</span> (candidates.empty()) <span class="kw">return</span> {<span class="kw">false</span>, typed};
+
+    <span class="cm">// Rank candidate matches using log-frequency bigram context</span>
+    <span class="kw">auto</span> best = <span class="fn">rankByBigramContext</span>(candidates, prevWord, dict);
+    <span class="kw">return</span> {<span class="kw">true</span>, best.term};
+}</pre>
+
+      <!-- Feature 4: Run-Together Word Splitting -->
+      <h3>4. Run-Together Word Splitting</h3>
       <p>
-        Ghost text renders in a transparent, borderless <code>NSPanel</code> with <code>setIgnoresMouseEvents:YES</code> aligned within &plusmn;0.5 pt of your cursor. As you type letters that match the suggestion, the overlay shifts rightward in &lt; 0.2 milliseconds (<code>advanceLayout</code>). Pressing Tab swallows the key and injects the completion; otherwise, Tab passes through normally.
+        Fast typing often results in accidentally skipped spaces. When a typed token is not found in the dictionary, Inline tests segmentation points using dynamic programming.
+      </p>
+      <p>
+        For each candidate split (e.g. <code>whenI</code> &rarr; <code>when</code> + <code>I</code>), the engine verifies that both parts exist in the unigram dictionary, computes their combined frequency score, and adds an explicit bonus if the boundary matches a user's CamelCase transition.
       </p>
 
-      <h3>5. Autocorrect and undo</h3>
+      <div class="code-title"><span class="code-title-dot"></span><span>core/tier1/corrector.cpp</span></div>
+      <pre class="code-snippet"><span class="cm">// Dynamic programming segmentation for concatenated words</span>
+<span class="kw">if</span> (cfg.splitRunTogetherWords &amp;&amp; isAllAlpha &amp;&amp; lowerTyped.size() &gt;= <span class="num">3</span>) {
+    <span class="kw">for</span> (<span class="kw">size_t</span> split = <span class="num">1</span>; split &lt; lowerTyped.size(); ++split) {
+        std::wstring w1 = lowerTyped.substr(<span class="num">0</span>, split);
+        std::wstring w2 = lowerTyped.substr(split);
+
+        <span class="kw">int64_t</span> c1 = dict.<span class="fn">getUnigramFrequency</span>(w1);
+        <span class="kw">int64_t</span> c2 = dict.<span class="fn">getUnigramFrequency</span>(w2);
+
+        <span class="kw">if</span> (c1 &gt; <span class="num">0</span> &amp;&amp; c2 &gt; <span class="num">0</span>) {
+            <span class="kw">double</span> splitScore = std::log10(c1) + std::log10(c2);
+            <span class="kw">int64_t</span> biFreq = dict.<span class="fn">getBigramFrequency</span>(w1, w2);
+            <span class="kw">if</span> (biFreq &gt; <span class="num">0</span>) splitScore += std::log10(biFreq) * <span class="num">1.5</span>;
+            <span class="kw">if</span> (isCamelAtSplit) splitScore += <span class="num">6.0</span>; <span class="cm">// Explicit capitalization bonus</span>
+
+            <span class="kw">if</span> (splitScore &gt; bestSplitScore) {
+                bestSplitScore = splitScore;
+                bestSplit = {w1, w2};
+            }
+        }
+    }
+}</pre>
+
+      <!-- Feature 5: Deterministic Single-Key Undo -->
+      <h3>5. Deterministic Single-Key Undo</h3>
       <p>
-        On Space, the SymSpell Symmetric Delete algorithm looks up candidate terms within edit distance 2. When a correction is applied, the undo state machine tracks the substitution. If Backspace is pressed next, the engine calculates the common prefix, emits the exact backspaces and original characters, and blacklists the word for that context.
+        Autocorrect should never fight the user. Whenever Inline replaces a word, the change is recorded in an internal state machine.
       </p>
+      <p>
+        If Backspace (<code>kVK_Delete</code>) is pressed immediately following a correction, the engine emits the exact number of backspaces needed and retypes the user's raw keystrokes. Crucially, the reverted word is automatically marked as rejected for that context, preventing recursive autocorrect loops.
+      </p>
+
+      <pre class="diagram">Undo State Machine Transitions:
+
+        Typo Autocorrected / Ghost Accepted
+   ┌──────────────────────────────────────────┐
+   │                                          ▼
+[ IDLE ] ◄────────────── [ ELIGIBLE FOR UNDO ]
+   ▲      Other Key /     │
+   │      Space           │ Backspace (kVK_Delete)
+   │                      ▼
+   └───────────── [ REVERT RAW KEYSTROKES ]
+                  (Suppresses re-correction for word)</pre>
+
+      <div class="code-title"><span class="code-title-dot"></span><span>core/undo/undo_state_machine.cpp</span></div>
+      <pre class="code-snippet"><span class="cm">// Atomic single-key undo triggered on Backspace</span>
+UndoActionResult <span class="fn">UndoStateMachine::onBackspace</span>() {
+    <span class="kw">if</span> (state_ == State::EligibleForUndo) {
+        state_ = State::Idle;
+        suppressedWord_ = lastOriginal_; <span class="cm">// Prevent re-correcting in same context</span>
+        <span class="kw">return</span> {
+            .type = UndoAction::RevertCorrection,
+            .revertedText = lastOriginal_,
+            .correctedText = lastCorrected_
+        };
+    }
+    state_ = State::Idle;
+    <span class="kw">return</span> { .type = UndoAction::NormalDelete };
+}</pre>
+
+      <!-- Feature 6: Dual-Tier Predictive Ghost Text -->
+      <h3>6. Dual-Tier Predictive Ghost Text</h3>
+      <p>
+        Ghost text predictions combine sub-millisecond n-gram trie lookups with an out-of-process 4-bit neural model (<code>SmolLM2-135M</code>) running via <code>llama.cpp</code> over 2 CPU threads.
+      </p>
+      <p>
+        Predictions are debounced by 40 ms after the last keypress so they never flicker during rapid typing. Because text entry is append-only, the transformer's KV cache is preserved across keystrokes, making incremental generation cost only 15–30 ms without exceeding memory bounds.
+      </p>
+
+      <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/ghost/ghost_overlay.mm</span></div>
+      <pre class="code-snippet"><span class="cm">// Sub-0.2ms horizontal shift as user types matching continuation letters</span>
+<span class="kw">void</span> <span class="fn">GhostOverlay::advanceLayout</span>(<span class="kw">double</span> deltaX, <span class="kw">const</span> std::wstring&amp; remainingText) {
+    <span class="kw">if</span> (deltaX &lt;= <span class="num">0.0</span> || remainingText.empty()) <span class="kw">return</span>;
+    std::wstring textCopy = remainingText;
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @autoreleasepool {
+            GhostLayoutResult updated = [gGhostView layoutData];
+            <span class="kw">if</span> (!updated.lines.empty()) {
+                updated.lines[<span class="num">0</span>].text = textCopy;
+                updated.lines[<span class="num">0</span>].x += deltaX;
+                updated.boundingBox.x += deltaX;
+                updated.boundingBox.width = std::max(<span class="num">4.0</span>, updated.boundingBox.width - deltaX);
+
+                [gGhostView setLayoutData:updated];
+                [gGhostPanel setFrame:newFrame display:YES];
+            }
+        }
+    });
+}</pre>
+
+      <!-- Feature 7: Security & Privacy Invariants -->
+      <h3>7. Security &amp; Privacy Invariants</h3>
+      <p>
+        Inline creates zero network sockets, sends zero telemetry pings, and writes zero keystrokes to disk. Before processing input, Inline queries <code>kAXSubroleAttribute</code>: if an element is an <code>AXSecureTextField</code> (such as a password or credit card input), the engine enters a dormant state where all keystrokes pass unmodified. Keystroke buffers in RAM are purged after 30 seconds of typing inactivity.
+      </p>
+
+      <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/caret/secure_field_classifier.cpp</span></div>
+      <pre class="code-snippet"><span class="cm">// Automatic dormant bypass in password and PIN inputs</span>
+<span class="kw">bool</span> <span class="fn">isSecureFieldActive</span>(AXUIElementRef focusedElem) {
+    CFTypeRef subrole = <span class="kw">nullptr</span>;
+    <span class="kw">if</span> (AXUIElementCopyAttributeValue(focusedElem, kAXSubroleAttribute, &amp;subrole) == kAXErrorSuccess) {
+        <span class="kw">bool</span> isSecure = CFEqual(subrole, kAXSecureTextFieldSubrole);
+        CFRelease(subrole);
+        <span class="kw">if</span> (isSecure) <span class="kw">return true</span>; <span class="cm">// Completely bypass tracking</span>
+    }
+    <span class="kw">return false</span>;
+}</pre>
     </section>
 
     <!-- Windows Beta Notice -->
