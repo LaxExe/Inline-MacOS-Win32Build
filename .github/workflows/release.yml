@@ -44,6 +44,13 @@ jobs:
             
             Lightweight, instantaneous on-device autocorrect engine with macOS System Settings styling.
 
+            #### What's New in v1.4:
+            - **Production Automated CI/CD Pipeline**: GitHub Actions workflow (`ci.yml`) runs full static validation, architecture zero-emoji enforcement, CTest 19-suite harness, codesign verification, and automated build artifact generation.
+            - **Ghost Writer Default State & Compatibility Status**: Ghost text predictions are disabled by default (`ghostTextEnabled = false`) and classified as an experimental beta feature under active testing that will not work on all Mac hardware and macOS configurations.
+            - **Cross-Platform Clarity**: Native Windows build on `windows-branch` explicitly marked as unstable alpha preview under active refactoring.
+            - **Revamped Architecture & Walkthrough Documentation**: Comprehensive, engineering-first technical walkthrough added to website and repository documentation covering all 7 pipeline stages.
+            - **Asset Bundling Safeguard**: Robust fallback handling in CMake for model bundling without blocking clean build environments.
+
             #### What's New in v1.3:
             - **Google Chrome & Web App Caret Tracking**: Resolved Chromium selection sync lag across web inputs, Google search, YouTube, Amazon, and web apps (`effectiveLoc` end-of-text range ladder). Ghost text follows typing in real-time with zero character overlap.
             - **Universal Search Bar Baseline & Font Scaling**: Automatic vertical baseline centering and dynamic proportional font scaling (14–16pt) for web search bars and inputs, eliminating microscopic fonts and high container floating.

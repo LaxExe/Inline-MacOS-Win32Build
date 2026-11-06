@@ -24,7 +24,7 @@ TEST(SettingsBinding, DefaultAppConfigHasTogglesEnabled) {
     EXPECT_TRUE(cfg.splitRunTogetherWords);
     EXPECT_TRUE(cfg.sentenceCorrectionEnabled);
     EXPECT_TRUE(cfg.launchAtLogin);
-    EXPECT_TRUE(cfg.ghostTextEnabled);
+    EXPECT_FALSE(cfg.ghostTextEnabled); // Ghost Text is disabled by default (beta feature under testing)
     EXPECT_TRUE(cfg.smartPredictionsEnabled);
     EXPECT_EQ(cfg.ghostAcceptMode, 0);
     EXPECT_EQ(cfg.ghostStyle, 1);

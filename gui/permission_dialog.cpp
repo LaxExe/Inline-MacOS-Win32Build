@@ -431,11 +431,11 @@ QWidget* PermissionDialog::createGhostTextSlide() {
     layout->addWidget(new GhostDemoWidget(wrapper));
 
     layout->addWidget(createInfoCard({
-        {10, tr("Press Tab to Accept Inline Suggestions"),
-             tr("Predicts the next 1-3 words right beside your cursor and wraps automatically to the text box width. Tab is only captured while a suggestion is visible."),
+        {10, tr("Press Tab to Accept Inline Suggestions (Beta)"),
+             tr("Predicts the next words right beside your cursor. Ghost Text is a beta feature under testing that won't work on all Macs, and is disabled by default in Settings."),
              tr("Tab Key")},
         {6,  tr("Bundled On-Device Language Model"),
-             tr("Powered by a compact local language model and 243K bigrams with zero network calls. Disabled automatically in terminals and code editors."),
+             tr("Powered by a compact local language model and 243K bigrams with zero network calls. Can be enabled anytime in Settings or with Cmd+Option+Shift+G."),
              tr("Cmd+Opt+Shift+G")}
     }), 1);
 
@@ -586,10 +586,10 @@ void PermissionDialog::updateSlideHeader() {
             skipButton_->setText(areAllPermissionsGranted() ? tr("Close") : tr("Skip to Permissions"));
             break;
         case kGhostTextSlide:
-            stepBadgeLabel_->setText(tr("STEP 3 OF 5 • GHOST TEXT"));
+            stepBadgeLabel_->setText(tr("STEP 3 OF 5 • GHOST TEXT (BETA)"));
             titleLabel_->setText(tr("Finish Sentences with Tab"));
             descriptionLabel_->setText(
-                tr("Inline predicts the next couple of words right beside your cursor and wraps cleanly to any text box:"));
+                tr("Predicts the next words right beside your cursor (Beta feature under testing — turned off by default, and won't work on all Macs):"));
             nextButton_->setText(tr("Next: Privacy & Controls"));
             skipButton_->setText(areAllPermissionsGranted() ? tr("Close") : tr("Skip to Permissions"));
             break;

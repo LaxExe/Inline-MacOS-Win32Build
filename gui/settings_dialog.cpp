@@ -704,7 +704,7 @@ void SettingsDialog::setupUi() {
     sidebarLayout->addWidget(sidebarList_);
 
     // Version label at bottom
-    auto* versionLabel = new QLabel(tr("Inline macOS • v1.3"), sidebarContainer);
+    auto* versionLabel = new QLabel(tr("Inline macOS • v1.4"), sidebarContainer);
     versionLabel->setStyleSheet("font-size: 10px; color: #9CA3AF; padding: 4px 6px; font-weight: 500;");
     sidebarLayout->addWidget(versionLabel);
 
@@ -743,7 +743,7 @@ void SettingsDialog::buildSidebar() {
         {IconType::Gear, tr("ESSENTIALS"), true},
         {IconType::Gear, tr("General"), false},
         {IconType::Grid, tr("Features"), false},
-        {IconType::GhostText, tr("Ghost Text"), false},
+        {IconType::GhostText, tr("Ghost Text (Beta)"), false},
         {IconType::Display, tr("Appearance"), false},
         {IconType::Book, tr("CUSTOMIZATION"), true},
         {IconType::Book, tr("Vocabulary & Slang"), false},
@@ -1009,9 +1009,29 @@ QWidget* SettingsDialog::createGhostTextPage() {
     layout->setContentsMargins(28, 28, 28, 28);
     layout->setSpacing(16);
 
-    auto* header = new QLabel(tr("Ghost Text"), content);
+    auto* header = new QLabel(tr("Ghost Text (Beta)"), content);
     header->setObjectName("pageHeader");
     layout->addWidget(header);
+
+    auto* betaNoticeCard = createSettingCard();
+    auto* betaNoticeLayout = new QHBoxLayout(betaNoticeCard);
+    betaNoticeLayout->setContentsMargins(14, 12, 14, 12);
+    betaNoticeLayout->setSpacing(12);
+    betaNoticeLayout->addWidget(createIconBadge(IconType::GhostText));
+
+    auto* betaNoticeText = new QVBoxLayout();
+    betaNoticeText->setSpacing(2);
+    auto* betaNoticeTitle = new QLabel(tr("Beta Feature Under Testing"), betaNoticeCard);
+    betaNoticeTitle->setObjectName("settingRowTitle");
+    betaNoticeText->addWidget(betaNoticeTitle);
+
+    auto* betaNoticeDesc = new QLabel(tr("Ghost Text predictive writing is currently an experimental beta feature under active testing and won't work on all Macs. It is disabled by default."), betaNoticeCard);
+    betaNoticeDesc->setObjectName("settingRowSubtitle");
+    betaNoticeDesc->setWordWrap(true);
+    betaNoticeText->addWidget(betaNoticeDesc);
+
+    betaNoticeLayout->addLayout(betaNoticeText, 1);
+    layout->addWidget(betaNoticeCard);
 
     auto* sec1 = new QLabel(tr("PREDICTIVE CONTINUATIONS"), content);
     sec1->setObjectName("sectionHeader");
@@ -1023,9 +1043,9 @@ QWidget* SettingsDialog::createGhostTextPage() {
     card1Layout->setSpacing(0);
 
     ghostEnabledToggle_ = new ToggleSwitch(card1);
-    ghostEnabledToggle_->setChecked(true);
+    ghostEnabledToggle_->setChecked(false);
     connect(ghostEnabledToggle_, &QAbstractButton::toggled, this, &SettingsDialog::saveToConfig);
-    card1Layout->addWidget(createSettingRow(IconType::GhostText, tr("Ghost Text Predictions"), tr("Predicts the next words beside your cursor across native and browser apps (Cmd+Option+Shift+G)."), ghostEnabledToggle_, false));
+    card1Layout->addWidget(createSettingRow(IconType::GhostText, tr("Ghost Text Predictions (Beta)"), tr("Beta feature under testing. Predicts the next words beside your cursor across native and browser apps (Cmd+Option+Shift+G). Note: Experimental feature; won't work on all Macs."), ghostEnabledToggle_, false));
 
     acceptKeyCombo_ = new QComboBox(card1);
     acceptKeyCombo_->addItem(tr("Tab"));

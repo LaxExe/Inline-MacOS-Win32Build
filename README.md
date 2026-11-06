@@ -2,7 +2,11 @@
 
 A high-performance, ultra-lightweight native macOS menu bar typing engine built with C++20, Qt6, and native macOS APIs (`CGEventTap`). **Inline** delivers instant typo correction, context-aware disambiguation, run-together word splitting, and inline **Ghost Text predictive continuations** with next-word and one-word completion modes—all running 100% on-device with zero telemetry and minimal memory footprint (<120 MB RAM active, ~0.0% idle CPU).
 
-> **Looking for Windows?** The native Windows version (`WH_KEYBOARD_LL`, `SendInput`) is maintained on the [**`windows-branch`**](https://github.com/LaxExe/Inline-MacOS-Win32Build/tree/windows-branch).
+> [!WARNING]
+> **Windows Build Status (Currently Unstable):** The native Windows port (`WH_KEYBOARD_LL`, `SendInput`) is maintained on the [**`windows-branch`**](https://github.com/LaxExe/Inline-MacOS-Win32Build/tree/windows-branch) and is **currently unstable and under active development**. For daily production typing, use the stable macOS build.
+
+> [!NOTE]
+> **Ghost Writer / Ghost Text (Beta Feature):** Ghost Text predictions are currently an **experimental beta feature under testing** and are **turned off by default**. Due to varying accessibility API behavior across different hardware and macOS versions, Ghost Text will not work on all Macs. You can toggle it on in Settings > Ghost Text or via `Cmd + Option + Shift + G`.
 
 ---
 
@@ -26,6 +30,7 @@ A high-performance, ultra-lightweight native macOS menu bar typing engine built 
 - [Key Features](#key-features)
 - [Configuration & Settings](#configuration--settings)
 - [Building from Source](#building-from-source)
+- [Continuous Integration & Continuous Delivery (CI/CD)](#continuous-integration--continuous-delivery-cicd)
 - [Packaging & Releasing](#packaging--releasing)
 - [Uninstalling](#uninstalling)
 - [License](#license)
@@ -131,9 +136,12 @@ Once launched, Inline lives discreetly in your macOS menu bar with an adaptive s
 
 ---
 
-## Ghost Writer & One Word Mode
+## Ghost Writer & One Word Mode (Beta)
 
-Inline includes a dual-engine prediction pipeline:
+> [!NOTE]
+> **Beta Status & Default State**: Ghost Text predictive continuations are **turned off by default** (`ghostTextEnabled = false`). It is an **experimental beta feature under active testing and will not work on all Mac hardware models or macOS versions**. Users who wish to test it can enable it in **System Settings > Ghost Text** or press **`Cmd + Option + Shift + G`**.
+
+Inline includes an optional dual-engine prediction pipeline:
 
 1. **Layer 0 (Sub-Millisecond N-Gram & Prefix Predictor)**:
    - Evaluates active word completions and bigram continuation phrases in $< 100\,\mu\text{s}$.
@@ -527,6 +535,17 @@ ctest --test-dir build_release --output-on-failure
 
 ---
 
+## Continuous Integration & Continuous Delivery (CI/CD)
+
+Inline includes an enterprise-grade automated CI/CD pipeline powered by GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
+
+- **`lint-and-validate`**: Verifies dictionary files integrity and automatically enforces the zero-emoji architectural constraint across all source files.
+- **`build-and-test`**: Compiles on macOS Apple Silicon runners with CMake and Ninja, executes the entire 19-test CTest harness, benchmarks corrector & predictor lookup latencies, and verifies Apple codesign integrity.
+- **`package-and-deliver`**: On commits to `mac-branch` and `main`, automatically packages the signed macOS `.dmg` and `.zip` bundles using `tools/create_dmg.sh` and publishes them as downloadable build artifacts with 14-day retention.
+- **`release.yml`**: On semver Git tags (`v*`), automatically builds and publishes official GitHub Releases with generated release notes.
+
+---
+
 ## Packaging & Releasing
 
 To create a distributable `.dmg` package with drag-and-drop installer:
@@ -535,7 +554,7 @@ To create a distributable `.dmg` package with drag-and-drop installer:
 ./tools/create_dmg.sh
 ```
 
-Outputs compressed `dist/Inline-v1.3-macOS.dmg`.
+Outputs compressed `dist/Inline-v1.4-macOS.dmg`.
 
 ---
 

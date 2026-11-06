@@ -50,7 +50,7 @@ add_custom_command(TARGET Inline POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../resources/AppIcon.icns" "$<TARGET_FILE_DIR:Inline>/../Resources/AppIcon.icns"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:InlinePredictor>" "$<TARGET_FILE_DIR:Inline>/InlinePredictor"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:InlinePredictor>" "$<TARGET_FILE_DIR:Inline>/../XPCServices/InlinePredictor.xpc/Contents/MacOS/InlinePredictor"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/models/smollm2-135m.gguf" "$<TARGET_FILE_DIR:Inline>/../Resources/models/smollm2-135m.gguf"
+    COMMAND ${CMAKE_COMMAND} -DMODEL_SRC=${CMAKE_CURRENT_SOURCE_DIR}/../third_party/models/smollm2-135m.gguf -DMODEL_DST=$<TARGET_FILE_DIR:Inline>/../Resources/models/smollm2-135m.gguf -P ${CMAKE_CURRENT_SOURCE_DIR}/copy_model.cmake
     COMMAND /usr/bin/codesign --force --sign - "$<TARGET_FILE_DIR:Inline>/InlinePredictor"
     COMMAND /usr/bin/codesign --force --deep --sign - -i com.inline.mac "$<TARGET_FILE_DIR:Inline>/../.."
 )

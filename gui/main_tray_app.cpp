@@ -177,7 +177,7 @@ void MainTrayApp::setupTray() {
 
     pauseAction_ = trayMenu_->addAction(tr("Pause Autocorrection"), this, &MainTrayApp::toggleMasterEnabled);
     sentenceToggleAction_ = trayMenu_->addAction(tr("Sentence Capitalization: Active"), this, &MainTrayApp::toggleSentenceCorrection);
-    ghostToggleAction_ = trayMenu_->addAction(tr("Ghost Text Predictions: Active"), this, &MainTrayApp::toggleGhostText);
+    ghostToggleAction_ = trayMenu_->addAction(tr("Ghost Text Predictions (Beta): Inactive"), this, &MainTrayApp::toggleGhostText);
     clearAction_ = trayMenu_->addAction(tr("Purge Keystroke Buffer"), this, &MainTrayApp::clearAllBuffers);
 
     trayMenu_->addSeparator();
@@ -259,7 +259,7 @@ void MainTrayApp::updateTrayIcon() {
 
     sentenceToggleAction_->setText(sentenceEnabled ? tr("Sentence Capitalization: Active") : tr("Sentence Capitalization: Inactive"));
     if (ghostToggleAction_) {
-        ghostToggleAction_->setText(ghostEnabled ? tr("Ghost Text Predictions: Active") : tr("Ghost Text Predictions: Inactive"));
+        ghostToggleAction_->setText(ghostEnabled ? tr("Ghost Text Predictions (Beta): Active") : tr("Ghost Text Predictions (Beta): Inactive"));
     }
 }
 

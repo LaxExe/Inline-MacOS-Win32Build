@@ -38,22 +38,22 @@ This file serves as the definitive reference for AI assistants working on this c
 
 ---
 
-## 2. How to Release a New Version (e.g. v1.2)
+## 2. How to Release a New Version (e.g. v1.4)
 
 ### Automated GitHub Release Workflow:
 1. Update version strings:
-   - [`Info.plist`](Info.plist): Update `CFBundleShortVersionString` and `CFBundleVersion` to `1.2.0`.
-   - [`gui/settings_dialog.cpp`](gui/settings_dialog.cpp): Update version label (`Inline macOS • v1.2`).
+   - [`Info.plist`](Info.plist): Update `CFBundleShortVersionString` and `CFBundleVersion` to `1.4.0`.
+   - [`gui/settings_dialog.cpp`](gui/settings_dialog.cpp): Update version label (`Inline macOS • v1.4`).
 2. Commit and push:
    ```bash
    git add -A
-   git commit -m "Release v1.2"
+   git commit -m "Release v1.4"
    git push origin mac-branch
    ```
 3. Tag and push tag:
    ```bash
-   git tag -a v1.2 -m "Release v1.2"
-   git push origin v1.2
+   git tag -a v1.4 -m "Release v1.4"
+   git push origin v1.4
    ```
 4. GitHub Actions [`.github/workflows/release.yml`](.github/workflows/release.yml) automatically runs on Apple Silicon runners, builds the DMG, and publishes the release on GitHub.
 
@@ -81,12 +81,13 @@ Outputs compressed `dist/Inline-vX.X-macOS.dmg` with `/Applications` drag-and-dr
 ### 3. Default Engine & Toggle States
 - The following features must **always be enabled by default** on initial launch:
   - **Autocorrect Engine** (`masterEnabled = true`)
-  - **Ghost Text Predictions** (`ghostTextEnabled = true`, `smartPredictionsEnabled = true`)
   - **Single-Key Undo on Backspace** (`singleKeyUndoEnabled = true`)
   - **Run-Together Word Splitting** (`splitRunTogetherWords = true`)
   - **Sentence Capitalization** (`sentenceCorrectionEnabled = true`)
   - **Launch at Login** (`launchAtLogin = true`)
   - **Menu Bar Icon Visibility** (permanently visible; no toggle switch)
+- The following feature is **disabled by default** on initial launch:
+  - **Ghost Text Predictions** (`ghostTextEnabled = false`; experimental beta feature under testing that will not work on all Macs)
 
 ### 4. Adaptive Menu Bar Contrast
 - The menu bar icon (`|▪`) must adapt dynamically to the wallpaper and system appearance:

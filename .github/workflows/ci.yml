@@ -1,0 +1,141 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - mac-branch
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+  pull_request:
+    branches:
+      - mac-branch
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-validate:
+    name: Code & Asset Integrity Checks
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Enforce Zero-Emoji Architectural Mandate
+        run: |
+          python3 -c "
+          import os, re, sys
+          emoji_pattern = re.compile(r'[\U0001F000-\U0001FAFF\U00002600-\U000027BF]', flags=re.UNICODE)
+          violations = []
+          for root, dirs, files in os.walk('.'):
+              if any(p in root for p in ['.git', 'build', 'build_release', 'build_win', 'third_party']):
+                  continue
+              for f in files:
+                  if f.endswith(('.cpp', '.h', '.mm', '.plist', '.yml', '.yaml')):
+                      path = os.path.join(root, f)
+                      with open(path, 'r', encoding='utf-8', errors='ignore') as fh:
+                          for idx, line in enumerate(fh, 1):
+                              if emoji_pattern.search(line):
+                                  violations.append(f'{path}:{idx}: {line.strip()}')
+          if violations:
+              print('Error: Emojis detected in codebase (mandate strictly bans emojis):', file=sys.stderr)
+              for v in violations:
+                  print(v, file=sys.stderr)
+              sys.exit(1)
+          print('Zero emojis found. Architectural constraint passed.')
+          "
+
+      - name: Verify Dictionaries Exist
+        run: |
+          test -f dictionaries/frequency_dictionary_en_82_765.txt || exit 1
+          test -f dictionaries/frequency_bigramdictionary_en_243_342.txt || exit 1
+          echo "Dictionaries validated."
+
+  build-and-test:
+    name: Build & Run Unit Tests (macOS Apple Silicon)
+    needs: lint-and-validate
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Build Dependencies
+        run: |
+          brew install qt ninja
+          QT_DIR=$(brew --prefix qt)
+          echo "CMAKE_PREFIX_PATH=$QT_DIR" >> $GITHUB_ENV
+          echo "$QT_DIR/bin" >> $GITHUB_PATH
+
+      - name: Configure CMake
+        run: |
+          cmake -B build_release -DCMAKE_BUILD_TYPE=Release -G Ninja
+
+      - name: Build All Targets
+        run: |
+          cmake --build build_release
+
+      - name: Run CTest Unit Test Suite
+        run: |
+          ctest --test-dir build_release --output-on-failure --timeout 120
+
+      - name: Run Performance Benchmarks
+        run: |
+          echo "Running Corrector Benchmark..."
+          ./build_release/bench_corrector
+          echo "Running Predictor Benchmark..."
+          ./build_release/bench_predictor
+
+      - name: Verify Bundle Code Signature
+        run: |
+          codesign --verify --deep --strict build_release/gui/Inline.app
+          echo "Codesign verified successfully."
+
+  package-and-deliver:
+    name: Continuous Delivery (Build DMG & Upload Artifacts)
+    needs: build-and-test
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Build Dependencies
+        run: |
+          brew install qt ninja
+          QT_DIR=$(brew --prefix qt)
+          echo "CMAKE_PREFIX_PATH=$QT_DIR" >> $GITHUB_ENV
+          echo "$QT_DIR/bin" >> $GITHUB_PATH
+
+      - name: Build macOS DMG
+        run: |
+          chmod +x tools/fetch_model.sh tools/create_dmg.sh
+          ./tools/create_dmg.sh
+
+      - name: Archive Inline App Bundle
+        run: |
+          cd build_release/gui
+          zip -r ../../dist/Inline-macOS.zip Inline.app
+          cd ../..
+
+      - name: Upload Build Artifacts (DMG & App)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Inline-macOS-Build-${{ github.sha }}
+          path: |
+            dist/Inline-*.dmg
+            dist/Inline-macOS.zip
+          retention-days: 14

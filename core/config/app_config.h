@@ -26,7 +26,7 @@ struct AppConfig {
     std::vector<std::string> ignoreWords;
     bool  sentenceCorrectionEnabled = true;
     float sentenceCorrectionIntensity = 0.5f;
-    bool  ghostTextEnabled = true;
+    bool  ghostTextEnabled = false; // Off by default (Beta feature under testing; experimental on Macs)
     KeyCode acceptKey = KeyCode::Tab;
     enum class PredictionLength {
         Conservative = 0,
