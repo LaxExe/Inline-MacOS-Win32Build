@@ -3,51 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inline &mdash; The Architecture of an Invisible Typing Engine</title>
-  <meta name="description" content="Sub-microsecond dictionary autocorrect, single-key undo, and experimental predictive ghost text for macOS. 100% on-device C++20 engine with zero cloud telemetry.">
+  <title>Inline &mdash; Native Autocorrect and Ghost Text for macOS</title>
+  <meta name="description" content="Fast, native autocorrect and predictive ghost text for macOS. 100% on-device C++20 with zero telemetry.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #FFFFFF;
-      --surface: #FFFFFF;
-      --surface-subtle: #F9FAFB;
-      --surface-raised: #F3F4F6;
-      --border: #E5E7EB;
-      --border-strong: #D1D5DB;
-      --text: #111827;
-      --text-secondary: #4B5563;
-      --text-tertiary: #9CA3AF;
-      --accent: #111827;
-      --accent-hover: #1F2937;
-      --code-bg: #F3F4F6;
-      --code-border: #E5E7EB;
-      --ghost-color: #6B7280;
-      --success: #059669;
-      --success-subtle: rgba(5, 150, 105, 0.08);
-      --font-mono: 'Geist Mono', 'SF Mono', Menlo, Consolas, monospace;
-      --line-height-body: 1.8;
-      --transition: all 0.15s ease;
+      --canvas: #fafafa;
+      --surface: #ffffff;
+      --surface-subtle: #f5f5f5;
+      --border: #ebebeb;
+      --border-hover: #d4d4d4;
+      --ink: #171717;
+      --ink-secondary: #525252;
+      --ink-muted: #737373;
+      --ink-disabled: #a8a8a8;
+      --code-bg: #f5f5f5;
+      --ghost-color: #8e8e93;
+      --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
     }
 
     [data-theme="dark"] {
-      --bg: #09090B;
-      --surface: #09090B;
-      --surface-subtle: #131316;
-      --surface-raised: #1C1C21;
-      --border: #27272A;
-      --border-strong: #3F3F46;
-      --text: #F4F4F5;
-      --text-secondary: #A1A1AA;
-      --text-tertiary: #71717A;
-      --accent: #F4F4F5;
-      --accent-hover: #E4E4E7;
-      --code-bg: #18181B;
-      --code-border: #27272A;
-      --ghost-color: #8E8E93;
-      --success: #10B981;
-      --success-subtle: rgba(16, 185, 129, 0.12);
+      --canvas: #0a0a0a;
+      --surface: #121212;
+      --surface-subtle: #1a1a1a;
+      --border: #262626;
+      --border-hover: #404040;
+      --ink: #ededed;
+      --ink-secondary: #a1a1a1;
+      --ink-muted: #737373;
+      --ink-disabled: #525252;
+      --code-bg: #171717;
+      --ghost-color: #71717a;
     }
 
     * {
@@ -57,13 +46,13 @@
     }
 
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 16px;
-      line-height: var(--line-height-body);
-      background-color: var(--bg);
-      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.7;
+      background-color: var(--canvas);
+      color: var(--ink);
       -webkit-font-smoothing: antialiased;
-      transition: background-color 0.2s ease, color 0.2s ease;
+      transition: background-color 0.15s ease, color 0.15s ease;
     }
 
     a {
@@ -71,432 +60,272 @@
       text-decoration: none;
     }
 
-    /* Sticky Navigation */
+    /* Minimal Top Navigation */
     header {
       position: sticky;
       top: 0;
       z-index: 100;
-      background-color: rgba(255, 255, 255, 0.88);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      background-color: rgba(250, 250, 250, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
-      transition: background-color 0.2s ease, border-color 0.2s ease;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
     }
 
     [data-theme="dark"] header {
-      background-color: rgba(9, 9, 11, 0.88);
+      background-color: rgba(10, 10, 10, 0.85);
     }
 
     .nav-inner {
-      max-width: 820px;
+      max-width: 680px;
       margin: 0 auto;
-      padding: 0 24px;
+      padding: 0 20px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 56px;
+      height: 52px;
     }
 
     .logo {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-weight: 700;
+      gap: 8px;
+      font-weight: 600;
       font-size: 15px;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.01em;
     }
 
-    .logo-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 24px;
-      height: 24px;
-      background: var(--surface-subtle);
-      border: 1px solid var(--border);
-      border-radius: 5px;
+    .logo-mark {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
     }
 
-    .logo-icon {
-      display: inline-flex;
-      align-items: center;
-      gap: 2px;
-      height: 10px;
-    }
-
-    .logo-bar {
-      width: 2px;
-      height: 10px;
-      background-color: var(--text);
-      border-radius: 1px;
-    }
-
-    .logo-dot {
-      width: 3.5px;
-      height: 3.5px;
-      background-color: var(--success);
-      border-radius: 50%;
-    }
-
-    .nav-actions {
+    .nav-right {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 16px;
     }
 
     .nav-link {
       font-size: 13px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      transition: var(--transition);
+      color: var(--ink-secondary);
+      transition: color 0.15s ease;
     }
 
     .nav-link:hover {
-      color: var(--text);
+      color: var(--ink);
     }
 
-    .theme-toggle-btn {
+    .theme-btn {
       background: none;
       border: 1px solid var(--border);
-      color: var(--text);
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
+      color: var(--ink-secondary);
+      width: 30px;
+      height: 30px;
+      border-radius: 9999px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: var(--transition);
+      transition: all 0.15s ease;
     }
 
-    .theme-toggle-btn:hover {
-      border-color: var(--border-strong);
-      background-color: var(--surface-subtle);
+    .theme-btn:hover {
+      color: var(--ink);
+      border-color: var(--border-hover);
+      background-color: var(--surface);
     }
 
-    .theme-toggle-btn svg {
-      width: 15px;
-      height: 15px;
+    .theme-btn:active {
+      transform: scale(0.95);
+    }
+
+    .theme-btn svg {
+      width: 14px;
+      height: 14px;
       stroke: currentColor;
       fill: none;
       stroke-width: 2;
     }
 
-    .btn-download-nav {
-      background-color: var(--text);
-      color: var(--bg);
-      font-size: 12.5px;
-      font-weight: 600;
-      padding: 6px 14px;
-      border-radius: 6px;
-      transition: var(--transition);
+    /* Main Container */
+    .container {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 48px 20px 80px;
     }
 
-    .btn-download-nav:hover {
+    /* Hero Section */
+    .hero {
+      margin-bottom: 36px;
+    }
+
+    .hero-title {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 12px;
+      color: var(--ink);
+    }
+
+    .hero-desc {
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--ink-secondary);
+      margin-bottom: 24px;
+    }
+
+    /* Hero Actions */
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background-color: var(--ink);
+      color: var(--canvas);
+      font-size: 13.5px;
+      font-weight: 500;
+      padding: 8px 18px;
+      border-radius: 9999px;
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary:hover {
       opacity: 0.9;
     }
 
-    /* Editorial Article Container */
-    .article-wrap {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 56px 24px 80px;
+    .btn-primary:active {
+      transform: scale(0.97);
     }
 
-    /* Essay Header / Hero */
-    .essay-header {
-      margin-bottom: 48px;
-    }
-
-    .essay-eyebrow {
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--text-tertiary);
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .essay-eyebrow-dot {
-      width: 6px;
-      height: 6px;
-      background-color: var(--success);
-      border-radius: 50%;
-    }
-
-    .essay-title {
-      font-size: clamp(34px, 5.2vw, 50px);
-      font-weight: 800;
-      letter-spacing: -0.035em;
-      line-height: 1.12;
-      color: var(--text);
-      margin-bottom: 20px;
-    }
-
-    .essay-lede {
-      font-size: clamp(17px, 2.1vw, 20px);
-      line-height: 1.55;
-      color: var(--text-secondary);
-      margin-bottom: 24px;
-      font-weight: 400;
-    }
-
-    .essay-meta {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--text-tertiary);
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px;
-      padding-bottom: 32px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    /* Primary Action Area (Editorial Hero CTA) */
-    .hero-action-block {
-      margin: 32px 0 48px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .hero-action-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .btn-download-primary {
+    .btn-secondary {
       display: inline-flex;
       align-items: center;
-      gap: 9px;
-      background-color: var(--text);
-      color: var(--bg);
-      font-size: 14px;
-      font-weight: 600;
-      padding: 10px 20px;
-      border-radius: 7px;
-      transition: var(--transition);
+      gap: 7px;
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--ink);
+      font-size: 13.5px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 9999px;
+      transition: all 0.15s ease;
     }
 
-    .btn-download-primary:hover {
-      opacity: 0.92;
-      transform: translateY(-1px);
+    .btn-secondary:hover {
+      border-color: var(--border-hover);
+      background-color: var(--surface-subtle);
     }
 
-    .btn-download-primary svg {
-      width: 15px;
-      height: 15px;
+    .btn-secondary:active {
+      transform: scale(0.97);
+    }
+
+    .btn-secondary svg {
+      width: 14px;
+      height: 14px;
       fill: currentColor;
     }
 
-    .btn-download-tag {
-      font-size: 11px;
-      font-weight: 600;
-      opacity: 0.8;
-      padding: 1px 6px;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.2);
+    /* Terminal Commands Row */
+    .cmd-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 36px;
     }
 
-    [data-theme="dark"] .btn-download-tag {
-      background: rgba(0, 0, 0, 0.2);
-    }
-
-    .terminal-inline-bar {
-      display: inline-flex;
+    .cmd-row {
+      display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      background-color: var(--code-bg);
+      gap: 12px;
+      background-color: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 7px;
-      padding: 9px 14px;
+      border-radius: 8px;
+      padding: 8px 12px;
       font-family: var(--font-mono);
-      font-size: 13px;
-      color: var(--text);
-      max-width: 520px;
+      font-size: 12.5px;
     }
 
-    .terminal-inline-text {
+    .cmd-text {
       display: flex;
       align-items: center;
       gap: 8px;
       overflow-x: auto;
       white-space: nowrap;
+      color: var(--ink);
     }
 
-    .terminal-inline-prompt {
-      color: var(--text-tertiary);
+    .cmd-prompt {
+      color: var(--ink-disabled);
       user-select: none;
     }
 
-    .btn-copy-inline {
+    .btn-copy {
       background: none;
       border: 1px solid var(--border);
-      color: var(--text-secondary);
-      font-family: 'Inter', sans-serif;
-      font-size: 11.5px;
-      font-weight: 600;
-      padding: 4px 8px;
+      color: var(--ink-secondary);
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 8px;
       border-radius: 4px;
       cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      transition: var(--transition);
+      transition: all 0.15s ease;
       flex-shrink: 0;
     }
 
-    .btn-copy-inline:hover {
-      color: var(--text);
-      border-color: var(--border-strong);
+    .btn-copy:hover {
+      color: var(--ink);
+      border-color: var(--border-hover);
+      background-color: var(--surface-subtle);
+    }
+
+    .btn-copy:active {
+      transform: scale(0.95);
+    }
+
+    /* Interactive Simulator */
+    .sim-wrap {
       background-color: var(--surface);
-    }
-
-    /* Editorial Prose & Headings */
-    h2.essay-h2 {
-      font-size: 26px;
-      font-weight: 700;
-      letter-spacing: -0.025em;
-      line-height: 1.25;
-      color: var(--text);
-      margin-top: 56px;
-      margin-bottom: 18px;
-    }
-
-    h3.essay-h3 {
-      font-size: 18px;
-      font-weight: 600;
-      letter-spacing: -0.015em;
-      line-height: 1.35;
-      color: var(--text);
-      margin-top: 36px;
-      margin-bottom: 12px;
-    }
-
-    p.essay-p {
-      font-size: 16px;
-      line-height: var(--line-height-body);
-      color: var(--text-secondary);
-      margin-bottom: 20px;
-    }
-
-    p.essay-p strong {
-      color: var(--text);
-      font-weight: 600;
-    }
-
-    code {
-      font-family: var(--font-mono);
-      font-size: 13.5px;
-      background-color: var(--code-bg);
-      border: 1px solid var(--code-border);
-      padding: 1.5px 5.5px;
-      border-radius: 4px;
-      color: var(--text);
-    }
-
-    pre.code-block {
-      background-color: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px 20px;
-      font-family: var(--font-mono);
-      font-size: 12.5px;
-      line-height: 1.6;
-      color: var(--text);
-      overflow-x: auto;
-      margin: 20px 0 28px;
-    }
-
-    .code-comment { color: var(--text-tertiary); }
-    .code-keyword { color: #D946EF; font-weight: 600; }
-    .code-func { color: #2563EB; font-weight: 600; }
-    .code-string { color: #059669; }
-
-    /* Minimal Metric Highlights in Prose */
-    .metric-strip {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 24px;
-      margin: 28px 0 36px;
-      padding: 20px 0;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .metric-unit {
-      flex: 1;
-      min-width: 140px;
-    }
-
-    .metric-val {
-      font-family: var(--font-mono);
-      font-size: 24px;
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      color: var(--text);
-      margin-bottom: 2px;
-    }
-
-    .metric-caption {
-      font-size: 12px;
-      color: var(--text-secondary);
-      font-weight: 500;
-    }
-
-    /* Embedded Interactive Simulator (Clean, Sleek, No Chunky Window Chrome) */
-    .interactive-simulator-wrap {
-      margin: 40px 0 48px;
       border: 1px solid var(--border);
       border-radius: 10px;
-      background-color: var(--surface);
+      margin-bottom: 48px;
       overflow: hidden;
-      transition: border-color 0.15s ease;
     }
 
-    .interactive-simulator-wrap:focus-within {
-      border-color: var(--border-strong);
-    }
-
-    .sim-topbar {
+    .sim-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 16px;
+      padding: 8px 14px;
       background-color: var(--surface-subtle);
       border-bottom: 1px solid var(--border);
       font-size: 12px;
     }
 
-    .sim-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 600;
-      color: var(--text-secondary);
-    }
-
-    .sim-live-indicator {
-      width: 6px;
-      height: 6px;
-      background-color: var(--success);
-      border-radius: 50%;
+    .sim-title {
+      font-weight: 500;
+      color: var(--ink-secondary);
     }
 
     .sim-modes {
       display: flex;
-      gap: 4px;
+      gap: 2px;
       background-color: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 5px;
+      border-radius: 6px;
       padding: 2px;
     }
 
@@ -504,22 +333,22 @@
       background: none;
       border: none;
       font-size: 11px;
-      font-weight: 600;
-      color: var(--text-secondary);
-      padding: 3px 8px;
-      border-radius: 3px;
+      font-weight: 500;
+      color: var(--ink-secondary);
+      padding: 2px 7px;
+      border-radius: 4px;
       cursor: pointer;
-      transition: var(--transition);
+      transition: all 0.15s ease;
     }
 
     .sim-mode-btn.active {
-      background-color: var(--text);
-      color: var(--bg);
+      background-color: var(--ink);
+      color: var(--canvas);
     }
 
-    .interactive-typing-area {
+    .sim-body {
       position: relative;
-      min-height: 120px;
+      min-height: 110px;
       cursor: text;
     }
 
@@ -527,13 +356,13 @@
     .real-typing-input {
       box-sizing: border-box;
       width: 100%;
-      min-height: 120px;
-      padding: 18px 20px;
+      min-height: 110px;
+      padding: 14px 16px;
       margin: 0;
       border: none;
       outline: none;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 16px;
+      font-family: var(--font-sans);
+      font-size: 15px;
       line-height: 1.6;
       white-space: pre-wrap;
       word-break: break-word;
@@ -561,7 +390,7 @@
 
     .ghost-prediction {
       color: var(--ghost-color);
-      opacity: 0.85;
+      opacity: 0.9;
       font-style: normal;
       display: inline;
       pointer-events: none;
@@ -572,150 +401,169 @@
       z-index: 2;
       background: transparent;
       resize: vertical;
-      color: var(--text);
-      caret-color: var(--accent);
+      color: var(--ink);
+      caret-color: var(--ink);
     }
 
     .real-typing-input::placeholder {
-      color: var(--text-tertiary);
-      opacity: 0.6;
+      color: var(--ink-disabled);
     }
 
-    .sim-bottombar {
+    .sim-footer {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      padding: 10px 16px;
+      gap: 10px;
+      padding: 8px 14px;
       background-color: var(--surface-subtle);
       border-top: 1px solid var(--border);
-      font-size: 12px;
-      color: var(--text-secondary);
+      font-size: 11.5px;
+      color: var(--ink-muted);
     }
 
-    .sim-shortcuts {
+    .sim-hints {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       flex-wrap: wrap;
     }
 
-    .kbd-tag {
-      display: inline-block;
-      padding: 1px 5px;
+    .kbd {
       font-family: var(--font-mono);
       font-size: 10.5px;
       background-color: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--text);
-      font-weight: 600;
+      border-radius: 3px;
+      padding: 1px 4px;
+      color: var(--ink);
     }
 
     .sim-samples {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       flex-wrap: wrap;
     }
 
-    .sample-pill {
+    .sample-chip {
       background-color: var(--surface);
       border: 1px solid var(--border);
-      color: var(--text);
+      color: var(--ink-secondary);
       font-size: 11px;
-      font-weight: 500;
-      padding: 2.5px 8px;
+      padding: 2px 7px;
       border-radius: 4px;
       cursor: pointer;
-      transition: var(--transition);
+      transition: all 0.15s ease;
     }
 
-    .sample-pill:hover {
-      border-color: var(--border-strong);
-      background-color: var(--surface-raised);
+    .sample-chip:hover {
+      border-color: var(--border-hover);
+      color: var(--ink);
     }
 
     .event-status-pill {
       font-family: var(--font-mono);
       font-size: 10.5px;
-      font-weight: 600;
-      padding: 2px 7px;
-      border-radius: 4px;
-      background-color: var(--text);
-      color: var(--bg);
+      padding: 1px 6px;
+      border-radius: 3px;
+      background-color: var(--ink);
+      color: var(--canvas);
       display: none;
     }
 
-    /* Windows Beta Notice Section (Editorial, Clean) */
-    .windows-beta-section {
-      margin-top: 48px;
-      padding-top: 32px;
-      border-top: 1px solid var(--border);
-    }
-
-    .windows-beta-section h3 {
-      font-size: 16px;
+    /* Headings & Paragraphs */
+    h2 {
+      font-size: 20px;
       font-weight: 600;
-      color: var(--text);
-      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+      margin-top: 40px;
+      margin-bottom: 12px;
+      color: var(--ink);
     }
 
-    .windows-beta-section p {
-      font-size: 14.5px;
-      line-height: 1.7;
-      color: var(--text-secondary);
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-top: 24px;
+      margin-bottom: 6px;
+      color: var(--ink);
     }
 
-    /* Editorial Footer */
+    p {
+      color: var(--ink-secondary);
+      margin-bottom: 14px;
+    }
+
+    p strong {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background-color: var(--code-bg);
+      border: 1px solid var(--border);
+      padding: 1px 4px;
+      border-radius: 4px;
+      color: var(--ink);
+    }
+
+    /* Windows Beta Section */
+    .windows-note {
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-size: 13.5px;
+      color: var(--ink-secondary);
+    }
+
+    .windows-note a {
+      text-decoration: underline;
+    }
+
+    /* Footer */
     footer {
       border-top: 1px solid var(--border);
-      padding: 40px 0;
-      margin-top: 64px;
-      font-size: 13px;
-      color: var(--text-secondary);
+      padding: 24px 0;
+      font-size: 12.5px;
+      color: var(--ink-muted);
     }
 
     .footer-inner {
-      max-width: 760px;
+      max-width: 680px;
       margin: 0 auto;
-      padding: 0 24px;
+      padding: 0 20px;
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      gap: 12px;
     }
 
     .footer-links {
       display: flex;
-      gap: 18px;
+      gap: 16px;
     }
 
     .footer-links a:hover {
-      color: var(--text);
+      color: var(--ink);
     }
   </style>
 </head>
 <body>
 
-  <!-- Minimal Navigation -->
+  <!-- Minimal Header -->
   <header>
     <div class="nav-inner">
       <div class="logo">
-        <div class="logo-badge">
-          <div class="logo-icon">
-            <div class="logo-bar"></div>
-            <div class="logo-dot"></div>
-          </div>
-        </div>
+        <span class="logo-mark">|&middot;</span>
         <span>Inline</span>
       </div>
-      <div class="nav-actions">
-        <a href="#how-it-works" class="nav-link">How It Works</a>
+      <div class="nav-right">
+        <a href="#how-it-works" class="nav-link">How it works</a>
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" class="nav-link" target="_blank" rel="noopener">GitHub</a>
-        <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Toggle color theme">
+        <button class="theme-btn" id="themeToggleBtn" aria-label="Toggle theme">
           <svg viewBox="0 0 24 24" id="themeIcon">
             <circle cx="12" cy="12" r="5"></circle>
             <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -728,258 +576,156 @@
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
           </svg>
         </button>
-        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases" class="btn-download-nav">Download macOS</a>
       </div>
     </div>
   </header>
 
-  <!-- Main Editorial Content Column -->
-  <main class="article-wrap">
+  <main class="container">
 
-    <!-- Essay Header / Hero -->
-    <article>
-      <header class="essay-header">
-        <div class="essay-eyebrow">
-          <span class="essay-eyebrow-dot"></span>
-          <span>Engineering Deep Dive &bull; October 2026 &bull; macOS v1.4</span>
-        </div>
-        <h1 class="essay-title">
-          The Architecture of an Invisible Typing Engine
-        </h1>
-        <p class="essay-lede">
-          Why desktop autocorrect feels broken, and how we engineered a sub-microsecond, on-device engine with zero cloud telemetry, deterministic single-key undo, and ghost text predictions for macOS.
-        </p>
-        <div class="essay-meta">
-          <span>By the Inline Engineering Team</span>
-          <span>&bull;</span>
-          <span>8 min read</span>
-          <span>&bull;</span>
-          <span>100% On-Device C++20</span>
-          <span>&bull;</span>
-          <span>MIT License</span>
-        </div>
+    <!-- Hero -->
+    <section class="hero">
+      <h1 class="hero-title">Native autocorrect for macOS.</h1>
+      <p class="hero-desc">
+        Fast, dictionary-backed autocorrect and predictive ghost text for every application. 
+        Runs 100% on-device in native C++20 with zero telemetry, sub-microsecond latency, and single-key undo.
+      </p>
 
-        <!-- Primary Call to Action -->
-        <div class="hero-action-block">
-          <div class="hero-action-row">
-            <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.4/Inline-v1.4-macOS.dmg" class="btn-download-primary">
-              <svg viewBox="0 0 24 24"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.61-.75 1.04-1.8 0.92-2.87-.9.04-2 .61-2.65 1.36-.57.65-1.06 1.71-.93 2.74 1.01.08 2.05-.48 2.66-1.23z"/></svg>
-              <span>Download for macOS</span>
-              <span class="btn-download-tag">v1.4 DMG</span>
-            </a>
+      <!-- Action Buttons: Download macOS + GitHub -->
+      <div class="hero-actions">
+        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.4/Inline-v1.4-macOS.dmg" class="btn-primary">
+          Download for macOS (v1.4)
+        </a>
+        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" class="btn-secondary" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span>GitHub</span>
+        </a>
+      </div>
 
-            <div class="terminal-inline-bar">
-              <div class="terminal-inline-text">
-                <span class="terminal-inline-prompt">$</span>
-                <span id="cmdBrewText">brew install LaxExe/tap/inline</span>
-              </div>
-              <button class="btn-copy-inline" id="copyCmdBtn" title="Copy terminal command">
-                <span id="copyBtnLabel">Copy</span>
-              </button>
-            </div>
+      <!-- Terminal Commands: brew & curl -->
+      <div class="cmd-group">
+        <div class="cmd-row">
+          <div class="cmd-text">
+            <span class="cmd-prompt">$</span>
+            <span id="cmdBrew">brew install LaxExe/tap/inline</span>
           </div>
-        </div>
-      </header>
-
-      <!-- Embedded Interactive Typing Simulator -->
-      <section class="interactive-simulator-wrap" id="demo">
-        <div class="sim-topbar">
-          <div class="sim-status">
-            <span class="sim-live-indicator"></span>
-            <span>Interactive Engine Playground</span>
-          </div>
-          <div class="sim-modes">
-            <button class="sim-mode-btn active" id="modeMulti" data-mode="multi">Multi-Word (Beta)</button>
-            <button class="sim-mode-btn" id="modeOne" data-mode="one">One Word</button>
-          </div>
+          <button class="btn-copy" data-target="cmdBrew">Copy</button>
         </div>
 
-        <div class="interactive-typing-area" id="typingContainer">
-          <div class="ghost-layer" id="ghostLayer" aria-hidden="true"><span class="ghost-mirror-typed" id="ghostMirror"></span><span class="ghost-prediction" id="ghostText"></span><span class="ghost-mirror-after" id="ghostMirrorAfter"></span></div>
-          <textarea class="real-typing-input" id="demoInput" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Click and start typing... (e.g. 'Looking forward', 'The meetign ', 'Please let me ')"></textarea>
+        <div class="cmd-row">
+          <div class="cmd-text">
+            <span class="cmd-prompt">$</span>
+            <span id="cmdCurl">curl -fsSL https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/install.sh | bash</span>
+          </div>
+          <button class="btn-copy" data-target="cmdCurl">Copy</button>
         </div>
+      </div>
+    </section>
 
-        <div class="sim-bottombar">
-          <div class="sim-shortcuts">
-            <span><span class="kbd-tag">Space</span> Autocorrect</span>
-            <span><span class="kbd-tag">Tab</span> Accept</span>
-            <span><span class="kbd-tag">Backspace</span> Undo</span>
-            <span class="event-status-pill" id="eventStatus"></span>
-          </div>
-          <div class="sim-samples">
-            <button class="sample-pill sample-chip" data-text="Looking forward">"Looking forward"</button>
-            <button class="sample-pill sample-chip" data-text="The meetign" data-autocorrect="true">"The meetign" (Auto-fix)</button>
-            <button class="sample-pill sample-chip" data-text="Please let me">"Please let me"</button>
-            <button class="sample-pill sample-chip" data-text="whenI" data-autocorrect="true">"whenI" (Split)</button>
-          </div>
+    <!-- Interactive Simulator -->
+    <section class="sim-wrap" id="demo">
+      <div class="sim-header">
+        <span class="sim-title">Live Simulator</span>
+        <div class="sim-modes">
+          <button class="sim-mode-btn active" id="modeMulti" data-mode="multi">Multi-Word</button>
+          <button class="sim-mode-btn" id="modeOne" data-mode="one">One Word</button>
         </div>
-      </section>
+      </div>
 
-      <!-- Section: The Problem -->
-      <section>
-        <h2 class="essay-h2">The Problem with Desktop Typing</h2>
-        <p class="essay-p">
-          Most software that assists writing on personal computers gets in the way of thought. Built-in operating system autocorrect frequently pops up small, floating bubbles that demand visual confirmation and steal attention. When it misidentifies developer jargon or slang, it replaces terms unexpectedly, forcing you to navigate back, erase the change, and re-type the exact letters while fighting the operating system's suggestion dictionary.
-        </p>
-        <p class="essay-p">
-          Cloud-based writing assistants present an even worse tradeoff. By sending keystrokes across the internet to remote servers, they introduce hundreds of milliseconds of round-trip latency. More critically, transmitting raw keyboard input off your machine creates an existential privacy hazard. Keystrokes contain passwords, confidential internal emails, proprietary source code, and personal reflections.
-        </p>
-        <p class="essay-p">
-          We built <strong>Inline</strong> around a different philosophy: typing assistance should be completely invisible, instantaneous, deterministic, and executed 100% locally in ephemeral memory.
-        </p>
-      </section>
+      <div class="sim-body" id="typingContainer">
+        <div class="ghost-layer" id="ghostLayer" aria-hidden="true"><span class="ghost-mirror-typed" id="ghostMirror"></span><span class="ghost-prediction" id="ghostText"></span><span class="ghost-mirror-after" id="ghostMirrorAfter"></span></div>
+        <textarea class="real-typing-input" id="demoInput" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Start typing... (e.g. 'Looking forward', 'The meetign ', 'whenI ')"></textarea>
+      </div>
 
-      <!-- Section: Core Capabilities (Prose, No Cards) -->
-      <section>
-        <h2 class="essay-h2">Core Capabilities</h2>
-        <p class="essay-p">
-          Instead of wrapping a browser shell or a heavy background daemon, Inline is compiled as a native, hardened C++20 engine that interfaces directly with low-level macOS subsystem APIs.
-        </p>
-
-        <p class="essay-p">
-          <strong>Instant Typo Correction on Space:</strong> When you complete a word by pressing Space, Inline checks your input against an 82,765 unigram dictionary and 243,342 bigrams in under 40 microseconds using the SymSpell Symmetric Delete algorithm with Damerau-Levenshtein distance &le; 2. It automatically disambiguates homophones based on preceding context (e.g., distinguishing "there" from "their").
-        </p>
-
-        <p class="essay-p">
-          <strong>Single-Key Undo:</strong> You should never fight your autocorrect. If Inline corrects a word you deliberately intended to type, a single press of Backspace immediately restores your raw keystrokes without cursor drift. The engine notes the rejection and will not re-correct that term in the same context.
-        </p>
-
-        <p class="essay-p">
-          <strong>Dynamic Run-Together Word Splitting:</strong> Fast typists frequently miss the spacebar between words. Inline uses dynamic programming dictionary segmentation to split concatenated phrases into natural words (for example, converting <code>whenI</code> into <code>when I</code> or <code>twowords</code> into <code>two words</code>).
-        </p>
-
-        <p class="essay-p">
-          <strong>Protected Developer and Chat Jargon:</strong> To eliminate accidental corrections during coding or casual messaging, Inline ships with built-in protection for over 180 common developer terms and acronyms (including <code>repo</code>, <code>pr</code>, <code>cli</code>, <code>sdk</code>, <code>api</code>, <code>async</code>, <code>gng</code>, <code>idk</code>, <code>ngl</code>, <code>brb</code>, and <code>tbh</code>).
-        </p>
-
-        <p class="essay-p">
-          <strong>Absolute Privacy by Design:</strong> Inline creates zero network sockets, initiates zero telemetry requests, and writes zero keystrokes to disk. It automatically suspends all tracking inside password fields and PIN inputs (<code>AXSecureTextField</code>) and immediately purges keystroke memory after 30 seconds of inactivity.
-        </p>
-      </section>
-
-      <!-- Section: How It Works Under the Hood (Narrative Paragraph Style) -->
-      <section id="how-it-works">
-        <h2 class="essay-h2">How Inline Works Under the Hood</h2>
-        <p class="essay-p">
-          Every keystroke flows through a seven-stage synchronous pipeline designed to execute within microsecond budgets, bypassing locks and heap allocations. Below is how the system processes each key event from the raw hardware interrupt to the screen overlay.
-        </p>
-
-        <h3 class="essay-h3">1. Sub-Microsecond Event Interception & Loopback Barrier</h3>
-        <p class="essay-p">
-          Inline hooks into the operating system at the session head using a macOS <code>CGEventTap</code> (specifically <code>kCGSessionEventTap</code> configured with <code>kCGHeadInsertEventTap</code>) listening for <code>kCGEventKeyDown</code>. This tap executes on a dedicated event thread scheduled at real-time QoS.
-        </p>
-        <p class="essay-p">
-          When Inline injects replacement keystrokes to correct a typo or accept ghost text, those synthesized events would normally be intercepted by our own event tap, causing an infinite loop. To prevent recursion, every synthesized event is tagged with a custom 64-bit integer signature in <code>kCGEventSourceUserData</code>. The hook checks this field first: if the signature matches our private tag, the event bypasses processing in under 2 microseconds. All Enter and Return keys pass through untouched, immediately clearing the buffer.
-        </p>
-
-        <pre class="code-block"><span class="code-comment">// platform/mac/hook/mac_keyboard_hook.mm</span>
-CGEventRef <span class="code-func">eventTapCallback</span>(CGEventTapProxy proxy, CGEventType type, CGEventRef event, <span class="code-keyword">void</span>* refcon) {
-  <span class="code-keyword">int64_t</span> sourceTag = CGEventGetIntegerValueField(event, kCGEventSourceUserData);
-  <span class="code-keyword">if</span> (sourceTag == INLINE_SYNTHETIC_TAG) {
-    <span class="code-keyword">return</span> event; <span class="code-comment">// Bypass injected loopback events immediately</span>
-  }
-  <span class="code-keyword">int64_t</span> keyCode = CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
-  <span class="code-func">onRawKeyEvent</span>(keyCode, flags);
-  <span class="code-keyword">return</span> event; <span class="code-comment">// Non-blocking dispatch</span>
-}</pre>
-
-        <h3 class="essay-h3">2. Universal Multi-Tier Caret Localization</h3>
-        <p class="essay-p">
-          Placing ghost text suggestions directly beside your typing requires knowing the exact screen coordinates of the blinking text cursor. In native Cocoa applications, Inline queries the focused UI element's Accessibility attributes via <code>kAXSelectedTextRangeAttribute</code> and converts the character range into screen coordinates using <code>AXUIElementCopyParameterizedAttributeValue</code> with <code>kAXBoundsForRangeParameterizedAttribute</code>.
-        </p>
-        <p class="essay-p">
-          Web browsers present a unique challenge. In Google Chrome and Electron-based applications, Chromium's internal Accessibility thread updates asynchronously, causing selection ranges to lag behind fast typing bursts. To resolve this, Inline implements a multi-tier fallback ladder using an <code>effectiveLoc</code> probe: when a zero-length selection returns an invalid or outdated bounding box, Inline measures the end-of-text boundary and centers the vertical baseline. This prevents suggestions from floating above search inputs or rendering in microscopic fonts on web search bars like Google, YouTube, and Amazon. Furthermore, horizontal forward monotonicity ensures that suggestions never shift behind your cursor.
-        </p>
-
-        <h3 class="essay-h3">3. Dual-Tier Hybrid Predictive Engine</h3>
-        <p class="essay-p">
-          Ghost Writer predictions use a two-layer speculative approach designed to fit within strict memory and latency boundaries without making cloud calls.
-        </p>
-        <p class="essay-p">
-          <strong>Tier 0 (Instant n-gram Trie):</strong> A compact in-memory trie indexed from the 243K bigram dictionary evaluates suggestions synchronously on every keystroke in under 1 millisecond. It can complete the active word or propose common two-word continuations immediately.
-        </p>
-        <p class="essay-p">
-          <strong>Tier 1 (Local Neural Transformer):</strong> For richer, multi-word contextual completions, an optional out-of-process helper runs an ultra-compact quantized model (such as <code>SmolLM2-135M</code>) over 2 CPU threads via <code>llama.cpp</code>. This model is debounced by 40 milliseconds after the last keypress so it never interrupts rapid typing bursts. Because the KV cache is preserved between consecutive keystrokes, the neural layer updates incrementally in 15 to 30 milliseconds without stressing system memory.
-        </p>
-
-        <h3 class="essay-h3">4. Sub-Pixel Ghost Text Overlay & Fluid Type-Through</h3>
-        <p class="essay-p">
-          Predictions render inside a borderless, transparent <code>NSPanel</code> configured with <code>NSWindowCollectionBehaviorCanJoinAllSpaces</code> and <code>setIgnoresMouseEvents:YES</code>. The overlay floats exactly at the caret baseline with sub-pixel precision (&plusmn;0.5 pt) without taking focus or disrupting the active application.
-        </p>
-        <p class="essay-p">
-          When ghost text is displayed, Inline handles typing through the suggestion seamlessly. As you type letters that match the predicted continuation, an <code>advanceLayout</code> method shifts the overlay window horizontally to the right in under 0.2 milliseconds without re-querying the predictive model. If you press Tab while a suggestion is visible, the hook swallows the Tab event and injects the remaining characters directly into the host application. If no suggestion is displayed, Tab passes through normally.
-        </p>
-
-        <h3 class="essay-h3">5. Deterministic Autocorrect & Single-Key Undo</h3>
-        <p class="essay-p">
-          Autocorrection occurs upon pressing Space or punctuation. The engine runs the SymSpell Symmetric Delete algorithm, which precomputes deletes rather than generating permutations at runtime. Suggestions are filtered by edit distance (&le; 2) and ranked by bigram frequency given the preceding word.
-        </p>
-        <p class="essay-p">
-          If a correction is applied, the engine records the substitution in an undo state machine. If the user presses Backspace next, the state machine computes the longest common prefix between the raw typo and the corrected text, emits the precise sequence of backspaces needed to erase the difference, and re-types your raw characters. Reverted words are flagged as rejected for that context, eliminating annoying autocorrect loops.
-        </p>
-      </section>
-
-      <!-- Section: Performance & Invariants -->
-      <section>
-        <h2 class="essay-h2">Performance & Architectural Invariants</h2>
-        <p class="essay-p">
-          Every build of Inline is verified against strict performance criteria on Apple Silicon CI runners to ensure it remains completely lightweight:
-        </p>
-
-        <div class="metric-strip">
-          <div class="metric-unit">
-            <div class="metric-val">&le; 2 &mu;s</div>
-            <div class="metric-caption">Hook interception latency</div>
-          </div>
-          <div class="metric-unit">
-            <div class="metric-val">&lt; 120 MB</div>
-            <div class="metric-caption">Active RSS memory footprint</div>
-          </div>
-          <div class="metric-unit">
-            <div class="metric-val">0.0%</div>
-            <div class="metric-caption">Idle background CPU drain</div>
-          </div>
-          <div class="metric-unit">
-            <div class="metric-val">0 Bytes</div>
-            <div class="metric-caption">Outbound network telemetry</div>
-          </div>
+      <div class="sim-footer">
+        <div class="sim-hints">
+          <span><span class="kbd">Space</span> autocorrect</span>
+          <span><span class="kbd">Tab</span> accept</span>
+          <span><span class="kbd">Backspace</span> undo</span>
+          <span class="event-status-pill" id="eventStatus"></span>
         </div>
+        <div class="sim-samples">
+          <button class="sample-chip" data-text="Looking forward">"Looking forward"</button>
+          <button class="sample-chip" data-text="The meetign" data-autocorrect="true">"The meetign"</button>
+          <button class="sample-chip" data-text="whenI" data-autocorrect="true">"whenI"</button>
+        </div>
+      </div>
+    </section>
 
-        <p class="essay-p">
-          Continuous integration validates all 19 C++ test suites on every pull request, verifying SymSpell lookup accuracy, undo state transitions, caret tracker fallbacks, and dictionary memory bounds.
-        </p>
-      </section>
+    <!-- Core Features -->
+    <section>
+      <h2>What it does</h2>
 
-      <!-- Section: Platform Availability & Windows Beta Notice (Required at Bottom) -->
-      <section class="windows-beta-section">
-        <h3>Platform Availability & Windows Beta Notice</h3>
-        <p>
-          Inline is officially supported and production-ready on <strong>macOS 12 through 15</strong> (Monterey, Ventura, Sonoma, and Sequoia) on both Apple Silicon (M1, M2, M3, M4) and Intel x86_64 architectures.
-        </p>
-        <p style="margin-top: 12px;">
-          <strong>Windows Support (Beta):</strong> A native Windows port using <code>WH_KEYBOARD_LL</code> for low-level hook interception and <code>SendInput</code> for keystroke injection is currently in beta and is actively being built on the <code>windows-branch</code>. It is undergoing stabilization and is not yet recommended for production typing workflows. If you would like to test the experimental Windows build or contribute to its development, you can inspect the code on the <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/tree/windows-branch" target="_blank" rel="noopener" style="text-decoration: underline;">windows-branch on GitHub</a>.
-        </p>
-      </section>
+      <p>
+        <strong>Sub-microsecond typo correction:</strong> On Space, words are matched against an 82,765 unigram dictionary and 243,342 bigrams using SymSpell with Damerau-Levenshtein distance &le; 2 in under 40 microseconds. Preceding context resolves homophones like "there" vs "their".
+      </p>
 
-    </article>
+      <p>
+        <strong>Single-key undo:</strong> If a word is corrected that you intended to keep, pressing Backspace once immediately restores your raw keystrokes without cursor drift. The engine flags the rejection so it will not re-correct it.
+      </p>
+
+      <p>
+        <strong>Run-together word splitting:</strong> Missed spaces between words (such as <code>whenI</code> or <code>twowords</code>) are segmented into <code>when I</code> and <code>two words</code> using dynamic programming.
+      </p>
+
+      <p>
+        <strong>Protected terms:</strong> Over 180 developer terms and chat acronyms are whitelisted out of the box (<code>repo</code>, <code>pr</code>, <code>cli</code>, <code>sdk</code>, <code>api</code>, <code>async</code>, <code>gng</code>, <code>idk</code>, <code>ngl</code>, <code>tbh</code>).
+      </p>
+
+      <p>
+        <strong>Zero telemetry:</strong> Everything runs locally in memory. No network sockets are opened, no keystrokes are logged to disk, and the engine automatically suspends inside password and PIN inputs (<code>AXSecureTextField</code>).
+      </p>
+    </section>
+
+    <!-- How it works under the hood (Paragraph Style) -->
+    <section id="how-it-works">
+      <h2>How it works under the hood</h2>
+
+      <h3>1. Event interception</h3>
+      <p>
+        Inline hooks into macOS at the session level using <code>CGEventTap</code> (<code>kCGSessionEventTap</code>, <code>kCGHeadInsertEventTap</code>) listening for <code>kCGEventKeyDown</code>. Interception runs on a dedicated real-time thread in &le; 2 microseconds without heap allocations. Injected corrections carry a custom tag in <code>kCGEventSourceUserData</code> so synthetic loopback events are dropped immediately. Enter and Return clear the buffer and pass through untouched.
+      </p>
+
+      <h3>2. Caret localization</h3>
+      <p>
+        To position ghost text beside the cursor, Inline queries Accessibility attributes via <code>kAXSelectedTextRangeAttribute</code> and converts character ranges into screen coordinates using <code>kAXBoundsForRangeParameterizedAttribute</code>. For Chromium-based browsers (Chrome, Electron, web inputs) where selection updates lag behind fast typing, Inline uses an <code>effectiveLoc</code> probe and vertical baseline centering so text never floats or renders microscopic.
+      </p>
+
+      <h3>3. Dual-tier predictions</h3>
+      <p>
+        Predictions combine two local tiers. Tier 0 uses an in-memory prefix trie and bigram dictionary to suggest word continuations in under 1 millisecond on every key. Tier 1 optionally runs a local 4-bit neural model (<code>SmolLM2-135M</code>) via <code>llama.cpp</code> over 2 CPU threads during typing pauses, preserving its KV cache between keystrokes.
+      </p>
+
+      <h3>4. Non-activating overlay</h3>
+      <p>
+        Ghost text renders in a transparent, borderless <code>NSPanel</code> with <code>setIgnoresMouseEvents:YES</code> aligned within &plusmn;0.5 pt of your cursor. As you type letters that match the suggestion, the overlay shifts rightward in &lt; 0.2 milliseconds (<code>advanceLayout</code>). Pressing Tab swallows the key and injects the completion; otherwise, Tab passes through normally.
+      </p>
+
+      <h3>5. Autocorrect and undo</h3>
+      <p>
+        On Space, the SymSpell Symmetric Delete algorithm looks up candidate terms within edit distance 2. When a correction is applied, the undo state machine tracks the substitution. If Backspace is pressed next, the engine calculates the common prefix, emits the exact backspaces and original characters, and blacklists the word for that context.
+      </p>
+    </section>
+
+    <!-- Windows Beta Notice -->
+    <section class="windows-note">
+      <p>
+        <strong>Windows support (beta):</strong> A native Windows port using <code>WH_KEYBOARD_LL</code> and <code>SendInput</code> is currently in beta and is actively being built on the <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/tree/windows-branch" target="_blank" rel="noopener">windows-branch on GitHub</a>.
+      </p>
+    </section>
+
   </main>
 
-  <!-- Editorial Footer -->
+  <!-- Minimal Footer -->
   <footer>
     <div class="footer-inner">
-      <div>
-        <strong>Inline for macOS</strong> &bull; Open-source native desktop typing engine under the MIT License.
-      </div>
+      <span>Inline for macOS &bull; MIT License</span>
       <div class="footer-links">
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases">Releases</a>
-        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/blob/mac-branch/README.md">Documentation</a>
-        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/issues">Issues</a>
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build">GitHub</a>
       </div>
     </div>
   </footer>
 
-  <!-- Script: Theme Switcher, Terminal Copy, and Interactive Simulator -->
   <script>
     // Theme Switcher
     const themeBtn = document.getElementById('themeToggleBtn');
@@ -1000,24 +746,24 @@ CGEventRef <span class="code-func">eventTapCallback</span>(CGEventTapProxy proxy
       });
     }
 
-    // Terminal Command Copy Button
-    const copyCmdBtn = document.getElementById('copyCmdBtn');
-    const copyBtnLabel = document.getElementById('copyBtnLabel');
-    if (copyCmdBtn) {
-      copyCmdBtn.addEventListener('click', () => {
-        const cmd = 'brew install LaxExe/tap/inline';
-        navigator.clipboard.writeText(cmd).then(() => {
-          if (copyBtnLabel) {
-            copyBtnLabel.textContent = 'Copied!';
-            setTimeout(() => {
-              copyBtnLabel.textContent = 'Copy';
-            }, 2000);
-          }
+    // Copy Buttons
+    document.querySelectorAll('.btn-copy').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.target;
+        const targetElem = document.getElementById(targetId);
+        if (!targetElem) return;
+
+        navigator.clipboard.writeText(targetElem.textContent.trim()).then(() => {
+          const origText = btn.textContent;
+          btn.textContent = 'Copied';
+          setTimeout(() => {
+            btn.textContent = origText;
+          }, 1500);
         });
       });
-    }
+    });
 
-    // Interactive Simulator Elements
+    // Simulator Elements
     const demoInput = document.getElementById('demoInput');
     const ghostLayer = document.getElementById('ghostLayer');
     const ghostMirror = document.getElementById('ghostMirror');
