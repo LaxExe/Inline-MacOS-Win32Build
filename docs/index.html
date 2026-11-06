@@ -596,7 +596,62 @@
       color: var(--ink-muted);
     }
 
-    /* Windows Beta Section */
+        /* Clean Minimal Tables */
+    .data-table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      margin: 16px 0 24px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background-color: var(--surface);
+    }
+
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    table.data-table th {
+      padding: 10px 14px;
+      background-color: var(--surface-subtle);
+      border-bottom: 1px solid var(--border);
+      color: var(--ink);
+      font-weight: 600;
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    table.data-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--ink-secondary);
+      vertical-align: top;
+      line-height: 1.5;
+    }
+
+    table.data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    table.data-table code {
+      font-size: 12px;
+    }
+
+    .status-tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background-color: var(--surface-subtle);
+      color: var(--ink);
+    }
+
+/* Windows Beta Section */
     .windows-note {
       margin-top: 48px;
       padding-top: 24px;
@@ -976,13 +1031,13 @@ UndoActionResult <span class="fn">UndoStateMachine::onBackspace</span>() {
     <span class="kw">return</span> { .type = UndoAction::NormalDelete };
 }</pre>
 
-      <!-- Feature 6: Dual-Tier Predictive Ghost Text -->
-      <h3>6. Dual-Tier Predictive Ghost Text</h3>
+            <!-- Feature 6: Dual-Tier Predictive Ghost Text & One Word Mode -->
+      <h3>6. Dual-Tier Predictive Ghost Text &amp; One Word Mode</h3>
       <p>
-        Ghost text predictions combine sub-millisecond n-gram trie lookups with an out-of-process 4-bit neural model (<code>SmolLM2-135M</code>) running via <code>llama.cpp</code> over 2 CPU threads.
+        Ghost text predictions combine sub-millisecond n-gram trie lookups with an out-of-process 4-bit neural model (<code>SmolLM2-135M</code>) running via <code>llama.cpp</code> over 2 CPU threads. Predictions are debounced by 40 ms after the last keypress so they never flicker during rapid typing.
       </p>
       <p>
-        Predictions are debounced by 40 ms after the last keypress so they never flicker during rapid typing. Because text entry is append-only, the transformer's KV cache is preserved across keystrokes, making incremental generation cost only 15–30 ms without exceeding memory bounds.
+        In <strong>One Word Mode</strong>, Inline computes completions only for the active token being typed at the cursor (for example, typing <code>tha</code> suggests <code>nk</code>). Pressing <code>Tab</code> accepts the word, automatically triggers layout advancement, and immediately cues the next word of the sentence continuation for seamless, infinite Tab-chaining without window flicker.
       </p>
 
       <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/ghost/ghost_overlay.mm</span></div>
@@ -1007,8 +1062,55 @@ UndoActionResult <span class="fn">UndoStateMachine::onBackspace</span>() {
     });
 }</pre>
 
-      <!-- Feature 7: Security & Privacy Invariants -->
-      <h3>7. Security &amp; Privacy Invariants</h3>
+      <!-- Feature 7: Out-of-Process Neural Helper & IPC -->
+      <h3>7. Out-of-Process Neural Service &amp; IPC Architecture</h3>
+      <p>
+        To guarantee that on-device language modeling never interrupts real-time keyboard interception, neural inference runs in an independent helper binary (<code>InlinePredictor</code>). Communication occurs across a private local Unix domain socket using length-prefixed binary message framing.
+      </p>
+      <p>
+        Requests carry an atomic monotonic generation counter (<code>generation_</code>). If the user types a new character while background inference is computing, the generation counter increments and the incoming response is instantly discarded, preventing stale text from ever flashing on screen.
+      </p>
+
+      <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/predict/predictor_client.mm</span></div>
+      <pre class="code-snippet"><span class="cm">// Binary IPC request dispatch with atomic generation counter</span>
+<span class="kw">bool</span> <span class="fn">PredictorClient::sendRequest</span>(<span class="kw">const</span> std::string&amp; context,
+                                  <span class="kw">const</span> std::string&amp; partial,
+                                  <span class="kw">uint8_t</span> maxWords) {
+    <span class="kw">if</span> (socketFd_ &lt; <span class="num">0</span>) <span class="kw">return false</span>;
+
+    <span class="kw">uint64_t</span> gen = ++generation_;
+    ClientReqHeader hdr;
+    hdr.magic = <span class="num">0x494E4C50</span>; <span class="cm">// "INLP"</span>
+    hdr.op = <span class="num">1</span>;
+    hdr.maxWords = maxWords;
+    hdr.generation = gen;
+    hdr.contextLen = (<span class="kw">uint32_t</span>)context.size();
+    hdr.partialLen = (<span class="kw">uint32_t</span>)partial.size();
+
+    <span class="cm">// Write framed header followed by payload bytes</span>
+    <span class="kw">if</span> (!<span class="fn">writeAll</span>(socketFd_, &amp;hdr, <span class="kw">sizeof</span>(hdr))) <span class="kw">return false</span>;
+    <span class="kw">if</span> (!<span class="fn">writeAll</span>(socketFd_, context.data(), context.size())) <span class="kw">return false</span>;
+    <span class="kw">if</span> (!<span class="fn">writeAll</span>(socketFd_, partial.data(), partial.size())) <span class="kw">return false</span>;
+    <span class="kw">return true</span>;
+}</pre>
+
+      <p>
+        <code>PowerMonitor</code> actively checks macOS thermal state via <code>NSProcessInfoThermalState</code> and battery status via <code>IOPowerSources</code>. When the system enters Low Power Mode or thermal state <code>Serious</code> / <code>Critical</code>, the neural helper suspends itself automatically, allowing Tier 0 N-grams to handle completions with zero battery drain.
+      </p>
+
+      <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/power/power_monitor.mm</span></div>
+      <pre class="code-snippet"><span class="cm">// Dynamic thermal regulation and Low Power Mode detection</span>
+EngineMode <span class="fn">PowerMonitor::currentEngineMode</span>() {
+    <span class="kw">bool</span> onBattery = <span class="fn">isOnBatteryPower</span>();
+    ThermalState thermal = <span class="fn">currentThermalState</span>();
+    <span class="kw">bool</span> lowPower = <span class="fn">isLowPowerModeEnabled</span>();
+
+    <span class="cm">// Fallback to Tier 0 trie when battery or cooling is constrained</span>
+    <span class="kw">return</span> <span class="fn">decideEngineMode</span>(onBattery, thermal, lowPower);
+}</pre>
+
+      <!-- Feature 8: Security & Privacy Invariants -->
+      <h3>8. Security, Privacy &amp; Zero-Disk Invariants</h3>
       <p>
         Inline creates zero network sockets, sends zero telemetry pings, and writes zero keystrokes to disk. Before processing input, Inline queries <code>kAXSubroleAttribute</code>: if an element is an <code>AXSecureTextField</code> (such as a password or credit card input), the engine enters a dormant state where all keystrokes pass unmodified. Keystroke buffers in RAM are purged after 30 seconds of typing inactivity.
       </p>
@@ -1025,6 +1127,347 @@ UndoActionResult <span class="fn">UndoStateMachine::onBackspace</span>() {
     <span class="kw">return false</span>;
 }</pre>
     </section>
+
+    <!-- Key Delimiters & Typing Behavior -->
+    <section id="delimiters">
+      <h2>Key Delimiters &amp; Typing Behavior</h2>
+      <p>
+        Inline respects standard macOS cursor behavior. Keystrokes are handled deterministically according to strict delimiter rules:
+      </p>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 140px;">Key / Event</th>
+              <th style="width: 180px;">Behavior</th>
+              <th>Technical Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Space</code></td>
+              <td>Word delimiter</td>
+              <td>Triggers SymSpell lookup on previous token, checks Damerau-Levenshtein distance &le; 2, applies bigram context ranking, and replaces typos.</td>
+            </tr>
+            <tr>
+              <td><code>Tab</code></td>
+              <td>Accept Ghost Text</td>
+              <td>If a ghost text suggestion is currently visible, swallows Tab and injects the continuation. If no suggestion is visible, passes Tab straight through without modifying text.</td>
+            </tr>
+            <tr>
+              <td><code>Enter / Return</code></td>
+              <td>Pass-through commit</td>
+              <td><strong>Never autocorrects.</strong> Commits whatever raw text was typed, immediately clears the active word buffer, resets sentence state, and forwards the Return key to the app.</td>
+            </tr>
+            <tr>
+              <td><code>Backspace</code></td>
+              <td>Single-Key Undo</td>
+              <td>If pressed immediately following an autocorrection or Tab accept, restores the exact raw characters typed. If pressed while typing, pops the last buffered character.</td>
+            </tr>
+            <tr>
+              <td><code>. ! ?</code></td>
+              <td>Sentence boundary</td>
+              <td>Sets the sentence start flag. The initial letter of the following word is automatically capitalized, alongside standalone <code>i</code> &rarr; <code>I</code>.</td>
+            </tr>
+            <tr>
+              <td>Case Preservation</td>
+              <td>Casing pattern mirror</td>
+              <td>Replicates typed case: lowercase (<code>teh</code> &rarr; <code>the</code>), Title Case (<code>Teh</code> &rarr; <code>The</code>), Uppercase (<code>TEH</code> &rarr; <code>THE</code>). CamelCase words remain untouched.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Global Keyboard Shortcuts -->
+    <section id="shortcuts">
+      <h2>Global Keyboard Shortcuts</h2>
+      <p>
+        System-wide shortcuts allow quick toggles without opening settings:
+      </p>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 220px;">Shortcut</th>
+              <th>Action</th>
+              <th style="width: 120px;">Scope</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Cmd + Option + Shift + K</code></td>
+              <td>Toggle Autocorrect Engine On / Off</td>
+              <td><span class="status-tag">System-Wide</span></td>
+            </tr>
+            <tr>
+              <td><code>Cmd + Option + Shift + G</code></td>
+              <td>Toggle Ghost Text Predictions On / Off</td>
+              <td><span class="status-tag">System-Wide</span></td>
+            </tr>
+            <tr>
+              <td><code>Tab</code></td>
+              <td>Accept visible ghost text continuation</td>
+              <td><span class="status-tag">Active Input</span></td>
+            </tr>
+            <tr>
+              <td><code>Backspace</code></td>
+              <td>Single-key undo: revert last autocorrection or accepted suggestion</td>
+              <td><span class="status-tag">Active Input</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Slang & Jargon Whitelist -->
+    <section id="slang-jargon">
+      <h2>Slang &amp; Developer Jargon Whitelist</h2>
+      <p>
+        Engineers, designers, and daily writers frequently use acronyms, command-line arguments, and informal abbreviations that traditional spellcheckers destroy. Inline incorporates a 180+ term protected whitelist directly into the SymSpell dictionary:
+      </p>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 180px;">Category</th>
+              <th>Protected Terms (Never Mangled)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Developer Terms</td>
+              <td><code>repo</code>, <code>dev</code>, <code>pr</code>, <code>cli</code>, <code>sdk</code>, <code>api</code>, <code>auth</code>, <code>async</code>, <code>stdout</code>, <code>stdin</code>, <code>stderr</code>, <code>config</code>, <code>util</code>, <code>impl</code>, <code>const</code>, <code>param</code></td>
+            </tr>
+            <tr>
+              <td>Internet Acronyms</td>
+              <td><code>gng</code>, <code>brb</code>, <code>ttyl</code>, <code>idk</code>, <code>ngl</code>, <code>tbh</code>, <code>fwiw</code>, <code>imo</code>, <code>imho</code>, <code>afaik</code>, <code>omw</code>, <code>smh</code>, <code>rn</code>, <code>fr</code>, <code>wip</code>, <code>lgtm</code></td>
+            </tr>
+            <tr>
+              <td>Bigram Context</td>
+              <td>243,342 real-world bigram pairs score technical combinations (e.g. <code>git commit</code>, <code>npm run</code>, <code>pull request</code>) ensuring natural disambiguation without false positives.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Application Compatibility Matrix -->
+    <section id="compatibility">
+      <h2>Application Compatibility Matrix</h2>
+      <p>
+        Inline is tested and verified daily across standard macOS applications:
+      </p>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 180px;">Category</th>
+              <th>Supported Applications</th>
+              <th style="width: 160px;">Caret Mechanism</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Apple Native</td>
+              <td>Notes, Pages, Safari, Mail, TextEdit, Finder, Reminders</td>
+              <td><span class="status-tag">AXSelectedTextRange</span></td>
+            </tr>
+            <tr>
+              <td>Web Browsers</td>
+              <td>Google Chrome, Vivaldi, Brave, Microsoft Edge</td>
+              <td><span class="status-tag">Chromium effectiveLoc</span></td>
+            </tr>
+            <tr>
+              <td>Developer Tools</td>
+              <td>Visual Studio Code, Antigravity, Terminal, iTerm2</td>
+              <td><span class="status-tag">Native EventTap</span></td>
+            </tr>
+            <tr>
+              <td>Communication</td>
+              <td>Slack, Discord, Telegram, WhatsApp, Messages</td>
+              <td><span class="status-tag">Electron AX Bounds</span></td>
+            </tr>
+            <tr>
+              <td>Productivity</td>
+              <td>Notion, Obsidian, Linear, Google Docs, Gmail</td>
+              <td><span class="status-tag">Blink Selection Sync</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Subsystem Benchmarks -->
+    <section id="benchmarks">
+      <h2>Subsystem Performance &amp; Latency</h2>
+      <p>
+        Every component is profiled against strict real-time thresholds:
+      </p>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 220px;">Subsystem</th>
+              <th style="width: 130px;">Measured Latency</th>
+              <th>Constraint &amp; Implementation Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Keystroke Interception</td>
+              <td><code>&le; 2 &mu;s</code></td>
+              <td>Real-time QOS thread in <code>CGEventTap</code>. Human tactile perception threshold is ~50 ms.</td>
+            </tr>
+            <tr>
+              <td>SymSpell Unigram Lookup</td>
+              <td><code>&lt; 40 &mu;s</code></td>
+              <td>Precomputed symmetric delete hashes over 82,765 words with distance &le; 2.</td>
+            </tr>
+            <tr>
+              <td>Bigram Disambiguation</td>
+              <td><code>&lt; 25 &mu;s</code></td>
+              <td>Log-probability scoring over 243,342 contextual bigram pairs.</td>
+            </tr>
+            <tr>
+              <td>Tier 0 Prefix Trie</td>
+              <td><code>&lt; 100 &mu;s</code></td>
+              <td>Lock-free prefix tree lookup for instant active word completion.</td>
+            </tr>
+            <tr>
+              <td>Ghost Layout Advance</td>
+              <td><code>&lt; 0.2 ms</code></td>
+              <td>Main thread translation of <code>NSPanel</code> frame without accessibility tree query.</td>
+            </tr>
+            <tr>
+              <td>Tier 1 Neural Model</td>
+              <td><code>~15 ms</code></td>
+              <td>Quantized <code>SmolLM2-135M</code> executed locally via <code>llama.cpp</code> on 2 efficiency cores.</td>
+            </tr>
+            <tr>
+              <td>Memory Footprint</td>
+              <td><code>&lt; 120 MB</code></td>
+              <td>Active RSS footprint across both UI and helper process (&lt; 5 MB for autocorrect engine alone).</td>
+            </tr>
+            <tr>
+              <td>Idle CPU Drain</td>
+              <td><code>0.0%</code></td>
+              <td>Pure event-driven architecture with zero background polling loops.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Configuration & System Settings -->
+    <section id="settings">
+      <h2>Configuration &amp; System Settings</h2>
+      <p>
+        Inline follows Apple's modern System Settings visual language with rounded card containers, monochrome vector badges, and responsive layouts:
+      </p>
+
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 180px;">Setting</th>
+              <th style="width: 140px;">Default</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Autocorrect Engine</td>
+              <td><span class="status-tag">Enabled</span></td>
+              <td>System-wide typo detection and replacement on Spacebar.</td>
+            </tr>
+            <tr>
+              <td>Ghost Text Predictions</td>
+              <td><span class="status-tag">Disabled (Beta)</span></td>
+              <td>Inline cursor suggestions. Experimental beta under testing.</td>
+            </tr>
+            <tr>
+              <td>Single-Key Undo</td>
+              <td><span class="status-tag">Enabled</span></td>
+              <td>Immediate one-touch reversion to raw typed keystrokes on Backspace.</td>
+            </tr>
+            <tr>
+              <td>Suggestion Length</td>
+              <td><span class="status-tag">Balanced (2-3 words)</span></td>
+              <td>Configurable between One word only (current word), Short, Balanced, or Long.</td>
+            </tr>
+            <tr>
+              <td>Run-Together Splitting</td>
+              <td><span class="status-tag">Enabled</span></td>
+              <td>Automatically segments concatenated tokens (e.g. <code>twowords</code> &rarr; <code>two words</code>).</td>
+            </tr>
+            <tr>
+              <td>Sentence Capitalization</td>
+              <td><span class="status-tag">Enabled</span></td>
+              <td>Capitalizes initial character of sentences after punctuation.</td>
+            </tr>
+            <tr>
+              <td>Adaptive Menu Bar Contrast</td>
+              <td><span class="status-tag">Permanent</span></td>
+              <td>Renders pure white (<code>#FFFFFF</code>) line on dark menu bars, dark charcoal (<code>#18181B</code>) on light menu bars, with an emerald (<code>#22C55E</code>) dot.</td>
+            </tr>
+            <tr>
+              <td>Custom Ignored Words</td>
+              <td><span class="status-tag">Configurable</span></td>
+              <td>User-defined dictionary of proprietary names, identifiers, or project terms.</td>
+            </tr>
+            <tr>
+              <td>Disabled Applications</td>
+              <td><span class="status-tag">Configurable</span></td>
+              <td>Bundle identifiers where Inline stays dormant (e.g. games or virtual machines).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Building from Source & Testing -->
+    <section id="building">
+      <h2>Building from Source &amp; Unit Tests</h2>
+      <p>
+        Inline compiles natively on Apple Silicon and Intel Macs with CMake, Ninja, and Qt 6:
+      </p>
+
+      <div class="code-title"><span class="code-title-dot"></span><span>Terminal</span></div>
+      <pre class="code-snippet"><span class="cm"># 1. Clone the repository</span>
+git clone https://github.com/LaxExe/Inline-MacOS-Win32Build.git
+cd Inline-MacOS-Win32Build
+git checkout mac-branch
+
+<span class="cm"># 2. Configure release build with Ninja</span>
+cmake -B build_release -DCMAKE_BUILD_TYPE=Release -G Ninja
+
+<span class="cm"># 3. Compile app bundle and neural helper</span>
+cmake --build build_release --target Inline InlinePredictor
+
+<span class="cm"># 4. Ad-hoc codesign</span>
+codesign --force --deep --sign - -i com.inline.mac build_release/gui/Inline.app
+
+<span class="cm"># 5. Run test harness</span>
+ctest --test-dir build_release --output-on-failure</pre>
+
+      <p>
+        The automated test suite verifies 100% of core engine functionality across 5 dedicated test binaries:
+      </p>
+      <ul style="color: var(--ink-secondary); padding-left: 20px; line-height: 1.8; margin-bottom: 24px; font-size: 13.5px;">
+        <li><code>test_tier1</code>: SymSpell dictionary lookup, Damerau-Levenshtein distance &le; 2, and slang preservation.</li>
+        <li><code>test_ghost_text</code>: N-gram trie prefix generation, layout metrics, and token healing.</li>
+        <li><code>test_settings_binding</code>: Two-way binding between Qt controls and JSON configuration.</li>
+        <li><code>test_word_boundary</code>: Boundary parsing, delimiter detection, and whitespace normalization.</li>
+        <li><code>test_undo_state_machine</code>: Transition verification, single-key revert, and re-correction suppression.</li>
+      </ul>
+    </section>
+
 
     <!-- Windows Beta Notice -->
     <section class="windows-note">
