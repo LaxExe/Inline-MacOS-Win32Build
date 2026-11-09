@@ -753,61 +753,95 @@
       letter-spacing: 0.02em;
     }
 
-    /* Hero Brand Badge & App Icon */
-    .hero-brand-badge {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 20px;
+    /* Download Counter & Email Stat Prompt */
+    .download-stat {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--ink-muted);
+      margin-left: 4px;
     }
 
-    .app-icon-squircle {
-      width: 48px;
-      height: 48px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .download-stat strong {
+      color: var(--ink);
+      font-weight: 600;
     }
 
-    .app-icon-squircle svg {
-      width: 48px;
-      height: 48px;
+    .download-email-prompt {
+      display: none;
+      margin: -8px 0 20px;
+      padding: 12px 14px;
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--ink-secondary);
+      line-height: 1.5;
+    }
+
+    .download-email-prompt.visible {
       display: block;
     }
 
-    .hero-brand-meta {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+    .download-email-prompt p {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--ink-secondary);
     }
 
-    .hero-pill-status {
+    .download-email-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .download-email-input {
+      flex: 1;
+      min-width: 200px;
+      padding: 6px 10px;
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      color: var(--ink);
+      background-color: var(--canvas);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .download-email-input:focus {
+      border-color: var(--border-hover);
+    }
+
+    .btn-email-stat {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--ink);
-      background-color: var(--surface);
-      border: 1px solid var(--border);
-      padding: 2px 8px;
-      border-radius: 9999px;
-      width: fit-content;
+      padding: 6px 12px;
+      font-size: 12.5px;
+      font-weight: 500;
+      border-radius: 6px;
+      background-color: var(--ink);
+      color: var(--canvas);
+      border: 1px solid var(--ink);
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
     }
 
-    .status-indicator-dot {
-      width: 6px;
-      height: 6px;
-      background-color: #22C55E;
-      border-radius: 50%;
-      box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+    .btn-email-stat:hover {
+      opacity: 0.9;
     }
 
-    .hero-arch-meta {
+    .btn-email-dismiss {
+      background: none;
+      border: none;
       font-size: 12px;
       color: var(--ink-muted);
+      cursor: pointer;
+      padding: 4px 6px;
+    }
+
+    .btn-email-dismiss:hover {
+      color: var(--ink);
     }
 
     /* Tactile Keyboard Shortcut Keycaps */
@@ -929,48 +963,34 @@
 
     <!-- Hero -->
     <section class="hero">
-            <div class="hero-brand-badge">
-        <div class="app-icon-squircle">
-          <svg viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
-            <defs>
-              <filter id="iconGlow" x="-15%" y="-15%" width="130%" height="135%">
-                <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.18"/>
-              </filter>
-            </defs>
-            <g filter="url(#iconGlow)">
-              <rect width="64" height="64" rx="14.3" fill="#141417"/>
-              <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.8" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.2"/>
-              <rect x="23.5" y="16.6" width="5.1" height="30.8" rx="1" fill="#FAFAFA"/>
-              <rect x="32.8" y="28.2" width="7.7" height="7.7" rx="1.5" fill="#22C55E"/>
-            </g>
-          </svg>
-        </div>
-        <div class="hero-brand-meta">
-          <div class="hero-pill-status">
-            <span class="status-indicator-dot"></span>
-            <span>v1.4 Official Release</span>
-          </div>
-          <span class="hero-arch-meta">Apple Silicon &bull; Intel &bull; macOS 12+</span>
-        </div>
-      </div>
       <h1 class="hero-title">Native autocorrect for macOS.</h1>
       <p class="hero-desc">
         Fast, dictionary-backed autocorrect and predictive ghost text for every application. 
         Runs 100% on-device in native C++20 with zero telemetry, sub-microsecond latency, and single-key undo.
       </p>
 
-      <!-- Action Buttons: Download macOS + GitHub -->
+      <!-- Action Buttons: Download macOS + GitHub + Download Counter -->
       <div class="hero-actions">
-        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.4/Inline-v1.4-macOS.dmg" class="btn-primary">
-          <svg viewBox="0 0 170 170" width="14" height="14" fill="currentColor" aria-hidden="true" style="margin-top:-1px;">
-            <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.04-7.67-7.81-11.96-14.34-5.77-8.7-10.15-18.47-13.14-29.31-2.99-10.85-4.49-21.41-4.49-31.69 0-14.15 3.58-25.92 10.74-35.32 7.16-9.4 16.14-14.24 26.94-14.53 4.8 0 10.16 1.25 16.08 3.75 5.92 2.5 9.87 3.84 11.85 4.02 2.72-.42 7.08-1.9 13.08-4.44 6-2.54 11.29-3.72 15.86-3.53 12.19.82 21.96 5.48 29.33 13.98-10.66 6.42-15.88 15.34-15.67 26.76.22 8.92 3.69 16.31 10.42 22.18 6.73 5.87 14.57 9.24 23.52 10.11-2.07 6.31-4.78 12.63-8.14 18.96zM119.22 33.15c0-7.39 2.61-14.18 7.82-20.37 5.21-6.19 11.63-10.23 19.26-12.12.87 3.92 1.3 7.57 1.3 10.95 0 7.39-2.67 14.28-8.02 20.67-5.35 6.39-11.97 10.46-19.86 12.21-.22-3.8-.5-7.58-.5-11.34z"/>
-          </svg>
+        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.4/Inline-v1.4-macOS.dmg" class="btn-primary" id="downloadMacBtn">
           <span>Download for macOS (v1.4)</span>
         </a>
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" class="btn-secondary" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
           <span>GitHub</span>
         </a>
+        <span class="download-stat" id="downloadStat"><strong id="downloadCountNum">35</strong> downloads so far</span>
+      </div>
+
+      <!-- Post-Download Email Prompt to Increase Stat -->
+      <div class="download-email-prompt" id="downloadEmailPrompt">
+        <p>
+          <strong>Thanks for downloading Inline.</strong> Since Inline has zero telemetry, would you like to send a quick email so I can officially add +1 to the public download counter?
+        </p>
+        <div class="download-email-row">
+          <input type="text" class="download-email-input" id="downloadEmailNote" value="Hey Lakshman — I just downloaded Inline for macOS (+1 to the download counter)!" aria-label="Optional note for email" />
+          <a href="mailto:lakshman.r.2008@gmail.com?subject=Inline%20macOS%20Download%20(%2B1%20Stat)&body=Hey%20Lakshman%20%E2%80%94%20I%20just%20downloaded%20Inline%20for%20macOS%20(%2B1%20to%20the%20download%20counter)!" class="btn-email-stat" id="sendStatEmailBtn">Write Email (+1 Stat)</a>
+          <button type="button" class="btn-email-dismiss" id="dismissEmailPromptBtn">Dismiss</button>
+        </div>
       </div>
 
       <!-- Terminal Commands: brew & curl -->
@@ -1534,8 +1554,10 @@ EngineMode <span class="fn">PowerMonitor::currentEngineMode</span>() {
             <tr>
               <td>
                 <div class="cat-icon-wrap">
-                  <svg class="cat-icon" viewBox="0 0 170 170" fill="currentColor" aria-hidden="true">
-                    <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.04-7.67-7.81-11.96-14.34-5.77-8.7-10.15-18.47-13.14-29.31-2.99-10.85-4.49-21.41-4.49-31.69 0-14.15 3.58-25.92 10.74-35.32 7.16-9.4 16.14-14.24 26.94-14.53 4.8 0 10.16 1.25 16.08 3.75 5.92 2.5 9.87 3.84 11.85 4.02 2.72-.42 7.08-1.9 13.08-4.44 6-2.54 11.29-3.72 15.86-3.53 12.19.82 21.96 5.48 29.33 13.98-10.66 6.42-15.88 15.34-15.67 26.76.22 8.92 3.69 16.31 10.42 22.18 6.73 5.87 14.57 9.24 23.52 10.11-2.07 6.31-4.78 12.63-8.14 18.96zM119.22 33.15c0-7.39 2.61-14.18 7.82-20.37 5.21-6.19 11.63-10.23 19.26-12.12.87 3.92 1.3 7.57 1.3 10.95 0 7.39-2.67 14.28-8.02 20.67-5.35 6.39-11.97 10.46-19.86 12.21-.22-3.8-.5-7.58-.5-11.34z"/>
+                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
                   </svg>
                   <span>Apple Native</span>
                 </div>
@@ -1835,6 +1857,49 @@ ctest --test-dir build_release --output-on-failure</pre>
         });
       });
     });
+
+    // Download Counter & Post-Download Email Stat Prompt
+    (function () {
+      const BASE_DOWNLOADS = 35;
+      const downloadBtn = document.getElementById('downloadMacBtn');
+      const countEl = document.getElementById('downloadCountNum');
+      const promptEl = document.getElementById('downloadEmailPrompt');
+      const noteInput = document.getElementById('downloadEmailNote');
+      const sendBtn = document.getElementById('sendStatEmailBtn');
+      const dismissBtn = document.getElementById('dismissEmailPromptBtn');
+
+      let bonus = parseInt(localStorage.getItem('inline_dl_bonus') || '0', 10);
+      if (isNaN(bonus) || bonus < 0) bonus = 0;
+      if (countEl) countEl.textContent = String(BASE_DOWNLOADS + bonus);
+
+      function syncMailto() {
+        if (!sendBtn || !noteInput) return;
+        const msg = noteInput.value.trim() || 'Hey Lakshman — I just downloaded Inline for macOS (+1 to the download counter)!';
+        const subj = encodeURIComponent('Inline macOS Download (+1 Stat)');
+        const body = encodeURIComponent(msg);
+        sendBtn.href = 'mailto:lakshman.r.2008@gmail.com?subject=' + subj + '&body=' + body;
+      }
+
+      if (noteInput) {
+        noteInput.addEventListener('input', syncMailto);
+        syncMailto();
+      }
+
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => {
+          bonus += 1;
+          localStorage.setItem('inline_dl_bonus', String(bonus));
+          if (countEl) countEl.textContent = String(BASE_DOWNLOADS + bonus);
+          if (promptEl) promptEl.classList.add('visible');
+        });
+      }
+
+      if (dismissBtn && promptEl) {
+        dismissBtn.addEventListener('click', () => {
+          promptEl.classList.remove('visible');
+        });
+      }
+    })();
 
     // ===== Live Simulator: faithful in-browser port of Inline C++20 Engine (corrector.cpp + ngram_predictor.cpp) =====
     (function () {
