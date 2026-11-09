@@ -302,6 +302,18 @@
     }
 
     /* Interactive Simulator */
+    .sim-intro {
+      margin-bottom: 10px;
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--ink-secondary);
+    }
+
+    .sim-intro strong {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
     .sim-wrap {
       background-color: var(--surface);
       border: 1px solid var(--border);
@@ -982,6 +994,9 @@
     </section>
 
     <!-- Interactive Simulator -->
+    <p class="sim-intro">
+      <strong>Try it live in your browser:</strong> The editor below runs Inline's full 83,017-word and 243,342-bigram engine directly on the page. Click inside and start typing naturally &mdash; make typos and press <code>Space</code>, test context pairs like <code>need helo</code> vs. <code>say helo</code>, press <code>Tab</code> to accept Ghost Text predictions, press <code>Backspace</code> right after any correction for Single-Key Undo, or click a preset below to watch it type in real time.
+    </p>
     <section class="sim-wrap" id="demo">
       <div class="sim-header">
         <span class="sim-title">Live Simulator <span class="sim-stats" id="simStats"></span></span>
