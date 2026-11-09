@@ -301,11 +301,81 @@
       transform: scale(0.95);
     }
 
-    /* Interactive Simulator */
+    /* Interactive Simulator & Gold Glow Callout */
+    .sim-callout {
+      margin-top: 8px;
+      margin-bottom: 14px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.10) 0%, rgba(245, 158, 11, 0.04) 100%);
+      border: 1px solid rgba(245, 158, 11, 0.42);
+      box-shadow: 0 0 24px -4px rgba(245, 158, 11, 0.18);
+    }
+
+    [data-theme="dark"] .sim-callout {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, rgba(245, 158, 11, 0.04) 100%);
+      border-color: rgba(251, 191, 36, 0.45);
+      box-shadow: 0 0 28px -4px rgba(251, 191, 36, 0.20);
+    }
+
+    .sim-callout-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+
+    .try-it-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      border-radius: 6px;
+      color: #92400e;
+      background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+      border: 1px solid #f59e0b;
+      box-shadow: 0 0 14px rgba(245, 158, 11, 0.45);
+      cursor: pointer;
+    }
+
+    [data-theme="dark"] .try-it-badge {
+      color: #fef3c7;
+      background: linear-gradient(180deg, rgba(245, 158, 11, 0.32) 0%, rgba(217, 119, 6, 0.24) 100%);
+      border-color: #fbbf24;
+      box-shadow: 0 0 16px rgba(251, 191, 36, 0.42);
+    }
+
+    .try-it-arrow {
+      width: 14px;
+      height: 14px;
+      stroke: currentColor;
+      stroke-width: 2.4;
+      fill: none;
+      animation: bounceArrow 1.6s ease-in-out infinite;
+    }
+
+    @keyframes bounceArrow {
+      0%, 100% { transform: translateY(-1px); }
+      50% { transform: translateY(2.5px); }
+    }
+
+    .sim-callout-heading {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      color: var(--ink);
+    }
+
     .sim-intro {
-      margin-bottom: 10px;
-      font-size: 13.5px;
-      line-height: 1.55;
+      margin: 0;
+      font-size: 14.5px;
+      line-height: 1.6;
       color: var(--ink-secondary);
     }
 
@@ -316,10 +386,17 @@
 
     .sim-wrap {
       background-color: var(--surface);
-      border: 1px solid var(--border);
+      border: 1.5px solid rgba(245, 158, 11, 0.55);
       border-radius: 10px;
       margin-bottom: 48px;
       overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.15), 0 8px 28px -4px rgba(245, 158, 11, 0.16), 0 0 38px -8px rgba(251, 191, 36, 0.22);
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .sim-wrap:focus-within {
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25), 0 10px 34px -4px rgba(245, 158, 11, 0.26), 0 0 48px -6px rgba(251, 191, 36, 0.32);
     }
 
     .sim-header {
@@ -1014,9 +1091,21 @@
     </section>
 
     <!-- Interactive Simulator -->
-    <p class="sim-intro">
-      <strong>Try it live in your browser:</strong> The editor below runs Inline's full 83,017-word and 243,342-bigram engine directly on the page. Click inside and start typing naturally &mdash; make typos and press <code>Space</code>, test context pairs like <code>need helo</code> vs. <code>say helo</code>, press <code>Tab</code> to accept Ghost Text predictions, press <code>Backspace</code> right after any correction for Single-Key Undo, or click a preset below to watch it type in real time.
-    </p>
+    <div class="sim-callout" onclick="document.getElementById('demoInput').focus()">
+      <div class="sim-callout-top">
+        <span class="try-it-badge">
+          <span>Try It Out</span>
+          <svg class="try-it-arrow" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="12" y1="4" x2="12" y2="19"></line>
+            <polyline points="6 13 12 19 18 13"></polyline>
+          </svg>
+        </span>
+        <span class="sim-callout-heading">Experience Inline live &mdash; just start typing below</span>
+      </div>
+      <p class="sim-intro">
+        The box below runs Inline's full <strong>83,017-word</strong> and <strong>243,342-bigram</strong> engine directly in your browser. Click inside and type naturally to watch it work: make typos and press <code>Space</code>, test context pairs like <code>need helo</code> vs. <code>say helo</code>, press <code>Tab</code> to chain Ghost Text predictions, press <code>Backspace</code> right after any fix for Single-Key Undo, or click a preset chip at the bottom.
+      </p>
+    </div>
     <section class="sim-wrap" id="demo">
       <div class="sim-header">
         <span class="sim-title">Live Simulator <span class="sim-stats" id="simStats"></span></span>
