@@ -993,7 +993,7 @@
 
       <div class="sim-body" id="typingContainer">
         <div class="ghost-layer" id="ghostLayer" aria-hidden="true"><span class="ghost-mirror-typed" id="ghostMirror"></span><span class="ghost-prediction" id="ghostText"></span><span class="ghost-mirror-after" id="ghostMirrorAfter"></span></div>
-        <textarea class="real-typing-input" id="demoInput" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type anything. Try: teh, recieve, definately, whenI, dont, or just start a sentence."></textarea>
+        <textarea class="real-typing-input" id="demoInput" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type anything freely — try typos (teh, recieve, wich), context (need helo vs say helo), compounds (whenI, timerighte), slang (ngl, repo), or Ghost Text (Looking forward + Tab)..."></textarea>
       </div>
 
       <div class="sim-footer">
@@ -1001,12 +1001,16 @@
           <span><span class="kbd">Space</span> autocorrect</span>
           <span><span class="kbd">Tab</span> accept</span>
           <span><span class="kbd">Backspace</span> undo</span>
+          <span><span class="kbd">Enter</span> raw newline</span>
           <span class="event-status-pill" id="eventStatus"></span>
         </div>
         <div class="sim-samples">
-          <button class="sample-chip" data-text="i dont recieve teh emails ">Typos</button>
-          <button class="sample-chip" data-text="whenI get home thecat is asleep ">Run-together</button>
-          <button class="sample-chip" data-text="thank you for ">Ghost text</button>
+          <button class="sample-chip" data-text="i dont recieve teh emails and definately need your Input ">Typos</button>
+          <button class="sample-chip" data-text="i need helo when i say helo away frm teh application frm ">Context</button>
+          <button class="sample-chip" data-text="whenI check ofcourse timerighte twowords ">Run-together</button>
+          <button class="sample-chip" data-text="ngl idk why teh git reop pr failed on cli ">Slang &amp; Dev</button>
+          <button class="sample-chip" data-text="Looking forward">Ghost text</button>
+          <button class="sample-chip" id="simClearBtn" type="button">Clear</button>
         </div>
       </div>
     </section>
@@ -1817,7 +1821,7 @@ ctest --test-dir build_release --output-on-failure</pre>
       });
     });
 
-    // ===== Live Simulator: real dictionary-driven engine (runs entirely in the browser) =====
+    // ===== Live Simulator: faithful in-browser port of Inline C++20 Engine (corrector.cpp + ngram_predictor.cpp) =====
     (function () {
       const demoInput = document.getElementById('demoInput');
       const ghostLayer = document.getElementById('ghostLayer');
@@ -1828,273 +1832,1086 @@ ctest --test-dir build_release --output-on-failure</pre>
       const simStats = document.getElementById('simStats');
       const modeMulti = document.getElementById('modeMulti');
       const modeOne = document.getElementById('modeOne');
+      const simClearBtn = document.getElementById('simClearBtn');
       if (!demoInput) return;
 
-      const LOG = Math.log10;
-      const engine = { ready: false, uni: new Map(), sorted: [], byLen: [], bi: new Map(), next: new Map() };
+      const LOG10 = Math.log10;
+      const uni = new Map();
+      const byLen = [];
+      const prefix2 = new Map();
+      const bi = new Map();
+      const biNext = new Map();
       const suppressed = new Set();
+      const dpBuf = new Int32Array(1024);
+
+      let engineReady = false;
       let activeMode = 'multi';
       let lastAction = null;
       let justAccepted = false;
       let typingTimer = null;
       let statusTimer = null;
 
-      // ---------- Data loading ----------
-      function setStats(t) { if (simStats) simStats.textContent = t; }
-
-      function loadEngine() {
-        const t0 = performance.now();
-        setStats('loading dictionary...');
-        const get = (p) => fetch(p).then((r) => { if (!r.ok) throw new Error(p); return r.text(); });
-        return Promise.all([get('data/unigrams.txt'), get('data/bigrams.txt')]).then(([u, b]) => {
-          const uLines = u.split('\n');
-          for (let i = 0; i < uLines.length; i++) {
-            const line = uLines[i];
-            const sp = line.indexOf(' ');
-            if (sp < 1) continue;
-            engine.uni.set(line.slice(0, sp), parseInt(line.slice(sp + 1), 10));
-          }
-          engine.sorted = Array.from(engine.uni.keys()).sort();
-          for (const w of engine.uni.keys()) {
-            (engine.byLen[w.length] = engine.byLen[w.length] || []).push(w);
-          }
-          const bLines = b.split('\n');
-          for (let i = 0; i < bLines.length; i++) {
-            const p = bLines[i].split(' ');
-            if (p.length !== 3) continue;
-            const f = parseInt(p[2], 10);
-            engine.bi.set(p[0] + ' ' + p[1], f);
-            let arr = engine.next.get(p[0]);
-            if (!arr) { arr = []; engine.next.set(p[0], arr); }
-            if (arr.length < 6) arr.push([p[1], f]);
-          }
-          engine.ready = true;
-          const ms = Math.round(performance.now() - t0);
-          setStats(engine.uni.size.toLocaleString() + ' words, ' + engine.bi.size.toLocaleString() + ' bigrams, loaded in ' + ms + ' ms');
-          updatePredictions();
-        }).catch(() => {
-          setStats('dictionary failed to load (open the page over http)');
-        });
-      }
-
-      // ---------- Spell correction (bounded Damerau-Levenshtein, OSA) ----------
-      function osa(a, b, max) {
-        const la = a.length, lb = b.length;
-        if (Math.abs(la - lb) > max) return max + 1;
-        let prev2 = null;
-        let prev = new Array(lb + 1);
-        let cur = new Array(lb + 1);
-        for (let j = 0; j <= lb; j++) prev[j] = j;
-        for (let i = 1; i <= la; i++) {
-          cur[0] = i;
-          let rowMin = i;
-          for (let j = 1; j <= lb; j++) {
-            const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
-            let v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
-            if (i > 1 && j > 1 && a.charCodeAt(i - 1) === b.charCodeAt(j - 2) && a.charCodeAt(i - 2) === b.charCodeAt(j - 1)) {
-              v = Math.min(v, prev2[j - 2] + 1);
-            }
-            cur[j] = v;
-            if (v < rowMin) rowMin = v;
-          }
-          if (rowMin > max) return max + 1;
-          prev2 = prev; prev = cur; cur = new Array(lb + 1);
+      function charMask(w) {
+        let m = 0;
+        for (let i = 0; i < w.length; i++) {
+          const c = w.charCodeAt(i) - 97;
+          if (c >= 0 && c < 26) m |= (1 << c);
         }
-        return prev[lb];
+        return m;
       }
 
-      function bigramScore(prevWord, w) {
-        if (!prevWord) return 0;
-        const bf = engine.bi.get(prevWord + ' ' + w);
-        return bf ? 1.5 * LOG(bf) : 0;
+      function popcnt(x) {
+        x = x - ((x >>> 1) & 0x55555555);
+        x = (x & 0x33333333) + ((x >>> 2) & 0x33333333);
+        return (((x + (x >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
       }
 
-      function spellCandidate(lower, prevWord) {
-        const maxEd = lower.length <= 2 ? 0 : (lower.length <= 4 ? 1 : 2);
-        if (maxEd === 0) return null;
-        let best = null;
-        let bestD = maxEd + 1;
-        for (let L = lower.length - maxEd; L <= lower.length + maxEd; L++) {
-          const arr = engine.byLen[L];
-          if (!arr) continue;
-          for (let i = 0; i < arr.length; i++) {
-            const w = arr[i];
-            const d = osa(lower, w, Math.min(bestD, maxEd));
-            if (d > maxEd || d > bestD) continue;
-            let s = LOG(engine.uni.get(w)) + bigramScore(prevWord, w);
-            if (w[0] === lower[0]) s += 0.5;
-            if (d < bestD || (d === bestD && s > best.s)) { bestD = d; best = { w: w, s: s, d: d }; }
+      function parseDictionaries(uniText, biText) {
+        uni.clear();
+        byLen.length = 0;
+        prefix2.clear();
+        bi.clear();
+        biNext.clear();
+
+        const uLines = uniText.split('\n');
+        for (let i = 0; i < uLines.length; i++) {
+          const line = uLines[i].trim();
+          if (!line) continue;
+          const sp = line.indexOf(' ');
+          if (sp < 1) continue;
+          const w = line.slice(0, sp).toLowerCase();
+          const f = parseInt(line.slice(sp + 1), 10);
+          if (!f || f <= 0) continue;
+          const prev = uni.get(w);
+          if (prev === undefined || f > prev) uni.set(w, f);
+        }
+
+        for (const [w, c] of uni.entries()) {
+          const L = w.length;
+          if (!byLen[L]) byLen[L] = [];
+          const entry = { w, c, m: charMask(w) };
+          byLen[L].push(entry);
+          if (L >= 2) {
+            const p2 = w.slice(0, 2);
+            let pArr = prefix2.get(p2);
+            if (!pArr) { pArr = []; prefix2.set(p2, pArr); }
+            pArr.push(entry);
           }
         }
-        return best;
-      }
-
-      function okPart(p, minLen) {
-        return engine.uni.has(p) && (p.length >= minLen || p === 'a' || p === 'i');
-      }
-
-      // Run-together word splitting: best 2-way (then 3-way) dictionary segmentation
-      function segment(lower, prevWord) {
-        if (lower.length < 4) return null;
-        let best = null;
-        for (let i = 1; i < lower.length; i++) {
-          const w1 = lower.slice(0, i), w2 = lower.slice(i);
-          if (!okPart(w1, 2) || !okPart(w2, 2)) continue;
-          const bf = engine.bi.get(w1 + ' ' + w2) || 0;
-          let s = LOG(engine.uni.get(w1)) + LOG(engine.uni.get(w2)) + (bf ? 1.5 * LOG(bf) : 0) + bigramScore(prevWord, w1);
-          const lens = [w1, w2].filter((x) => x !== 'a' && x !== 'i').map((x) => x.length);
-          if (!best || s > best.s) best = { text: w1 + ' ' + w2, s: s, bf: bf, minLen: lens.length ? Math.min.apply(null, lens) : 1, minF: Math.min(engine.uni.get(w1), engine.uni.get(w2)) };
+        for (const pArr of prefix2.values()) {
+          pArr.sort((a, b) => b.c - a.c);
         }
-        if (best) return best;
-        for (let i = 3; i < lower.length - 5; i++) {
-          for (let j = i + 3; j < lower.length - 2; j++) {
-            const a = lower.slice(0, i), b = lower.slice(i, j), c = lower.slice(j);
-            if (!okPart(a, 3) || !okPart(b, 3) || !okPart(c, 3)) continue;
-            const s = LOG(engine.uni.get(a)) + LOG(engine.uni.get(b)) + LOG(engine.uni.get(c)) - 6;
-            if (!best || s > best.s) best = { text: a + ' ' + b + ' ' + c, s: s, bf: 0, minLen: 3 };
+
+        const bLines = biText.split('\n');
+        for (let i = 0; i < bLines.length; i++) {
+          const line = bLines[i].trim();
+          if (!line) continue;
+          const parts = line.split(/\s+/);
+          if (parts.length < 3) continue;
+          const w1 = parts[0].toLowerCase();
+          const w2 = parts[1].toLowerCase();
+          const cnt = parseInt(parts[2], 10);
+          if (!cnt || cnt <= 0) continue;
+          const key = w1 + ' ' + w2;
+          const prev = bi.get(key) || 0;
+          if (cnt > prev) bi.set(key, cnt);
+
+          let bucket = biNext.get(w1);
+          if (!bucket) {
+            bucket = { total: 0, top: [] };
+            biNext.set(w1, bucket);
           }
+          bucket.total += cnt;
+          bucket.top.push([w2, cnt]);
         }
-        return best;
+
+        for (const bucket of biNext.values()) {
+          bucket.top.sort((a, b) => b[1] - a[1]);
+          if (bucket.top.length > 10) bucket.top.length = 10;
+        }
+        engineReady = true;
       }
 
-      const CONTRACTIONS = {
-        dont: "don't", doesnt: "doesn't", didnt: "didn't", cant: "can't", wont: "won't", isnt: "isn't",
-        arent: "aren't", wasnt: "wasn't", werent: "weren't", hasnt: "hasn't", havent: "haven't",
-        hadnt: "hadn't", couldnt: "couldn't", wouldnt: "wouldn't", shouldnt: "shouldn't",
-        im: "I'm", ive: "I've", thats: "that's", whats: "what's", theres: "there's", theyre: "they're",
-        youre: "you're", youve: "you've", youll: "you'll", theyll: "they'll", weve: "we've", lets: "let's"
+      // Synchronous bootstrap dictionary so the simulator works at t = 0 ms even before fetch() completes
+      const BOOTSTRAP_UNIGRAMS = [
+        'the 23135851162', 'of 13151942776', 'and 12997637966', 'to 12136980858', 'a 9081174698',
+        'in 8469404971', 'for 5933321709', 'is 4705743816', 'on 3750423199', 'that 3400031103',
+        'by 3350048871', 'this 3228469771', 'with 3183110675', 'i 3086225277', 'you 2996181025',
+        'it 2813163874', 'not 2633487141', 'or 2590739907', 'be 2398724162', 'are 2393614870',
+        'from 2275595356', 'at 2272272772', 'as 2247431740', 'your 2062066547', 'all 2022459848',
+        'have 1564202750', 'new 1551258643', 'more 1544771673', 'an 1518266684', 'was 1483426270',
+        'we 1390661912', 'will 1356293641', 'home 1276852150', 'can 1242323499', 'us 1229112625',
+        'about 1226734006', 'if 1134987907', 'my 1059436418', 'has 1046319984', 'but 999899654',
+        'our 998757982', 'one 993536631', 'other 978481319', 'do 950751722', 'no 937112320',
+        'time 908705570', 'they 883223816', 'he 842847219', 'up 829969374', 'may 827822032',
+        'what 812420501', 'which 810514085', 'their 782849411', 'out 774822849', 'use 719980257',
+        'any 710741293', 'there 701536281', 'see 681410380', 'only 661844114', 'so 661809559',
+        'his 660177731', 'when 650671178', 'here 597605424', 'who 593059642', 'also 589917805',
+        'now 581683505', 'help 548510390', 'get 544032840', 'pm 533790000', 'view 523450000',
+        'first 497240000', 'am 490120000', 'been 488500000', 'would 472900000', 'how 465200000',
+        'were 458900000', 'me 455300000', 'some 451200000', 'these 441800000', 'click 435000000',
+        'its 430000000', 'like 428000000', 'than 421000000', 'find 409000000', 'back 395000000',
+        'top 390000000', 'had 388000000', 'into 384000000', 'just 381000000', 'over 375000000',
+        'two 372000000', 'world 365000000', 'next 361000000', 'used 358000000', 'go 355000000',
+        'work 351000000', 'last 349000000', 'most 345000000', 'need 342000000', 'make 339000000',
+        'right 335000000', 'know 331000000', 'take 328000000', 'good 325000000', 'well 320000000',
+        'where 315000000', 'much 312000000', 'should 309000000', 'very 305000000', 'even 298000000',
+        'way 295000000', 'many 291000000', 'such 288000000', 'those 285000000', 'after 282000000',
+        'please 278000000', 'form 275000000', 'same 271000000', 'each 268000000', 'let 265000000',
+        'still 261000000', 'great 258000000', 'going 255000000', 'look 252000000', 'before 249000000',
+        'little 245000000', 'think 242000000', 'best 239000000', 'both 235000000', 'long 232000000',
+        'down 228000000', 'life 225000000', 'under 221000000', 'never 218000000', 'day 215000000',
+        'could 212000000', 'working 208000000', 'part 205000000', 'through 202000000', 'using 198000000',
+        'want 195000000', 'people 192000000', 'system 189000000', 'made 185000000', 'found 182000000',
+        'every 178000000', 'between 175000000', 'while 172000000', 'able 168000000', 'Come 165000000',
+        'check 162000000', 'Being 159000000', 'course 156000000', 'send 152000000', 'team 149000000',
+        'looking 146000000', 'forward 142000000', 'thank 139000000', 'thanks 136000000', 'hearing 132000000',
+        'words 129000000', 'class 126000000', 'evening 122000000', 'least 119000000', 'say 116000000',
+        'hello 112000000', 'away 109000000', 'application 106000000', 'receive 98000000', 'emails 95000000',
+        'definitely 92000000', 'separate 89000000', 'occurred 86000000', 'accommodate 82000000',
+        'briefly 79000000', 'sharply 76000000', 'smoothly 72000000', 'input 95000000', 'failed 85000000',
+        'unit 82000000', 'tests 80000000', 'passing 65000000', 'cleanly 45000000', 'meeting 110000000',
+        'program 140000000', 'defined 90000000', 'git 50000000', 'commit 48000000', 'pull 52000000',
+        'request 125000000', 'repo 45000000', 'dev 48000000', 'pr 55000000', 'cli 42000000',
+        'sdk 40000000', 'api 65000000', 'auth 38000000', 'async 35000000', 'gng 25000000',
+        'brb 25000000', 'ttyl 25000000', 'idk 35000000', 'ngl 35000000', 'tbh 38000000', 'why 180000000'
+      ].join('\n');
+
+      const BOOTSTRAP_BIGRAMS = [
+        'need help 4500000', 'please help 2800000', 'for help 3100000', 'can help 4200000',
+        'some help 1900000', 'say hello 1800000', 'away from 8900000', 'application form 3500000',
+        'clone repo 950000', 'git repo 1200000', 'this repo 850000', 'the repo 920000',
+        'when i 4200000', 'that i 3900000', 'if i 2800000', 'what i 2100000', 'and i 4800000',
+        'of course 9500000', 'at least 8800000', 'each other 7600000', 'two words 950000',
+        'the class 1400000', 'of evening 420000', 'time right 890000', 'looking forward 4600000',
+        'forward to 5200000', 'thank you 9800000', 'please let 3400000', 'let me 6100000'
+      ].join('\n');
+
+      // ---------- Exact C++ Corrector Rules (core/tier1/corrector.cpp) ----------
+      const QWERTY_NEIGHBORS = {
+        a: 'qwsz', b: 'vghn', c: 'xdfv', d: 'ersfxc', e: 'wsdr', f: 'rtgvcd',
+        g: 'tyhbvf', h: 'yujnbg', i: 'ujko', j: 'uikmnh', k: 'ijlm', l: 'okp',
+        m: 'njk', n: 'bhjm', o: 'iklp', p: 'ol', q: 'wa', r: 'edft',
+        s: 'wedxza', t: 'rfgy', u: 'yhji', v: 'cfgb', w: 'qase', x: 'zsdc',
+        y: 'tghu', z: 'asx'
       };
 
-      function applyCase(raw, out) {
-        if (raw.length > 1 && raw === raw.toUpperCase()) return out.toUpperCase();
-        if (/^[A-Z]/.test(raw)) return out.charAt(0).toUpperCase() + out.slice(1);
-        return out;
+      function areKeyboardNeighbors(a, b) {
+        if (a === b) return true;
+        const n = QWERTY_NEIGHBORS[a];
+        return n ? n.indexOf(b) !== -1 : false;
       }
 
-      function correctWord(raw, prevWord, sentenceStart) {
-        const lower = raw.toLowerCase();
-        let result = raw;
-        const hasDigitOrSym = /[0-9_@#\/\\]/.test(raw);
+      function isSubsequence(shorter, longer) {
+        let i = 0, j = 0;
+        while (i < shorter.length && j < longer.length) {
+          if (shorter.charCodeAt(i) === longer.charCodeAt(j)) i++;
+          j++;
+        }
+        return i === shorter.length;
+      }
 
-        if (hasDigitOrSym) {
-          result = raw;
-        } else if (raw.indexOf("'") >= 0) {
-          if (/^i'/i.test(raw)) result = 'I' + raw.slice(1);
-        } else if (suppressed.has(lower)) {
-          result = raw;
-        } else if (/^[a-z]{2,}I$/.test(raw) && engine.uni.has(raw.slice(0, -1))) {
-          result = raw.slice(0, -1) + ' I';
-        } else if (/[a-z][A-Z]/.test(raw)) {
-          result = raw;
-        } else if (CONTRACTIONS[lower]) {
-          result = applyCase(raw, CONTRACTIONS[lower]);
-        } else if (lower === 'i') {
-          result = 'I';
-        } else if (engine.uni.has(lower)) {
-          result = raw;
-        } else if (lower.length >= 3) {
-          const allCaps = raw === raw.toUpperCase();
-          const cand = spellCandidate(lower, prevWord);
-          const seg = allCaps ? null : segment(lower, prevWord);
-          let out = null;
-          const segTrusted = seg && (seg.bf > 0 || seg.minF >= 2e7);
-          if (seg && segTrusted && (!cand || (seg.bf > 0 && seg.minLen >= 2) || (cand.d >= 2 && seg.minLen >= 3))) {
-            out = seg.text;
-          } else if (cand && (!allCaps || (cand.d === 1 && engine.uni.get(cand.w) >= 1e8))) {
-            out = cand.w;
+      function isAllUpper(s) {
+        if (s.length <= 1) return false;
+        let hasAlpha = false;
+        for (let i = 0; i < s.length; i++) {
+          const ch = s[i];
+          if (/[a-zA-Z]/.test(ch)) {
+            hasAlpha = true;
+            if (ch !== ch.toUpperCase()) return false;
           }
-          if (out) result = applyCase(raw, out);
         }
-
-        if (sentenceStart && /^[a-z]/.test(result)) {
-          result = result.charAt(0).toUpperCase() + result.slice(1);
-        }
-        return result !== raw ? result : null;
+        return hasAlpha;
       }
 
-      // ---------- Prediction (prefix completion + bigram continuation) ----------
-      function lowerBound(prefix) {
-        const arr = engine.sorted;
-        let lo = 0, hi = arr.length;
-        while (lo < hi) {
-          const mid = (lo + hi) >> 1;
-          if (arr[mid] < prefix) lo = mid + 1; else hi = mid;
+      function isCapitalized(s) {
+        if (!s || !/^[A-Z]/.test(s)) return false;
+        for (let i = 1; i < s.length; i++) {
+          const ch = s[i];
+          if (/[a-zA-Z]/.test(ch) && ch !== ch.toLowerCase()) return false;
         }
-        return lo;
+        return true;
       }
 
-      function bestCompletion(curL, prevWord) {
-        if (curL.length < 2) return null;
-        const arr = engine.sorted;
-        let best = null, bestS = -Infinity;
-        for (let i = lowerBound(curL); i < arr.length && arr[i].startsWith(curL); i++) {
-          const w = arr[i];
-          if (w.length === curL.length) continue;
-          const s = LOG(engine.uni.get(w)) + bigramScore(prevWord, w);
-          if (s > bestS) { bestS = s; best = w; }
+      function applyCasing(corrected, originalTyped) {
+        if (!corrected) return corrected;
+        if (isAllUpper(originalTyped)) return corrected.toUpperCase();
+        if (isCapitalized(originalTyped) || /^[A-Z]/.test(originalTyped)) {
+          return corrected[0].toUpperCase() + corrected.slice(1);
         }
-        return best;
+        return corrected;
       }
 
-      function chain(prev, count, lead) {
-        const out = [];
-        const seen = new Set([prev]);
-        let p = prev;
-        for (let i = 0; i < count; i++) {
-          const arr = engine.next.get(p);
-          if (!arr) break;
-          let pick = null;
-          for (let k = 0; k < arr.length; k++) { if (!seen.has(arr[k][0])) { pick = arr[k][0]; break; } }
-          if (!pick) break;
-          out.push(pick === 'i' ? 'I' : pick);
-          seen.add(pick);
-          p = pick;
-        }
-        return out.length ? lead + out.join(' ') : '';
-      }
-
-      function prevWordOf(head) {
-        if (/[.!?]\s*$/.test(head) || /\n\s*$/.test(head)) return null;
-        const m = head.match(/([A-Za-z']+)\s*$/);
-        return m ? m[1].toLowerCase() : null;
-      }
-
-      function predictText(before, after, mode, forceNext) {
-        if (!engine.ready || !before) return '';
-        if (after && /^[A-Za-z0-9]/.test(after)) return '';
-        const maxWords = mode === 'one' ? 1 : 3;
-        const m = before.match(/([A-Za-z']+)$/);
-        if (m) {
-          const cur = m[1];
-          const curL = cur.toLowerCase();
-          const prev = prevWordOf(before.slice(0, before.length - cur.length));
-          if (!forceNext) {
-            const comp = bestCompletion(curL, prev);
-            if (comp) {
-              if (!engine.uni.has(curL)) {
-                let out = comp.slice(curL.length);
-                if (mode !== 'one') out += chain(comp, maxWords - 1, ' ');
-                return out;
+      function typoShapeBonus(typed, cand, distance) {
+        if (distance === 1) {
+          if (typed.length === cand.length) {
+            const diffs = [];
+            for (let i = 0; i < typed.length; i++) {
+              if (typed.charCodeAt(i) !== cand.charCodeAt(i)) diffs.push(i);
+            }
+            if (diffs.length === 2 && diffs[1] === diffs[0] + 1 &&
+                typed[diffs[0]] === cand[diffs[1]] && typed[diffs[1]] === cand[diffs[0]]) {
+              return 2.5;
+            }
+          }
+          if (typed.length + 1 === cand.length && isSubsequence(typed, cand)) return 2.8;
+          if (typed.length === cand.length) {
+            for (let i = 0; i < typed.length; i++) {
+              if (typed[i] !== cand[i]) {
+                return areKeyboardNeighbors(typed[i], cand[i]) ? 1.0 : 0.2;
               }
             }
           }
-          if (!engine.uni.has(curL)) return '';
-          return chain(curL, maxWords, ' ');
+          if (typed.length === cand.length + 1 && isSubsequence(cand, typed)) return 0.8;
+          return 0.0;
         }
-        if (/[ \t]$/.test(before)) {
-          const prev = prevWordOf(before);
-          return prev ? chain(prev, maxWords, '') : '';
+        if (distance === 2) {
+          if (typed.length + 2 === cand.length && isSubsequence(typed, cand)) return 1.2;
+          if (typed.length === cand.length + 2 && isSubsequence(cand, typed)) return 0.6;
         }
-        return '';
+        return 0.0;
       }
 
-      // ---------- UI plumbing ----------
+      const COMMON_EXPANSIONS = {
+        i: 'I',
+        im: "I'm",
+        ive: "I've",
+        id: "I'd",
+        ill: "I'll",
+        dont: "don't",
+        cant: "can't",
+        wont: "won't",
+        didnt: "didn't",
+        doesnt: "doesn't",
+        isnt: "isn't",
+        arent: "aren't",
+        wasnt: "wasn't",
+        werent: "weren't",
+        hasnt: "hasn't",
+        havent: "haven't",
+        hadnt: "hadn't",
+        couldnt: "couldn't",
+        shouldnt: "shouldn't",
+        wouldnt: "wouldn't",
+        theyre: "they're",
+        youre: "you're",
+        weve: "we've",
+        theyve: "they've",
+        youve: "you've",
+        whats: "what's",
+        thats: "that's",
+        lets: "let's",
+        theres: "there's",
+        heres: "here's",
+        hows: "how's",
+        whos: "who's",
+        wheres: "where's",
+        couldve: "could've",
+        shouldve: "should've",
+        wouldve: "would've",
+        mustnt: "mustn't",
+        mightnt: "mightn't",
+        neednt: "needn't",
+        itll: "it'll",
+        yall: "y'all",
+        youll: "you'll",
+        theyll: "they'll",
+        doenst: "doesn't",
+        knwo: 'know',
+        smothly: 'smoothly',
+        applicaiton: 'application',
+        nessasry: 'necessary',
+        permision: 'permission',
+        troble: 'trouble',
+        imediatly: 'immediately',
+        completly: 'completely',
+        autp: 'auto',
+        autpcrreccts: 'autocorrects',
+        teh: 'the',
+        het: 'the',
+        th: 'the',
+        ths: 'this',
+        intdo: 'into',
+        duto: 'auto',
+        neht: 'next',
+        asw: 'as',
+        wors: 'words',
+        alot: 'a lot',
+        fo: 'of',
+        og: 'of'
+      };
+
+      function dlBounded(s1, s2, maxDist) {
+        let len1 = s1.length, len2 = s2.length;
+        if (Math.abs(len1 - len2) > maxDist) return maxDist + 1;
+        let start = 0;
+        while (start < len1 && start < len2 && s1.charCodeAt(start) === s2.charCodeAt(start)) start++;
+        while (len1 > start && len2 > start && s1.charCodeAt(len1 - 1) === s2.charCodeAt(len2 - 1)) { len1--; len2--; }
+        const rem1 = len1 - start, rem2 = len2 - start;
+        if (rem1 === 0) return rem2;
+        if (rem2 === 0) return rem1;
+        if (rem1 === 1 && rem2 === 1) return 1;
+        if (rem1 === 2 && rem2 === 2 && s1.charCodeAt(start) === s2.charCodeAt(start + 1) && s1.charCodeAt(start + 1) === s2.charCodeAt(start)) return 1;
+
+        const stride = rem2 + 1;
+        for (let i = 0; i <= rem1; i++) dpBuf[i * stride] = i;
+        for (let j = 0; j <= rem2; j++) dpBuf[j] = j;
+
+        for (let i = 1; i <= rem1; i++) {
+          let rowMin = maxDist + 1;
+          const c1 = s1.charCodeAt(start + i - 1);
+          for (let j = 1; j <= rem2; j++) {
+            const c2 = s2.charCodeAt(start + j - 1);
+            const cost = c1 === c2 ? 0 : 1;
+            let cell = Math.min(dpBuf[(i - 1) * stride + j] + 1, dpBuf[i * stride + j - 1] + 1, dpBuf[(i - 1) * stride + j - 1] + cost);
+            if (i > 1 && j > 1 && c1 === s2.charCodeAt(start + j - 2) && s1.charCodeAt(start + i - 2) === c2) {
+              cell = Math.min(cell, dpBuf[(i - 2) * stride + j - 2] + 1);
+            }
+            dpBuf[i * stride + j] = cell;
+            if (cell < rowMin) rowMin = cell;
+          }
+          if (rowMin > maxDist) return maxDist + 1;
+        }
+        return dpBuf[rem1 * stride + rem2];
+      }
+
+      function lookup(input, maxEditDistance) {
+        const out = [];
+        if (!input) return out;
+        const exactCount = uni.get(input);
+        if (exactCount !== undefined) {
+          out.push({ term: input, distance: 0, count: exactCount });
+        }
+        if (maxEditDistance <= 0) return out;
+        const wm = charMask(input);
+        const minL = Math.max(1, input.length - maxEditDistance);
+        const maxL = input.length + maxEditDistance;
+        for (let L = minL; L <= maxL; L++) {
+          const bucket = byLen[L];
+          if (!bucket) continue;
+          for (let i = 0; i < bucket.length; i++) {
+            const entry = bucket[i];
+            if (entry.w === input) continue;
+            if (popcnt(wm ^ entry.m) > maxEditDistance * 2) continue;
+            const d = dlBounded(input, entry.w, maxEditDistance);
+            if (d <= maxEditDistance) {
+              out.push({ term: entry.w, distance: d, count: entry.c });
+            }
+          }
+        }
+        out.sort((a, b) => (a.distance !== b.distance ? a.distance - b.distance : b.count - a.count));
+        return out;
+      }
+
+      function evaluateWord(typed, isSentenceStart = false, prevWord = '', maxEditDistance = 2, sentenceCorrectionEnabled = true) {
+        const result = { didCorrect: false, corrected: typed, editDistance: 0 };
+        if (!typed || typed.length > 24) return result;
+
+        const lowerTyped = typed.toLowerCase();
+        if (suppressed.has(lowerTyped)) return result;
+
+        const cleanPrev = (prevWord || '').replace(/[^a-zA-Z0-9']/g, '').toLowerCase();
+
+        // 1. Check contractions and explicit auto-cleanups
+        if (Object.prototype.hasOwnProperty.call(COMMON_EXPANSIONS, lowerTyped)) {
+          if (lowerTyped === 'og' && isAllUpper(typed)) return result;
+          let exp = COMMON_EXPANSIONS[lowerTyped];
+          if ((sentenceCorrectionEnabled && isSentenceStart) || isCapitalized(typed)) {
+            if (exp.length > 0) exp = exp[0].toUpperCase() + exp.slice(1);
+          }
+          if (exp !== typed) {
+            result.didCorrect = true;
+            result.corrected = exp;
+            result.editDistance = 1;
+          }
+          return result;
+        }
+
+        // 2. Check if already valid dictionary word
+        if (uni.has(lowerTyped)) {
+          if (sentenceCorrectionEnabled && isSentenceStart && /^[a-z]/.test(typed)) {
+            result.didCorrect = true;
+            result.corrected = typed[0].toUpperCase() + typed.slice(1);
+            result.editDistance = 0;
+          }
+          return result;
+        }
+
+        if (typed.length <= 2) {
+          if (sentenceCorrectionEnabled && isSentenceStart && /^[a-z]/.test(typed)) {
+            result.didCorrect = true;
+            result.corrected = typed[0].toUpperCase() + typed.slice(1);
+            result.editDistance = 0;
+          }
+          return result;
+        }
+
+        const isAllAlpha = /^[a-z]+$/.test(lowerTyped);
+        const effectiveMaxDist = typed.length <= 4 ? Math.min(1, maxEditDistance) : maxEditDistance;
+        const suggestions = lookup(lowerTyped, effectiveMaxDist);
+
+        let best = null;
+        let bestScore = -1e9;
+
+        for (let idx = 0; idx < suggestions.length; idx++) {
+          const s = suggestions[idx];
+          if (s.distance === 0) {
+            if (sentenceCorrectionEnabled && isSentenceStart && /^[a-z]/.test(typed)) {
+              result.didCorrect = true;
+              result.corrected = typed[0].toUpperCase() + typed.slice(1);
+              result.editDistance = 0;
+            }
+            return result;
+          }
+          if (s.distance > maxEditDistance) continue;
+          if (typed.length <= 4 && s.distance > 1) continue;
+          if (typed.length <= 2 && s.distance > 1) continue;
+          if (s.count <= 0) continue;
+
+          const logCount = LOG10(s.count);
+          const minRequiredLogCount = s.distance === 1 ? 4.0 : 4.8;
+          if (logCount < minRequiredLogCount) continue;
+
+          let matchingChars = 0;
+          let usedMask = 0;
+          const termLen = Math.min(s.term.length, 32);
+          for (let i = 0; i < lowerTyped.length; i++) {
+            const tc = lowerTyped.charCodeAt(i);
+            for (let k = 0; k < termLen; k++) {
+              if (!(usedMask & (1 << k)) && s.term.charCodeAt(k) === tc) {
+                usedMask |= (1 << k);
+                matchingChars++;
+                break;
+              }
+            }
+          }
+          const overlapRatio = matchingChars / Math.max(lowerTyped.length, s.term.length);
+          if (s.distance > 1 && overlapRatio < 0.60) continue;
+
+          let score = logCount - s.distance * 2.0 + overlapRatio * 1.5 + typoShapeBonus(lowerTyped, s.term, s.distance);
+          if (cleanPrev) {
+            const biFreq = bi.get(cleanPrev + ' ' + s.term) || 0;
+            if (biFreq > 0) score += LOG10(biFreq) * 1.5;
+          }
+
+          if (score > bestScore) {
+            bestScore = score;
+            best = s;
+          }
+        }
+
+        // 3. Run-together words & compound typos
+        let camelCaseSplit = 0;
+        let hasCamelCase = false;
+        for (let i = 1; i < typed.length; i++) {
+          if (/[a-z]/.test(typed[i - 1]) && /[A-Z]/.test(typed[i])) {
+            hasCamelCase = true;
+            camelCaseSplit = i;
+            break;
+          }
+        }
+
+        let bestSplitW1 = '';
+        let bestSplitW2 = '';
+        let bestSplitScore = -1e9;
+        let bestSplitDist = 1;
+        let bestSplitBiFreq = 0;
+        let bestSplitIsCamel = false;
+
+        if (isAllAlpha && lowerTyped.length >= 3) {
+          for (let split = 1; split < lowerTyped.length; split++) {
+            if (split === 1 && lowerTyped[0] !== 'a' && lowerTyped[0] !== 'i') continue;
+            if (split === lowerTyped.length - 1 && lowerTyped[split] !== 'a' && lowerTyped[split] !== 'i') continue;
+
+            let w1 = lowerTyped.slice(0, split);
+            let w2 = lowerTyped.slice(split);
+
+            if (w1 === 'og') w1 = 'of';
+            if (w2 === 'og') w2 = 'of';
+
+            const isCamelAtSplit = hasCamelCase && split === camelCaseSplit;
+
+            if (uni.has(w1) && uni.has(w2)) {
+              const c1 = uni.get(w1);
+              const c2 = uni.get(w2);
+              const biFreq = bi.get(w1 + ' ' + w2) || 0;
+
+              if (w1.length >= 2 && c1 < 10000) continue;
+              if (w2.length >= 2 && c2 < 10000) continue;
+              if (w1.length === 1 && !isCamelAtSplit && biFreq < 100000) continue;
+              if (w2.length === 1 && !isCamelAtSplit && biFreq < 100000) continue;
+
+              let splitScore = LOG10(c1) + LOG10(c2);
+              if (biFreq > 0) splitScore += LOG10(biFreq) * 1.5;
+              if (isCamelAtSplit) splitScore += 6.0;
+
+              if (splitScore > bestSplitScore) {
+                bestSplitScore = splitScore;
+                bestSplitW1 = w1;
+                bestSplitW2 = w2;
+                bestSplitDist = 1;
+                bestSplitBiFreq = biFreq;
+                bestSplitIsCamel = isCamelAtSplit;
+              }
+            } else if (!best && maxEditDistance >= 2 && w1.length >= 3 && w2.length >= 3 && uni.has(w1)) {
+              const c1 = uni.get(w1);
+              if (c1 >= 10000) {
+                const s2List = lookup(w2, 1);
+                for (let j = 0; j < s2List.length; j++) {
+                  const s2 = s2List[j];
+                  if (s2.distance === 1 && s2.count >= 50000) {
+                    const isTrailingExtra = w2.length > s2.term.length && w2.slice(0, s2.term.length) === s2.term;
+                    if (isTrailingExtra) {
+                      const biFreq = bi.get(w1 + ' ' + s2.term) || 0;
+                      let splitScore = LOG10(c1) + LOG10(s2.count) - 1.0;
+                      if (biFreq > 0) splitScore += LOG10(biFreq) * 1.5;
+                      if (splitScore > bestSplitScore) {
+                        bestSplitScore = splitScore;
+                        bestSplitW1 = w1;
+                        bestSplitW2 = s2.term;
+                        bestSplitDist = 2;
+                        bestSplitBiFreq = biFreq;
+                        bestSplitIsCamel = false;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        let preferSplit = false;
+        if (bestSplitW1 && bestSplitDist <= maxEditDistance) {
+          if (!best) {
+            preferSplit = bestSplitScore >= 10.0;
+          } else if (best.distance >= 2) {
+            preferSplit = bestSplitDist === 1 && bestSplitScore >= 12.0;
+          } else if (best.distance === 1) {
+            if (bestSplitIsCamel) {
+              preferSplit = true;
+            } else if (bestSplitBiFreq >= 500000 && bestSplitScore >= 20.0 && bestSplitW1.length >= 2) {
+              preferSplit = true;
+            }
+          }
+        }
+
+        if (preferSplit) {
+          result.didCorrect = true;
+          result.editDistance = bestSplitDist;
+          let c1 = bestSplitW1;
+          let c2 = bestSplitW2;
+          if (c1 === 'i') c1 = 'I';
+          else if (isAllUpper(typed)) c1 = c1.toUpperCase();
+          else if ((sentenceCorrectionEnabled && isSentenceStart) || isCapitalized(typed)) {
+            if (c1) c1 = c1[0].toUpperCase() + c1.slice(1);
+          }
+
+          if (c2 === 'i') c2 = 'I';
+          else if (c2 === 'im') c2 = "I'm";
+          else if (c2 === 'ive') c2 = "I've";
+          else if (c2 === 'id') c2 = "I'd";
+          else if (c2 === 'ill') c2 = "I'll";
+          else if (isAllUpper(typed)) c2 = c2.toUpperCase();
+
+          result.corrected = c1 + ' ' + c2;
+          return result;
+        }
+
+        if (best) {
+          result.didCorrect = true;
+          result.corrected = applyCasing(best.term, typed);
+          if (sentenceCorrectionEnabled && isSentenceStart && result.corrected.length > 0) {
+            result.corrected = result.corrected[0].toUpperCase() + result.corrected.slice(1);
+          }
+          result.editDistance = best.distance;
+          return result;
+        }
+
+        if (sentenceCorrectionEnabled && isSentenceStart && /^[a-z]/.test(typed)) {
+          result.didCorrect = true;
+          result.corrected = typed[0].toUpperCase() + typed.slice(1);
+          result.editDistance = 0;
+          return result;
+        }
+
+        return result;
+      }
+
+      // ---------- Exact C++ NgramPredictor (core/predict/ngram_predictor.cpp) ----------
+      const MULTI_WORD_PHRASES = new Map([
+        ['thank', 'you so much'],
+        ['thanks', 'for letting me know'],
+        ['looking', 'forward to'],
+        ['forward', 'to hearing from you'],
+        ['please', 'let me know'],
+        ['let', 'me know if'],
+        ['hope', 'you are doing well'],
+        ['would', 'like to'],
+        ['could', 'you please'],
+        ['should', 'be able to'],
+        ['going', 'to be'],
+        ['want', 'to make sure'],
+        ['wanted', 'to follow up'],
+        ['need', 'to be'],
+        ['able', 'to get'],
+        ['working', 'on the'],
+        ['think', 'that we'],
+        ['know', 'if you need'],
+        ['feel', 'free to reach out'],
+        ['talk', 'to you soon'],
+        ['sounds', 'good to me'],
+        ['makes', 'sense to me'],
+        ['happy', 'to help'],
+        ['excited', 'to share'],
+        ['sorry', 'for the delay'],
+        ['apologies', 'for the delay'],
+        ['attached', 'is the'],
+        ['following', 'up on'],
+        ['schedule', 'a quick call'],
+        ['meeting', 'with the team'],
+        ['questions', 'please let me know'],
+        ['because', 'of the'],
+        ['however', 'we can'],
+        ['whether', 'or not'],
+        ['welcome', 'to the'],
+        ['according', 'to the'],
+        ['instead', 'of the'],
+        ['important', 'to make sure'],
+        ['available', 'for a quick'],
+        ['definitely', 'let you know'],
+        ['appreciate', 'your help'],
+        ['thank you', 'so much'],
+        ['thank you so', 'much for your help'],
+        ['you so', 'much for your help'],
+        ['so much', 'for your help'],
+        ['much for', 'your help'],
+        ['thank you for', 'your time and help'],
+        ['you for', 'your time'],
+        ['thanks for', 'letting me know'],
+        ['for letting', 'me know'],
+        ['letting me', 'know'],
+        ['looking forward', 'to hearing from you'],
+        ['looking forward to', 'hearing from you'],
+        ['forward to', 'hearing from you'],
+        ['to hearing', 'from you'],
+        ['hearing from', 'you'],
+        ['let me', 'know if you'],
+        ['me know', 'if you need anything'],
+        ['know if', 'you need anything'],
+        ['let me know', 'if you need anything'],
+        ['please let', 'me know if'],
+        ['please let me', 'know if you'],
+        ['i am', 'going to be'],
+        ['am going', 'to be'],
+        ['going to', 'be'],
+        ['i will', 'send over the'],
+        ['i have', 'been working on'],
+        ['have been', 'working on the'],
+        ['been working', 'on the'],
+        ['i would', 'like to'],
+        ['would like', 'to schedule a call'],
+        ['like to', 'schedule a call'],
+        ['i want', 'to make sure'],
+        ['want to', 'make sure'],
+        ['to make', 'sure that'],
+        ['make sure', 'that we'],
+        ['i wanted', 'to follow up'],
+        ['i wanted to', 'follow up on'],
+        ['wanted to', 'follow up on'],
+        ['follow up', 'on the'],
+        ['i think', 'we should'],
+        ['think we', 'should be able to'],
+        ['i need', 'to get'],
+        ['i can', 'help with that'],
+        ['can help', 'with that'],
+        ['we are', 'going to'],
+        ['are going', 'to be'],
+        ['we can', 'schedule a'],
+        ['we should', 'be able to'],
+        ['should be', 'able to'],
+        ['be able', 'to get'],
+        ['we have', 'been working on'],
+        ['we will', 'keep you posted'],
+        ['you can', 'find the'],
+        ['you are', 'doing well'],
+        ['you have', 'any questions'],
+        ['if you', 'have any questions'],
+        ['if you have', 'any questions'],
+        ['have any', 'questions please let me know'],
+        ['any questions', 'please let me know'],
+        ['if you need', 'anything else'],
+        ['you need', 'anything else'],
+        ['as soon', 'as possible'],
+        ['soon as', 'possible'],
+        ['as soon as', 'possible'],
+        ['have a', 'great day'],
+        ['hope you', 'are doing well'],
+        ['hope this', 'finds you well'],
+        ['this finds', 'you well'],
+        ['i hope', 'this finds you well'],
+        ['would love', 'to chat'],
+        ['sounds good', 'to me'],
+        ['makes sense', 'to me'],
+        ['in the', 'meantime'],
+        ['at the', 'same time'],
+        ['on the', 'other hand'],
+        ['by the', 'way'],
+        ['for the', 'first time'],
+        ['in order', 'to make'],
+        ['feel free', 'to reach out'],
+        ['feel free to', 'reach out'],
+        ['free to', 'reach out'],
+        ['do you', 'have time'],
+        ['can you', 'please send'],
+        ['could you', 'please share'],
+        ['let us', 'know what you think'],
+        ['this is', 'going to be'],
+        ['it is', 'important to'],
+        ['there is', 'a lot of'],
+        ['not sure', 'if we'],
+        ['just wanted', 'to check in'],
+        ['check in', 'on the'],
+        ['git', 'commit -m'],
+        ['git commit', '-m "update"'],
+        ['git push', 'origin main'],
+        ['pull', 'request'],
+        ['pull request', 'for review'],
+        ['create', 'a new branch'],
+        ['review', 'the pull request'],
+        ['merge', 'the changes into main'],
+        ['build', 'and test the release'],
+        ['deploy', 'to production'],
+        ['project', 'requirements and roadmap'],
+        ['update', 'the documentation and tests'],
+        ['feature', 'implementation and testing'],
+        ['issue', 'has been resolved'],
+        ['bug', 'fix for the release'],
+        ['release', 'the new version on GitHub'],
+        ['benchmark', 'and performance analysis'],
+        ['latency', 'and memory constraints'],
+        ['seamless', 'experience for users'],
+        ['consistent', 'with the system settings'],
+        ['implementation', 'of the feature'],
+        ['performance', 'and reliability improvements'],
+        ['optimization', 'for faster execution'],
+        ['unit', 'tests are passing cleanly'],
+        ['unit tests', 'are passing cleanly'],
+        ['tests are', 'passing cleanly'],
+        ['are passing', 'cleanly'],
+        ['all tests', 'passed successfully'],
+        ['check', 'the logs for details'],
+        ['handle', 'the edge cases properly'],
+        ['in terms', 'of features and performance'],
+        ['in terms of', 'features and quality'],
+        ['according to', 'the project requirements'],
+        ['system-wide', 'autocorrect and ghost text'],
+        ['ghost', 'text predictions'],
+        ['ghost text', 'predictions'],
+        ['light', 'and dark appearance'],
+        ['dark', 'mode support'],
+        ['looks', 'good to me'],
+        ['looks good', 'to me'],
+        ['looks great', 'thanks for working on this'],
+        ['sounds like', 'a great plan'],
+        ['sounds like a', 'great plan'],
+        ['no worries', 'at all'],
+        ['no problem', 'happy to help'],
+        ['will do', 'thanks for letting me know'],
+        ['take your', 'time on this'],
+        ['reach out', 'if you have questions'],
+        ['keep in', 'touch'],
+        ['keep you', 'posted on progress'],
+        ['will keep you', 'updated on progress'],
+        ['let me know what', 'you think'],
+        ['let me know when', 'you are free'],
+        ['see you', 'tomorrow'],
+        ['hope this helps', 'let me know'],
+        ['have a good', 'one'],
+        ['have a great', 'weekend'],
+        ['i will look', 'into this right away'],
+        ['i will make', 'sure to update you'],
+        ['i will take', 'care of this'],
+        ['with the', 'team'],
+        ['meeting with', 'the team']
+      ]);
+
+      function getNextWords(prevWord, maxResults = 4) {
+        if (!prevWord) return [];
+        const bucket = biNext.get(prevWord.toLowerCase());
+        if (!bucket || bucket.total <= 0) return [];
+        const out = [];
+        for (let i = 0; i < bucket.top.length && out.length < maxResults; i++) {
+          const [nw, cnt] = bucket.top[i];
+          out.push({ nextWord: nw, count: cnt, probability: cnt / bucket.total });
+        }
+        return out;
+      }
+
+      function completePrefix(prefix, prevWord, maxResults = 5) {
+        const out = [];
+        if (!prefix || maxResults === 0) return out;
+        if (prefix.length === 1 && !prevWord) return out;
+        const lowerPrefix = prefix.toLowerCase();
+        const prevLower = (prevWord || '').toLowerCase();
+
+        if (lowerPrefix.length >= 2) {
+          const pArr = prefix2.get(lowerPrefix.slice(0, 2));
+          if (pArr) {
+            for (let i = 0; i < pArr.length; i++) {
+              const entry = pArr[i];
+              if (entry.w.length <= lowerPrefix.length) continue;
+              if (!entry.w.startsWith(lowerPrefix)) continue;
+              let score = entry.c;
+              if (prevLower) {
+                const bg = bi.get(prevLower + ' ' + entry.w) || 0;
+                if (bg > 0) score += bg * 500;
+              }
+              out.push({ term: entry.w, count: score });
+            }
+          }
+        }
+
+        if (prevLower) {
+          const nexts = getNextWords(prevLower, 8);
+          for (let i = 0; i < nexts.length; i++) {
+            const nx = nexts[i];
+            if (nx.nextWord.length <= lowerPrefix.length) continue;
+            if (nx.nextWord.startsWith(lowerPrefix)) {
+              const sc = nx.count * 800 + (uni.get(nx.nextWord) || 0);
+              const existing = out.find((e) => e.term === nx.nextWord);
+              if (existing) existing.count = Math.max(existing.count, sc);
+              else out.push({ term: nx.nextWord, count: sc });
+            }
+          }
+        }
+
+        out.sort((a, b) => b.count - a.count);
+        return out.slice(0, maxResults);
+      }
+
+      function clampSuggestionWords(s, maxWords) {
+        if (!s || maxWords <= 0) return '';
+        const hasLead = s.startsWith(' ');
+        const tokens = s.trim().split(/\s+/).filter(Boolean);
+        if (tokens.length <= maxWords) return s;
+        return (hasLead ? ' ' : '') + tokens.slice(0, maxWords).join(' ');
+      }
+
+      function buildNextWordChain(prevWord, curWord, wordsAlready, maxWords) {
+        if (wordsAlready >= maxWords) return '';
+        const remWords = maxWords - wordsAlready;
+        if (prevWord) {
+          const pairKey = prevWord + ' ' + curWord;
+          if (MULTI_WORD_PHRASES.has(pairKey)) {
+            return clampSuggestionWords(MULTI_WORD_PHRASES.get(pairKey), remWords);
+          }
+        }
+        if (MULTI_WORD_PHRASES.has(curWord)) {
+          return clampSuggestionWords(MULTI_WORD_PHRASES.get(curWord), remWords);
+        }
+
+        let chained = '';
+        let w = curWord;
+        let added = wordsAlready;
+        const seen = new Set([curWord]);
+        while (added < maxWords) {
+          const nexts = getNextWords(w, 4);
+          if (!nexts.length || nexts[0].probability < 0.045) break;
+          const nw = nexts[0].nextWord;
+          if (nw === w || seen.has(nw)) break;
+          seen.add(nw);
+          if (chained) chained += ' ';
+          chained += nw === 'i' ? 'I' : nw;
+          added++;
+
+          if (added < maxWords) {
+            const pair2 = w + ' ' + nw;
+            if (MULTI_WORD_PHRASES.has(pair2)) {
+              chained += ' ' + MULTI_WORD_PHRASES.get(pair2);
+              chained = clampSuggestionWords(chained, remWords);
+              break;
+            }
+          }
+          w = nw;
+        }
+        return chained;
+      }
+
+      function predictText(before, after, mode = 'multi', afterAcceptChain = false) {
+        if (!engineReady || !before) return '';
+        if (after && /^[A-Za-z0-9]/.test(after)) return '';
+        const maxWords = mode === 'one' ? 1 : 3;
+
+        const endsWithSpace = /[ \t]$/.test(before);
+        const trimmed = before.replace(/[ \t]+$/, '');
+        const lastBoundary = Math.max(
+          trimmed.lastIndexOf('.'),
+          trimmed.lastIndexOf('!'),
+          trimmed.lastIndexOf('?'),
+          trimmed.lastIndexOf('\n')
+        );
+        const clause = lastBoundary >= 0 ? trimmed.slice(lastBoundary + 1).trimStart() : trimmed;
+        const tokens = clause.split(/\s+/).filter(Boolean);
+        if (!tokens.length) return '';
+
+        const cleanTok = (t) => t.replace(/^[^a-zA-Z0-9']+|[^a-zA-Z0-9']+$/g, '');
+        let partialWord = '';
+        let contextWords = [];
+
+        if (!endsWithSpace) {
+          partialWord = cleanTok(tokens[tokens.length - 1]);
+          contextWords = tokens.slice(0, -1).map(cleanTok).filter(Boolean);
+        } else {
+          contextWords = tokens.map(cleanTok).filter(Boolean);
+        }
+
+        const prevWord = contextWords.length >= 1 ? contextWords[contextWords.length - 1].toLowerCase() : '';
+        const prevTwoWords = contextWords.length >= 2 ? contextWords[contextWords.length - 2].toLowerCase() + ' ' + prevWord : '';
+        const prevThreeWords = contextWords.length >= 3 ? contextWords[contextWords.length - 3].toLowerCase() + ' ' + prevTwoWords : '';
+        const isSentenceStart = contextWords.length === 0 && !partialWord;
+
+        // Case 1: Completing a partial word (or predicting after a completed word with no space yet)
+        if (partialWord) {
+          if (partialWord.length < 2 && !prevWord && !afterAcceptChain) return '';
+          const lowerPart = partialWord.toLowerCase();
+
+          if (afterAcceptChain) {
+            const fullThree = prevTwoWords ? prevTwoWords + ' ' + lowerPart : '';
+            const fullTwo = prevWord ? prevWord + ' ' + lowerPart : '';
+            if (fullThree && MULTI_WORD_PHRASES.has(fullThree)) {
+              return ' ' + clampSuggestionWords(MULTI_WORD_PHRASES.get(fullThree), maxWords);
+            }
+            if (fullTwo && MULTI_WORD_PHRASES.has(fullTwo)) {
+              return ' ' + clampSuggestionWords(MULTI_WORD_PHRASES.get(fullTwo), maxWords);
+            }
+            if (tokens.length <= 5 && MULTI_WORD_PHRASES.has(lowerPart)) {
+              return ' ' + clampSuggestionWords(MULTI_WORD_PHRASES.get(lowerPart), maxWords);
+            }
+            return '';
+          }
+
+          // 1a. Check if (prevThreeWords / prevTwoWords / prevWord) + partialWord matches a curated multi-word phrase (Type-Through)
+          for (const ctxKey of [prevThreeWords, prevTwoWords, prevWord]) {
+            if (!ctxKey) continue;
+            const phraseCont = MULTI_WORD_PHRASES.get(ctxKey);
+            if (phraseCont && phraseCont.length > lowerPart.length && phraseCont.startsWith(lowerPart)) {
+              let rem = phraseCont.slice(lowerPart.length);
+              if (isAllUpper(partialWord)) rem = rem.toUpperCase();
+              if (maxWords === 1) {
+                if (rem.startsWith(' ')) {
+                  rem = clampSuggestionWords(rem, 1);
+                } else {
+                  const spIdx = rem.indexOf(' ');
+                  if (spIdx >= 0) rem = rem.slice(0, spIdx);
+                }
+              } else {
+                rem = clampSuggestionWords(rem, maxWords);
+              }
+              return rem;
+            }
+          }
+
+          // 1b. Look up prefix completions
+          const cands = completePrefix(partialWord, prevWord, 5);
+
+          // 1c. Dominance check: has the user ALREADY finished typing a complete word?
+          if (lowerPart.length >= 2) {
+            let exactScore = uni.get(lowerPart) || 0;
+            if (prevWord) {
+              exactScore += (bi.get(prevWord + ' ' + lowerPart) || 0) * 600;
+            }
+            const hasCuratedPhrase =
+              MULTI_WORD_PHRASES.has(lowerPart) ||
+              (prevWord && MULTI_WORD_PHRASES.has(prevWord + ' ' + lowerPart)) ||
+              (prevTwoWords && MULTI_WORD_PHRASES.has(prevTwoWords + ' ' + lowerPart));
+            const bestLongerScore = cands.length === 0 ? 0 : cands[0].count;
+
+            if ((hasCuratedPhrase && exactScore > 0 && (lowerPart.length >= 4 || exactScore >= bestLongerScore / 2)) ||
+                (exactScore > 0 && exactScore > bestLongerScore * 3)) {
+              const fullThree = prevTwoWords ? prevTwoWords + ' ' + lowerPart : '';
+              let nextChain = '';
+              if (fullThree && MULTI_WORD_PHRASES.has(fullThree)) {
+                nextChain = clampSuggestionWords(MULTI_WORD_PHRASES.get(fullThree), maxWords);
+              } else {
+                nextChain = buildNextWordChain(prevWord, lowerPart, 0, maxWords);
+              }
+              if (nextChain) return ' ' + nextChain;
+            }
+          }
+
+          if (!cands.length) return '';
+          const best = cands[0];
+          if (best.term.length <= partialWord.length) return '';
+
+          let suffix = best.term.slice(partialWord.length);
+          if (isAllUpper(partialWord)) suffix = suffix.toUpperCase();
+
+          let chained = suffix;
+          if (maxWords > 1) {
+            const curWord = best.term.toLowerCase();
+            const follow = buildNextWordChain(prevWord, curWord, 0, maxWords - 1);
+            if (follow) chained += ' ' + follow;
+          }
+          return chained;
+        }
+
+        // Case 2: Next-word prediction after a space (partialWord is empty)
+        if (!prevWord) return '';
+        for (const key of [prevThreeWords, prevTwoWords, prevWord]) {
+          if (!key) continue;
+          if (MULTI_WORD_PHRASES.has(key)) {
+            let out = clampSuggestionWords(MULTI_WORD_PHRASES.get(key), maxWords);
+            if (isSentenceStart && out) out = out[0].toUpperCase() + out.slice(1);
+            return out;
+          }
+        }
+
+        const nexts = getNextWords(prevWord, 4);
+        if (!nexts.length || nexts[0].probability < 0.04) return '';
+
+        let built = nexts[0].nextWord;
+        if (isSentenceStart && built) built = built[0].toUpperCase() + built.slice(1);
+        if (maxWords > 1) {
+          const follow = buildNextWordChain(prevWord, nexts[0].nextWord, 1, maxWords);
+          if (follow) built = clampSuggestionWords(built + ' ' + follow, maxWords);
+        }
+        return built;
+      }
+
+      // ---------- Data loading ----------
+      function setStats(t) { if (simStats) simStats.textContent = t; }
+
+      // Seed synchronous bootstrap immediately so t = 0 ms keystrokes work
+      parseDictionaries(BOOTSTRAP_UNIGRAMS, BOOTSTRAP_BIGRAMS);
+
+      function loadEngine() {
+        const t0 = performance.now();
+        setStats('loading full 83k dictionary...');
+        const get = (p) => fetch(p).then((r) => { if (!r.ok) throw new Error(p); return r.text(); });
+        return Promise.all([get('data/unigrams.txt'), get('data/bigrams.txt')]).then(([u, b]) => {
+          parseDictionaries(u, b);
+          const ms = Math.round(performance.now() - t0);
+          setStats(uni.size.toLocaleString() + ' words • ' + bi.size.toLocaleString() + ' bigrams (' + ms + ' ms)');
+          updatePredictions();
+        }).catch(() => {
+          setStats('active (embedded dictionary)');
+        });
+      }
+
+      // ---------- UI & Event Plumbing ----------
+      function prevWordOf(head) {
+        if (/[.!?]\s*$/.test(head) || /\n\s*$/.test(head)) return '';
+        const m = head.match(/([A-Za-z0-9']+)\s*$/);
+        return m ? m[1].toLowerCase() : '';
+      }
+
       function showStatus(text) {
         if (!eventStatus) return;
         eventStatus.textContent = text;
         eventStatus.style.display = 'inline-block';
         clearTimeout(statusTimer);
-        statusTimer = setTimeout(() => { eventStatus.style.display = 'none'; }, 2500);
+        statusTimer = setTimeout(() => { eventStatus.style.display = 'none'; }, 2600);
       }
 
       function syncScroll() {
@@ -2118,15 +2935,16 @@ ctest --test-dir build_release --output-on-failure</pre>
 
       function setCursor(pos) { demoInput.setSelectionRange(pos, pos); }
 
-      // delimiterAlreadyInserted: true when the browser already put the space in the box (mobile keyboards)
+      const DELIMITERS = new Set([' ', '.', ',', '!', '?', ';', ':']);
+
       function runAutocorrect(delim, delimiterAlreadyInserted) {
-        if (!engine.ready) return false;
+        if (!engineReady) return false;
         if (demoInput.selectionStart !== demoInput.selectionEnd) return false;
         const val = demoInput.value;
-        let cursor = demoInput.selectionStart;
+        const cursor = demoInput.selectionStart;
         let core = val.substring(0, cursor);
         if (delimiterAlreadyInserted) core = core.slice(0, -delim.length);
-        const m = core.match(/([^\s.,!?;:()"]+)$/);
+        const m = core.match(/([A-Za-z0-9']+)$/);
         if (!m) return false;
         const raw = m[1];
         const wordStart = core.length - raw.length;
@@ -2135,18 +2953,18 @@ ctest --test-dir build_release --output-on-failure</pre>
         const prevWord = prevWordOf(tb);
 
         const t0 = performance.now();
-        const corrected = correctWord(raw, prevWord, sentenceStart);
+        const res = evaluateWord(raw, sentenceStart, prevWord, 2, true);
         const ms = performance.now() - t0;
-        if (!corrected) return false;
+        if (!res.didCorrect || res.corrected === raw) return false;
 
         const after = val.substring(delimiterAlreadyInserted ? cursor : demoInput.selectionEnd);
-        const replacement = corrected + delim;
+        const replacement = res.corrected + delim;
         demoInput.value = tb + replacement + after;
         const newCursor = wordStart + replacement.length;
         setCursor(newCursor);
-        lastAction = { type: 'correct', raw: raw, corrected: corrected, start: wordStart, end: newCursor };
+        lastAction = { type: 'correct', raw: raw, corrected: res.corrected, delim: delim, start: wordStart, end: newCursor };
         justAccepted = false;
-        showStatus(raw + ' -> ' + corrected + '  (' + ms.toFixed(2) + ' ms)');
+        showStatus(raw + ' -> ' + res.corrected + '  (' + ms.toFixed(2) + ' ms)');
         updatePredictions();
         return true;
       }
@@ -2175,11 +2993,11 @@ ctest --test-dir build_release --output-on-failure</pre>
           demoInput.value = val.substring(0, a.start) + a.raw + val.substring(a.end);
           setCursor(a.start + a.raw.length);
           suppressed.add(a.raw.toLowerCase());
-          showStatus('Undone: reverted to ' + a.raw);
+          showStatus('Undone: reverted to "' + a.raw + '"');
         } else {
           demoInput.value = val.substring(0, a.start) + val.substring(a.end);
           setCursor(a.start);
-          showStatus('Undone: removed suggestion');
+          showStatus('Undone: removed "' + a.text.trim() + '"');
         }
         lastAction = null;
         justAccepted = false;
@@ -2194,10 +3012,13 @@ ctest --test-dir build_release --output-on-failure</pre>
         setCursor(pos + s.length);
       }
 
-      // Same code path as the keyboard, used by the sample chips
       function typeChar(ch) {
-        if (ch === ' ') {
-          if (!runAutocorrect(' ', false)) { insertText(' '); lastAction = null; justAccepted = false; }
+        if (DELIMITERS.has(ch)) {
+          if (!runAutocorrect(ch, false)) {
+            insertText(ch);
+            lastAction = null;
+            justAccepted = false;
+          }
         } else {
           insertText(ch);
           lastAction = null;
@@ -2219,10 +3040,9 @@ ctest --test-dir build_release --output-on-failure</pre>
         typingTimer = setInterval(() => {
           if (i >= text.length) { stopTyping(); return; }
           typeChar(text[i++]);
-        }, 55);
+        }, 42);
       }
 
-      // ---------- Events ----------
       if (modeMulti && modeOne) {
         modeMulti.addEventListener('click', () => {
           activeMode = 'multi'; modeMulti.classList.add('active'); modeOne.classList.remove('active'); updatePredictions();
@@ -2232,11 +3052,25 @@ ctest --test-dir build_release --output-on-failure</pre>
         });
       }
 
-      let spaceHandledByKeydown = false;
+      if (simClearBtn) {
+        simClearBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          stopTyping();
+          demoInput.value = '';
+          suppressed.clear();
+          lastAction = null;
+          justAccepted = false;
+          updatePredictions();
+          showStatus('Cleared buffer & reset suppressed words');
+          demoInput.focus();
+        });
+      }
+
+      let delimHandledByKeydown = false;
 
       demoInput.addEventListener('keydown', (e) => {
         stopTyping();
-        spaceHandledByKeydown = false;
+        delimHandledByKeydown = false;
 
         if (e.key === 'Tab') {
           if (ghostText.textContent) { e.preventDefault(); acceptGhost(); }
@@ -2246,22 +3080,26 @@ ctest --test-dir build_release --output-on-failure</pre>
           if (undoLast()) e.preventDefault();
           return;
         }
-        if (e.key === 'Enter') { lastAction = null; justAccepted = false; return; }
-        if (e.key === ' ' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-          spaceHandledByKeydown = true;
-          if (runAutocorrect(' ', false)) e.preventDefault();
+        if (e.key === 'Enter') {
+          // Rule 5: Enter NEVER autocorrects — commits raw text and starts new sentence
+          lastAction = null;
+          justAccepted = false;
+          return;
+        }
+        if (DELIMITERS.has(e.key) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+          delimHandledByKeydown = true;
+          if (runAutocorrect(e.key, false)) e.preventDefault();
           return;
         }
       });
 
       demoInput.addEventListener('input', (e) => {
-        // Mobile keyboards often report key "Unidentified" on keydown, so correct after the fact
-        if (e.inputType === 'insertText' && e.data === ' ' && !spaceHandledByKeydown) {
-          runAutocorrect(' ', true);
-        } else {
+        if (e.inputType === 'insertText' && e.data && DELIMITERS.has(e.data) && !delimHandledByKeydown) {
+          runAutocorrect(e.data, true);
+        } else if (!delimHandledByKeydown) {
           lastAction = null;
+          justAccepted = false;
         }
-        justAccepted = false;
         updatePredictions();
       });
 
@@ -2278,11 +3116,10 @@ ctest --test-dir build_release --output-on-failure</pre>
         typingContainer.addEventListener('click', (e) => { if (e.target !== demoInput) demoInput.focus(); });
       }
 
-      document.querySelectorAll('.sample-chip').forEach((chip) => {
+      document.querySelectorAll('.sample-chip[data-text]').forEach((chip) => {
         chip.addEventListener('mousedown', (e) => e.preventDefault());
         chip.addEventListener('click', (e) => {
           e.preventDefault();
-          if (!engine.ready) return;
           simulateTyping(chip.dataset.text);
         });
       });
