@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inline &mdash; Native Autocorrect and Ghost Text for macOS</title>
   <meta name="description" content="Fast, native autocorrect and predictive ghost text for macOS. 100% on-device C++20 with zero telemetry.">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icon_32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/icon_16x16.png">
+  <link rel="apple-touch-icon" sizes="128x128" href="assets/icon_128x128.png">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -313,6 +318,14 @@
       background-color: var(--surface-subtle);
       border-bottom: 1px solid var(--border);
       font-size: 12px;
+    }
+
+    .sim-stats {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 400;
+      color: var(--ink-muted);
+      margin-left: 8px;
     }
 
     .sim-title {
@@ -690,17 +703,195 @@
     .footer-links a:hover {
       color: var(--ink);
     }
-  </style>
+      html {
+      scroll-behavior: smooth;
+    }
+
+    /* Logo & Brand Styling */
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      text-decoration: none;
+      color: var(--ink);
+    }
+
+    .logo-mark-svg {
+      display: block;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+
+    .logo-text {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+
+    .logo-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background-color: var(--surface-subtle);
+      border: 1px solid var(--border);
+      color: var(--ink-secondary);
+      letter-spacing: 0.02em;
+    }
+
+    /* Hero Brand Badge & App Icon */
+    .hero-brand-badge {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .app-icon-squircle {
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .app-icon-squircle svg {
+      width: 48px;
+      height: 48px;
+      display: block;
+    }
+
+    .hero-brand-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hero-pill-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink);
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 9999px;
+      width: fit-content;
+    }
+
+    .status-indicator-dot {
+      width: 6px;
+      height: 6px;
+      background-color: #22C55E;
+      border-radius: 50%;
+      box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+    }
+
+    .hero-arch-meta {
+      font-size: 12px;
+      color: var(--ink-muted);
+    }
+
+    /* Tactile Keyboard Shortcut Keycaps */
+    .kbd-combo {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .kbd-key {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-bottom: 2px solid var(--border-hover);
+      border-radius: 4px;
+      padding: 2px 6px;
+      color: var(--ink);
+      line-height: 1.2;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      display: inline-block;
+    }
+
+    .kbd-key abbr {
+      text-decoration: none;
+    }
+
+    /* Category Icon Labels in Compatibility Table */
+    .cat-icon-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .cat-icon {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      color: var(--ink-secondary);
+    }
+
+    /* Status Tags */
+    .status-tag-active {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background-color: var(--surface-subtle);
+      color: var(--ink);
+    }
+
+    .status-dot-green {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background-color: #22C55E;
+    }
+
+    .status-dot-amber {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background-color: #f59e0b;
+    }
+
+    /* Footer Brand */
+    .footer-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+</style>
 </head>
 <body>
 
   <!-- Minimal Header -->
   <header>
     <div class="nav-inner">
-      <div class="logo">
-        <span class="logo-mark">|&middot;</span>
-        <span>Inline</span>
-      </div>
+      <a href="#" class="logo" aria-label="Inline for macOS">
+        <svg class="logo-mark-svg" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
+          <rect width="32" height="32" rx="7.2" fill="#141417"/>
+          <rect x="0.5" y="0.5" width="31" height="31" rx="6.7" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+          <rect x="11.8" y="8.3" width="2.6" height="15.4" rx="0.5" fill="#FAFAFA"/>
+          <rect x="16.4" y="14.1" width="3.8" height="3.8" rx="0.8" fill="#22C55E"/>
+        </svg>
+        <span class="logo-text">Inline</span>
+        <span class="logo-badge">macOS</span>
+      </a>
       <div class="nav-right">
         <a href="#pipeline" class="nav-link">Architecture</a>
         <a href="#how-it-works" class="nav-link">How it works</a>
@@ -726,6 +917,30 @@
 
     <!-- Hero -->
     <section class="hero">
+            <div class="hero-brand-badge">
+        <div class="app-icon-squircle">
+          <svg viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
+            <defs>
+              <filter id="iconGlow" x="-15%" y="-15%" width="130%" height="135%">
+                <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.18"/>
+              </filter>
+            </defs>
+            <g filter="url(#iconGlow)">
+              <rect width="64" height="64" rx="14.3" fill="#141417"/>
+              <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="13.8" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.2"/>
+              <rect x="23.5" y="16.6" width="5.1" height="30.8" rx="1" fill="#FAFAFA"/>
+              <rect x="32.8" y="28.2" width="7.7" height="7.7" rx="1.5" fill="#22C55E"/>
+            </g>
+          </svg>
+        </div>
+        <div class="hero-brand-meta">
+          <div class="hero-pill-status">
+            <span class="status-indicator-dot"></span>
+            <span>v1.4 Official Release</span>
+          </div>
+          <span class="hero-arch-meta">Apple Silicon &bull; Intel &bull; macOS 12+</span>
+        </div>
+      </div>
       <h1 class="hero-title">Native autocorrect for macOS.</h1>
       <p class="hero-desc">
         Fast, dictionary-backed autocorrect and predictive ghost text for every application. 
@@ -735,7 +950,10 @@
       <!-- Action Buttons: Download macOS + GitHub -->
       <div class="hero-actions">
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.4/Inline-v1.4-macOS.dmg" class="btn-primary">
-          Download for macOS (v1.4)
+          <svg viewBox="0 0 170 170" width="14" height="14" fill="currentColor" aria-hidden="true" style="margin-top:-1px;">
+            <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.04-7.67-7.81-11.96-14.34-5.77-8.7-10.15-18.47-13.14-29.31-2.99-10.85-4.49-21.41-4.49-31.69 0-14.15 3.58-25.92 10.74-35.32 7.16-9.4 16.14-14.24 26.94-14.53 4.8 0 10.16 1.25 16.08 3.75 5.92 2.5 9.87 3.84 11.85 4.02 2.72-.42 7.08-1.9 13.08-4.44 6-2.54 11.29-3.72 15.86-3.53 12.19.82 21.96 5.48 29.33 13.98-10.66 6.42-15.88 15.34-15.67 26.76.22 8.92 3.69 16.31 10.42 22.18 6.73 5.87 14.57 9.24 23.52 10.11-2.07 6.31-4.78 12.63-8.14 18.96zM119.22 33.15c0-7.39 2.61-14.18 7.82-20.37 5.21-6.19 11.63-10.23 19.26-12.12.87 3.92 1.3 7.57 1.3 10.95 0 7.39-2.67 14.28-8.02 20.67-5.35 6.39-11.97 10.46-19.86 12.21-.22-3.8-.5-7.58-.5-11.34z"/>
+          </svg>
+          <span>Download for macOS (v1.4)</span>
         </a>
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" class="btn-secondary" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -766,7 +984,7 @@
     <!-- Interactive Simulator -->
     <section class="sim-wrap" id="demo">
       <div class="sim-header">
-        <span class="sim-title">Live Simulator</span>
+        <span class="sim-title">Live Simulator <span class="sim-stats" id="simStats"></span></span>
         <div class="sim-modes">
           <button class="sim-mode-btn active" id="modeMulti" data-mode="multi">Multi-Word</button>
           <button class="sim-mode-btn" id="modeOne" data-mode="one">One Word</button>
@@ -775,7 +993,7 @@
 
       <div class="sim-body" id="typingContainer">
         <div class="ghost-layer" id="ghostLayer" aria-hidden="true"><span class="ghost-mirror-typed" id="ghostMirror"></span><span class="ghost-prediction" id="ghostText"></span><span class="ghost-mirror-after" id="ghostMirrorAfter"></span></div>
-        <textarea class="real-typing-input" id="demoInput" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Start typing... (e.g. 'Looking forward', 'The meetign ', 'whenI ')"></textarea>
+        <textarea class="real-typing-input" id="demoInput" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type anything. Try: teh, recieve, definately, whenI, dont, or just start a sentence."></textarea>
       </div>
 
       <div class="sim-footer">
@@ -786,9 +1004,9 @@
           <span class="event-status-pill" id="eventStatus"></span>
         </div>
         <div class="sim-samples">
-          <button class="sample-chip" data-text="Looking forward">"Looking forward"</button>
-          <button class="sample-chip" data-text="The meetign" data-autocorrect="true">"The meetign"</button>
-          <button class="sample-chip" data-text="whenI" data-autocorrect="true">"whenI"</button>
+          <button class="sample-chip" data-text="i dont recieve teh emails ">Typos</button>
+          <button class="sample-chip" data-text="whenI get home thecat is asleep ">Run-together</button>
+          <button class="sample-chip" data-text="thank you for ">Ghost text</button>
         </div>
       </div>
     </section>
@@ -1198,22 +1416,44 @@ EngineMode <span class="fn">PowerMonitor::currentEngineMode</span>() {
           </thead>
           <tbody>
             <tr>
-              <td><code>Cmd + Option + Shift + K</code></td>
+              <td>
+                <div class="kbd-combo">
+                  <kbd class="kbd-key"><abbr title="Command">&#x2318;</abbr></kbd>
+                  <kbd class="kbd-key"><abbr title="Option">&#x2325;</abbr></kbd>
+                  <kbd class="kbd-key"><abbr title="Shift">&#x21E7;</abbr></kbd>
+                  <kbd class="kbd-key">K</kbd>
+                </div>
+              </td>
               <td>Toggle Autocorrect Engine On / Off</td>
-              <td><span class="status-tag">System-Wide</span></td>
+              <td><span class="status-tag-active"><span class="status-dot-green"></span>System-Wide</span></td>
             </tr>
             <tr>
-              <td><code>Cmd + Option + Shift + G</code></td>
+              <td>
+                <div class="kbd-combo">
+                  <kbd class="kbd-key"><abbr title="Command">&#x2318;</abbr></kbd>
+                  <kbd class="kbd-key"><abbr title="Option">&#x2325;</abbr></kbd>
+                  <kbd class="kbd-key"><abbr title="Shift">&#x21E7;</abbr></kbd>
+                  <kbd class="kbd-key">G</kbd>
+                </div>
+              </td>
               <td>Toggle Ghost Text Predictions On / Off</td>
-              <td><span class="status-tag">System-Wide</span></td>
+              <td><span class="status-tag-active"><span class="status-dot-green"></span>System-Wide</span></td>
             </tr>
             <tr>
-              <td><code>Tab</code></td>
+              <td>
+                <div class="kbd-combo">
+                  <kbd class="kbd-key">Tab</kbd>
+                </div>
+              </td>
               <td>Accept visible ghost text continuation</td>
               <td><span class="status-tag">Active Input</span></td>
             </tr>
             <tr>
-              <td><code>Backspace</code></td>
+              <td>
+                <div class="kbd-combo">
+                  <kbd class="kbd-key">Delete</kbd>
+                </div>
+              </td>
               <td>Single-key undo: revert last autocorrection or accepted suggestion</td>
               <td><span class="status-tag">Active Input</span></td>
             </tr>
@@ -1273,27 +1513,70 @@ EngineMode <span class="fn">PowerMonitor::currentEngineMode</span>() {
           </thead>
           <tbody>
             <tr>
-              <td>Apple Native</td>
+              <td>
+                <div class="cat-icon-wrap">
+                  <svg class="cat-icon" viewBox="0 0 170 170" fill="currentColor" aria-hidden="true">
+                    <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.35.13-9.16-1.9-14.42-6.08-3.69-3.04-7.67-7.81-11.96-14.34-5.77-8.7-10.15-18.47-13.14-29.31-2.99-10.85-4.49-21.41-4.49-31.69 0-14.15 3.58-25.92 10.74-35.32 7.16-9.4 16.14-14.24 26.94-14.53 4.8 0 10.16 1.25 16.08 3.75 5.92 2.5 9.87 3.84 11.85 4.02 2.72-.42 7.08-1.9 13.08-4.44 6-2.54 11.29-3.72 15.86-3.53 12.19.82 21.96 5.48 29.33 13.98-10.66 6.42-15.88 15.34-15.67 26.76.22 8.92 3.69 16.31 10.42 22.18 6.73 5.87 14.57 9.24 23.52 10.11-2.07 6.31-4.78 12.63-8.14 18.96zM119.22 33.15c0-7.39 2.61-14.18 7.82-20.37 5.21-6.19 11.63-10.23 19.26-12.12.87 3.92 1.3 7.57 1.3 10.95 0 7.39-2.67 14.28-8.02 20.67-5.35 6.39-11.97 10.46-19.86 12.21-.22-3.8-.5-7.58-.5-11.34z"/>
+                  </svg>
+                  <span>Apple Native</span>
+                </div>
+              </td>
               <td>Notes, Pages, Safari, Mail, TextEdit, Finder, Reminders</td>
               <td><span class="status-tag">AXSelectedTextRange</span></td>
             </tr>
             <tr>
-              <td>Web Browsers</td>
+              <td>
+                <div class="cat-icon-wrap">
+                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"/>
+                    <circle cx="12" cy="12" r="4"/>
+                    <line x1="21.17" y1="8" x2="12" y2="8"/>
+                    <line x1="3.95" y1="6.06" x2="8.54" y2="14"/>
+                    <line x1="10.88" y1="21.94" x2="15.46" y2="14"/>
+                  </svg>
+                  <span>Web Browsers</span>
+                </div>
+              </td>
               <td>Google Chrome, Vivaldi, Brave, Microsoft Edge</td>
               <td><span class="status-tag">Chromium effectiveLoc</span></td>
             </tr>
             <tr>
-              <td>Developer Tools</td>
+              <td>
+                <div class="cat-icon-wrap">
+                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="16 18 22 12 16 6"/>
+                    <polyline points="8 6 2 12 8 18"/>
+                  </svg>
+                  <span>Developer Tools</span>
+                </div>
+              </td>
               <td>Visual Studio Code, Antigravity, Terminal, iTerm2</td>
               <td><span class="status-tag">Native EventTap</span></td>
             </tr>
             <tr>
-              <td>Communication</td>
+              <td>
+                <div class="cat-icon-wrap">
+                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  <span>Communication</span>
+                </div>
+              </td>
               <td>Slack, Discord, Telegram, WhatsApp, Messages</td>
               <td><span class="status-tag">Electron AX Bounds</span></td>
             </tr>
             <tr>
-              <td>Productivity</td>
+              <td>
+                <div class="cat-icon-wrap">
+                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                  <span>Productivity</span>
+                </div>
+              </td>
               <td>Notion, Obsidian, Linear, Google Docs, Gmail</td>
               <td><span class="status-tag">Blink Selection Sync</span></td>
             </tr>
@@ -1481,8 +1764,16 @@ ctest --test-dir build_release --output-on-failure</pre>
   <!-- Minimal Footer -->
   <footer>
     <div class="footer-inner">
-      <span>Inline for macOS &bull; MIT License</span>
+      <div class="footer-brand">
+        <svg viewBox="0 0 32 32" width="16" height="16" aria-hidden="true" style="border-radius:3px;">
+          <rect width="32" height="32" rx="7.2" fill="#141417"/>
+          <rect x="11.8" y="8.3" width="2.6" height="15.4" rx="0.5" fill="#FAFAFA"/>
+          <rect x="16.4" y="14.1" width="3.8" height="3.8" rx="0.8" fill="#22C55E"/>
+        </svg>
+        <span>Inline for macOS &bull; MIT License</span>
+      </div>
       <div class="footer-links">
+        <a href="#">Back to top</a>
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases">Releases</a>
         <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build">GitHub</a>
       </div>
@@ -1526,1273 +1817,480 @@ ctest --test-dir build_release --output-on-failure</pre>
       });
     });
 
-    // Simulator Elements
-    const demoInput = document.getElementById('demoInput');
-    const ghostLayer = document.getElementById('ghostLayer');
-    const ghostMirror = document.getElementById('ghostMirror');
-    const ghostText = document.getElementById('ghostText');
-    const ghostMirrorAfter = document.getElementById('ghostMirrorAfter');
-    const eventStatus = document.getElementById('eventStatus');
-    const modeMulti = document.getElementById('modeMulti');
-    const modeOne = document.getElementById('modeOne');
+    // ===== Live Simulator: real dictionary-driven engine (runs entirely in the browser) =====
+    (function () {
+      const demoInput = document.getElementById('demoInput');
+      const ghostLayer = document.getElementById('ghostLayer');
+      const ghostMirror = document.getElementById('ghostMirror');
+      const ghostText = document.getElementById('ghostText');
+      const ghostMirrorAfter = document.getElementById('ghostMirrorAfter');
+      const eventStatus = document.getElementById('eventStatus');
+      const simStats = document.getElementById('simStats');
+      const modeMulti = document.getElementById('modeMulti');
+      const modeOne = document.getElementById('modeOne');
+      if (!demoInput) return;
 
-    let activeMode = 'multi';
-    let lastAutocorrect = null;
+      const LOG = Math.log10;
+      const engine = { ready: false, uni: new Map(), sorted: [], byLen: [], bi: new Map(), next: new Map() };
+      const suppressed = new Set();
+      let activeMode = 'multi';
+      let lastAction = null;
+      let justAccepted = false;
+      let typingTimer = null;
+      let statusTimer = null;
 
-    if (modeMulti && modeOne) {
-      modeMulti.addEventListener('click', () => {
-        activeMode = 'multi';
-        modeMulti.classList.add('active');
-        modeOne.classList.remove('active');
-        updatePredictions();
-      });
+      // ---------- Data loading ----------
+      function setStats(t) { if (simStats) simStats.textContent = t; }
 
-      modeOne.addEventListener('click', () => {
-        activeMode = 'one';
-        modeOne.classList.add('active');
-        modeMulti.classList.remove('active');
-        updatePredictions();
-      });
-    }
-
-const multiPredictions = [
-      { prefix: 'looking forward to hearing from you', suggest: ' soon' },
-      { prefix: 'looking forward to hearing from', suggest: ' you soon' },
-      { prefix: 'looking forward to hearing', suggest: ' from you soon' },
-      { prefix: 'looking forward to our', suggest: ' meeting tomorrow afternoon' },
-      { prefix: 'looking forward to seeing', suggest: ' you there tomorrow' },
-      { prefix: 'looking forward to working with you', suggest: ' on this exciting project' },
-      { prefix: 'looking forward to working with', suggest: ' you and the entire team' },
-      { prefix: 'looking forward to speaking with', suggest: ' you tomorrow afternoon' },
-      { prefix: 'looking forward to speaking', suggest: ' with you tomorrow' },
-      { prefix: 'looking forward to', suggest: ' hearing from you soon' },
-      { prefix: 'looking forward', suggest: ' to hearing from you soon' },
-      { prefix: 'looking for', suggest: 'ward to hearing from you soon' },
-      { prefix: 'looking', suggest: ' forward to hearing from you soon' },
-
-      { prefix: 'thank you so much for your help and', suggest: ' feedback on this' },
-      { prefix: 'thank you so much for your', suggest: ' help and support' },
-      { prefix: 'thank you so much for', suggest: ' your help and feedback' },
-      { prefix: 'thank you so much', suggest: ' for your help and feedback' },
-      { prefix: 'thank you so', suggest: ' much for your help and feedback' },
-      { prefix: 'thank you for following up with the team', suggest: ' on this matter' },
-      { prefix: 'thank you for following up with the', suggest: ' team on this' },
-      { prefix: 'thank you for following up with', suggest: ' the team on this' },
-      { prefix: 'thank you for following up', suggest: ' with the team on this' },
-      { prefix: 'thank you for following', suggest: ' up with the team on this' },
-      { prefix: 'thank you for your quick response and', suggest: ' assistance with this' },
-      { prefix: 'thank you for your quick response', suggest: ' and assistance' },
-      { prefix: 'thank you for your quick', suggest: ' response and assistance' },
-      { prefix: 'thank you for your time and', suggest: ' consideration on this' },
-      { prefix: 'thank you for your time', suggest: ' and consideration' },
-      { prefix: 'thank you for your', suggest: ' quick response and patience' },
-      { prefix: 'thank you for reaching out and', suggest: ' following up with us' },
-      { prefix: 'thank you for reaching out', suggest: ' and following up' },
-      { prefix: 'thank you for', suggest: ' following up with the team' },
-      { prefix: 'thank you again for all your', suggest: ' help and dedication' },
-      { prefix: 'thank you again for your', suggest: ' support and time today' },
-      { prefix: 'thank you again for', suggest: ' all your help with this' },
-      { prefix: 'thank you again', suggest: ', talk to you soon!' },
-      { prefix: 'thank you', suggest: ' so much for your help and feedback' },
-      { prefix: 'thank', suggest: ' you so much for your help and feedback' },
-      { prefix: 'tha', suggest: 'nk you so much for your help' },
-
-      { prefix: 'please let me know what time works best for your schedule', suggest: ' this week' },
-      { prefix: 'please let me know what time works best for your', suggest: ' schedule later this week' },
-      { prefix: 'please let me know what time works best for', suggest: ' your schedule' },
-      { prefix: 'please let me know what time works best', suggest: ' for your schedule' },
-      { prefix: 'please let me know what time works', suggest: ' best for your schedule' },
-      { prefix: 'please let me know what time', suggest: ' works best for you' },
-      { prefix: 'please let me know what', suggest: ' time works best for you' },
-      { prefix: 'please let me know if you have any questions or', suggest: ' need any assistance' },
-      { prefix: 'please let me know if you have any questions', suggest: ' or feedback on this' },
-      { prefix: 'please let me know if you have any', suggest: ' questions or feedback' },
-      { prefix: 'please let me know if you have', suggest: ' any questions or feedback' },
-      { prefix: 'please let me know if you need any additional', suggest: ' information from my end' },
-      { prefix: 'please let me know if you need any', suggest: ' additional details' },
-      { prefix: 'please let me know if you need', suggest: ' any further assistance' },
-      { prefix: 'please let me know if you would like to', suggest: ' discuss this further' },
-      { prefix: 'please let me know if you', suggest: ' have any questions or feedback' },
-      { prefix: 'please let me know if', suggest: ' you need any further details' },
-      { prefix: 'please let me know how you would like to', suggest: ' proceed with this' },
-      { prefix: 'please let me know how you would like', suggest: ' to proceed' },
-      { prefix: 'please let me know how', suggest: ' you would like to proceed' },
-      { prefix: 'please let me know', suggest: ' what time works best for you' },
-      { prefix: 'please let me', suggest: ' know if you have any questions' },
-      { prefix: 'please let us know if you have any', suggest: ' questions or concerns' },
-      { prefix: 'please let us know if you need', suggest: ' anything else from our side' },
-      { prefix: 'please let us know', suggest: ' if you need anything else' },
-      { prefix: 'please let us', suggest: ' know how to proceed' },
-      { prefix: 'please let', suggest: ' me know if you have any questions' },
-      { prefix: 'please feel free to reach out if you have', suggest: ' any questions or need help' },
-      { prefix: 'please feel free to reach out if', suggest: ' you have any questions' },
-      { prefix: 'please feel free to reach out', suggest: ' anytime if you need help' },
-      { prefix: 'please feel free to', suggest: ' reach out if you have questions' },
-      { prefix: 'please feel free', suggest: ' to reach out anytime' },
-      { prefix: 'please find the attached document for your', suggest: ' review and feedback' },
-      { prefix: 'please find the attached document for', suggest: ' your review' },
-      { prefix: 'please find the attached document', suggest: ' for your review' },
-      { prefix: 'please find the attached', suggest: ' document for your review' },
-      { prefix: 'please find the', suggest: ' attached document below' },
-      { prefix: 'please find', suggest: ' the attached document below' },
-      { prefix: 'please review the attached pull request when', suggest: ' you have a moment' },
-      { prefix: 'please review the attached pull request', suggest: ' when you have time' },
-      { prefix: 'please review the attached', suggest: ' pull request when you are free' },
-      { prefix: 'please review the', suggest: ' latest changes on github' },
-      { prefix: 'please confirm if this schedule works for', suggest: ' you and the team' },
-      { prefix: 'please confirm if this schedule works', suggest: ' for your calendar' },
-      { prefix: 'please confirm if this', suggest: ' schedule works for you' },
-      { prefix: 'please confirm if', suggest: ' this works for you' },
-      { prefix: 'please confirm', suggest: ' your availability for tomorrow' },
-      { prefix: 'please check the status and let', suggest: ' me know what you find' },
-      { prefix: 'please check the', suggest: ' status and let me know' },
-      { prefix: 'ple', suggest: 'ase let me know if you have any questions' },
-      { prefix: 'please', suggest: ' find the attached document below' },
-
-      { prefix: 'i will follow up with you tomorrow morning to', suggest: ' share the latest results' },
-      { prefix: 'i will follow up with you tomorrow morning', suggest: ' with the details' },
-      { prefix: 'i will follow up with you tomorrow', suggest: ' morning with an update' },
-      { prefix: 'i will follow up with you', suggest: ' tomorrow morning' },
-      { prefix: 'i will follow up with', suggest: ' you tomorrow morning' },
-      { prefix: 'i will follow up', suggest: ' with you tomorrow morning' },
-      { prefix: 'i will follow', suggest: ' up with you tomorrow morning' },
-      { prefix: 'i will keep you posted on any new', suggest: ' developments as they arise' },
-      { prefix: 'i will keep you posted on any', suggest: ' new developments' },
-      { prefix: 'i will keep you posted on', suggest: ' the latest progress' },
-      { prefix: 'i will keep you posted', suggest: ' on any updates' },
-      { prefix: 'i will keep you', suggest: ' updated on our progress' },
-      { prefix: 'i will take a look at this as soon as', suggest: ' I finish my current task' },
-      { prefix: 'i will take a look at this as soon', suggest: ' as possible' },
-      { prefix: 'i will take a look at this', suggest: ' as soon as possible' },
-      { prefix: 'i will take a look at', suggest: ' this later today' },
-      { prefix: 'i will take a look', suggest: ' at this as soon as possible' },
-      { prefix: 'i will take a', suggest: ' look at this shortly' },
-      { prefix: 'i will make sure that everything is working', suggest: ' properly before release' },
-      { prefix: 'i will make sure that everything is', suggest: ' working properly' },
-      { prefix: 'i will make sure that', suggest: ' everything runs smoothly' },
-      { prefix: 'i will make sure', suggest: ' this gets resolved today' },
-      { prefix: 'i will get back to you as soon as I', suggest: ' have more information' },
-      { prefix: 'i will get back to you as soon as', suggest: ' possible with an answer' },
-      { prefix: 'i will get back to you as soon', suggest: ' as possible' },
-      { prefix: 'i will get back to you', suggest: ' as soon as I have an update' },
-      { prefix: 'i will get back to', suggest: ' you as soon as possible' },
-      { prefix: 'i will get back', suggest: ' to you shortly' },
-      { prefix: 'i will be happy to help with this', suggest: ' anytime you need' },
-      { prefix: 'i will be happy to help', suggest: ' with this anytime' },
-      { prefix: 'i will be happy to', suggest: ' help with this anytime' },
-      { prefix: 'i will be', suggest: ' happy to help with this' },
-      { prefix: 'i will', suggest: ' follow up with you tomorrow morning' },
-
-      { prefix: 'i am currently working on the next update to', suggest: ' address all feedback' },
-      { prefix: 'i am currently working on the next update', suggest: ' for this project' },
-      { prefix: 'i am currently working on the next', suggest: ' update for release' },
-      { prefix: 'i am currently working on', suggest: ' the next release update' },
-      { prefix: 'i am currently', suggest: ' working on the next update' },
-      { prefix: 'i am looking forward to working with', suggest: ' you on this project' },
-      { prefix: 'i am looking forward to', suggest: ' our upcoming meeting' },
-      { prefix: 'i am happy to help with', suggest: ' anything you need' },
-      { prefix: 'i am writing to follow up on', suggest: ' our earlier discussion' },
-      { prefix: 'i am', suggest: ' currently working on the next update' },
-
-      { prefix: 'i would love to hear your thoughts on this', suggest: ' proposal and timeline' },
-      { prefix: 'i would love to hear your thoughts on', suggest: ' this proposal' },
-      { prefix: 'i would love to hear your thoughts', suggest: ' on this proposal' },
-      { prefix: 'i would love to hear your', suggest: ' thoughts on this proposal' },
-      { prefix: 'i would love to hear', suggest: ' your feedback on this' },
-      { prefix: 'i would love to connect and', suggest: ' discuss this further' },
-      { prefix: 'i would love to', suggest: ' hear your thoughts on this' },
-      { prefix: 'i would like to schedule a quick call to', suggest: ' discuss the next steps' },
-      { prefix: 'i would like to schedule a quick call', suggest: ' this week' },
-      { prefix: 'i would like to schedule a quick', suggest: ' call to discuss this' },
-      { prefix: 'i would like to schedule a', suggest: ' quick call to discuss this' },
-      { prefix: 'i would like to schedule', suggest: ' a brief meeting this week' },
-      { prefix: 'i would like to thank you for all', suggest: ' your support and guidance' },
-      { prefix: 'i would like to thank you for', suggest: ' all your help and support' },
-      { prefix: 'i would like to thank you', suggest: ' for your time today' },
-      { prefix: 'i would like to follow up on our previous', suggest: ' discussion from yesterday' },
-      { prefix: 'i would like to follow up on our', suggest: ' previous conversation' },
-      { prefix: 'i would like to follow up on', suggest: ' our previous discussion' },
-      { prefix: 'i would like to follow up', suggest: ' regarding our meeting notes' },
-      { prefix: 'i would like to follow', suggest: ' up on our previous discussion' },
-      { prefix: 'i would like to', suggest: ' follow up regarding our discussion' },
-      { prefix: 'i would like', suggest: ' to schedule a brief call this week' },
-      { prefix: 'i would appreciate it if you could', suggest: ' review this today' },
-      { prefix: 'i would appreciate if you', suggest: ' could take a look' },
-      { prefix: 'i would appreciate', suggest: ' your feedback on this' },
-      { prefix: 'i would', suggest: ' love to hear your thoughts on this' },
-
-      { prefix: 'i wanted to follow up on our discussion from', suggest: ' yesterday afternoon' },
-      { prefix: 'i wanted to follow up on our previous', suggest: ' conversation about this' },
-      { prefix: 'i wanted to follow up on our', suggest: ' conversation yesterday' },
-      { prefix: 'i wanted to follow up on', suggest: ' our previous conversation' },
-      { prefix: 'i wanted to follow up regarding the', suggest: ' project timeline and milestones' },
-      { prefix: 'i wanted to follow up regarding', suggest: ' the project timeline' },
-      { prefix: 'i wanted to follow up', suggest: ' on our previous conversation' },
-      { prefix: 'i wanted to follow', suggest: ' up on the status of this task' },
-      { prefix: 'i wanted to check in and see if there', suggest: ' are any new updates' },
-      { prefix: 'i wanted to check in and see how', suggest: ' things are progressing' },
-      { prefix: 'i wanted to check in and see', suggest: ' if you need anything' },
-      { prefix: 'i wanted to check in and', suggest: ' see how this is going' },
-      { prefix: 'i wanted to check in', suggest: ' and see how this is going' },
-      { prefix: 'i wanted to reach out and introduce', suggest: ' myself to the team' },
-      { prefix: 'i wanted to reach out and', suggest: ' see if you have time to chat' },
-      { prefix: 'i wanted to reach out', suggest: ' to see if you are free' },
-      { prefix: 'i wanted to', suggest: ' follow up on our previous conversation' },
-      { prefix: 'just wanted to check in and see how', suggest: ' things are going on your end' },
-      { prefix: 'just wanted to check in and see', suggest: ' how things are going' },
-      { prefix: 'just wanted to check in and', suggest: ' see how this is going' },
-      { prefix: 'just wanted to check in', suggest: ' and see how this is going' },
-      { prefix: 'just wanted to check', suggest: ' in on the status of this' },
-      { prefix: 'just wanted to follow up on our', suggest: ' conversation yesterday' },
-      { prefix: 'just wanted to follow up on', suggest: ' our previous discussion' },
-      { prefix: 'just wanted to follow up', suggest: ' regarding our meeting notes' },
-      { prefix: 'just wanted to follow', suggest: ' up on the progress here' },
-      { prefix: 'just wanted to say thank you for all', suggest: ' your help and support' },
-      { prefix: 'just wanted to say thank you for', suggest: ' all your help' },
-      { prefix: 'just wanted to say thank you', suggest: ' for your time' },
-      { prefix: 'just wanted to say', suggest: ' thanks for the quick reply' },
-      { prefix: 'just wanted to', suggest: ' check in and see how this is going' },
-      { prefix: 'just wanted', suggest: ' to check in and see how this is going' },
-
-      { prefix: 'can you please take a look at this when you have', suggest: ' a moment today' },
-      { prefix: 'can you please take a look at this when', suggest: ' you have time' },
-      { prefix: 'can you please take a look at this', suggest: ' when you have time' },
-      { prefix: 'can you please take a look at', suggest: ' this when you have time' },
-      { prefix: 'can you please take a look', suggest: ' at the latest changes' },
-      { prefix: 'can you please take a', suggest: ' look at this when you have time' },
-      { prefix: 'can you please review this pull request when you', suggest: ' are free today' },
-      { prefix: 'can you please review this pull request when', suggest: ' you are free' },
-      { prefix: 'can you please review this pull request', suggest: ' when you have time' },
-      { prefix: 'can you please review this document when', suggest: ' you have a moment' },
-      { prefix: 'can you please review this', suggest: ' pull request when you are free' },
-      { prefix: 'can you please review', suggest: ' this document when you have time' },
-      { prefix: 'can you please let me know when you are', suggest: ' available for a quick call' },
-      { prefix: 'can you please let me know when', suggest: ' you are available' },
-      { prefix: 'can you please let me know', suggest: ' what time works for you' },
-      { prefix: 'can you please let me', suggest: ' know when you are available' },
-      { prefix: 'can you please send me the latest details on', suggest: ' this project' },
-      { prefix: 'can you please send me the latest', suggest: ' details on this' },
-      { prefix: 'can you please send me the', suggest: ' latest version of the file' },
-      { prefix: 'can you please send me', suggest: ' the latest details on this' },
-      { prefix: 'can you please send over', suggest: ' the updated files' },
-      { prefix: 'can you please send', suggest: ' over the updated files' },
-      { prefix: 'can you please confirm if this works for', suggest: ' your schedule' },
-      { prefix: 'can you please confirm', suggest: ' receipt of this message' },
-      { prefix: 'can you please', suggest: ' take a look at this when you have time' },
-      { prefix: 'can you send me the updated', suggest: ' documentation when ready' },
-      { prefix: 'can you send me', suggest: ' the updated documentation' },
-      { prefix: 'can you let me know what time', suggest: ' works best for you' },
-      { prefix: 'can you let me know', suggest: ' what time works for you' },
-      { prefix: 'can you let me', suggest: ' know if this works' },
-      { prefix: 'can you', suggest: ' please review this pull request today' },
-
-      { prefix: 'could you please let me know if this works', suggest: ' for your schedule' },
-      { prefix: 'could you please let me know if this', suggest: ' works for you' },
-      { prefix: 'could you please let me know', suggest: ' if this works for you' },
-      { prefix: 'could you please send me the latest', suggest: ' version of the document' },
-      { prefix: 'could you please send me', suggest: ' the latest version of the file' },
-      { prefix: 'could you please take a look at this when', suggest: ' you have time' },
-      { prefix: 'could you please take a look at', suggest: ' this when possible' },
-      { prefix: 'could you please take a look', suggest: ' at this when you can' },
-      { prefix: 'could you please', suggest: ' take a look at this when possible' },
-      { prefix: 'could you', suggest: ' please review this when you have time' },
-
-      { prefix: 'what time works best for your schedule later this', suggest: ' week to meet?' },
-      { prefix: 'what time works best for your schedule later', suggest: ' this week?' },
-      { prefix: 'what time works best for your schedule', suggest: ' later this week?' },
-      { prefix: 'what time works best for your', suggest: ' schedule later this week?' },
-      { prefix: 'what time works best for you to hop on a', suggest: ' quick sync call?' },
-      { prefix: 'what time works best for you to', suggest: ' hop on a quick call?' },
-      { prefix: 'what time works best for you', suggest: ' to connect this week?' },
-      { prefix: 'what time works best for', suggest: ' your schedule?' },
-      { prefix: 'what time works best', suggest: ' for your schedule?' },
-      { prefix: 'what time works', suggest: ' best for your schedule?' },
-      { prefix: 'what time', suggest: ' works best for your schedule?' },
-
-      { prefix: 'the meeting has been rescheduled to next Tuesday', suggest: ' afternoon at 2pm' },
-      { prefix: 'the meeting has been rescheduled to next', suggest: ' Tuesday afternoon' },
-      { prefix: 'the meeting has been rescheduled to', suggest: ' tomorrow at 2pm' },
-      { prefix: 'the meeting has been rescheduled', suggest: ' to next Tuesday afternoon' },
-      { prefix: 'the meeting has been scheduled for tomorrow afternoon at', suggest: ' 2pm via Zoom' },
-      { prefix: 'the meeting has been scheduled for tomorrow afternoon', suggest: ' at 2pm' },
-      { prefix: 'the meeting has been scheduled for tomorrow', suggest: ' afternoon at 2pm' },
-      { prefix: 'the meeting has been scheduled for', suggest: ' tomorrow afternoon' },
-      { prefix: 'the meeting has been scheduled', suggest: ' for tomorrow afternoon' },
-      { prefix: 'the meeting has been', suggest: ' rescheduled to tomorrow at 2pm' },
-      { prefix: 'the meeting has', suggest: ' been scheduled for tomorrow afternoon' },
-      { prefix: 'the meeting is scheduled for tomorrow morning at', suggest: ' 10am in the main room' },
-      { prefix: 'the meeting is scheduled for tomorrow morning', suggest: ' at 10am' },
-      { prefix: 'the meeting is scheduled for tomorrow afternoon', suggest: ' at 2pm via Zoom' },
-      { prefix: 'the meeting is scheduled for tomorrow', suggest: ' morning at 10am' },
-      { prefix: 'the meeting is scheduled for', suggest: ' tomorrow morning at 10am' },
-      { prefix: 'the meeting is scheduled', suggest: ' for tomorrow afternoon at 2pm' },
-      { prefix: 'the meeting is', suggest: ' scheduled for tomorrow at 10am' },
-      { prefix: 'the meeting will be held via Zoom tomorrow', suggest: ' afternoon at 2pm' },
-      { prefix: 'the meeting will be held via Zoom', suggest: ' tomorrow afternoon' },
-      { prefix: 'the meeting will be held in the main conference', suggest: ' room tomorrow' },
-      { prefix: 'the meeting will be held', suggest: ' via Zoom tomorrow afternoon' },
-      { prefix: 'the meeting will be', suggest: ' held in the main conference room' },
-      { prefix: 'the meeting will start promptly at 10am', suggest: ' tomorrow morning' },
-      { prefix: 'the meeting will start promptly at', suggest: ' 10am tomorrow' },
-      { prefix: 'the meeting will', suggest: ' start promptly at 10am tomorrow' },
-      { prefix: 'the meeting', suggest: ' has been scheduled for tomorrow afternoon' },
-
-      { prefix: 'how are you doing today? Hope everything is going', suggest: ' great on your end' },
-      { prefix: 'how are you doing today? Hope everything is', suggest: ' going well' },
-      { prefix: 'how are you doing today? Hope all is', suggest: ' well with you' },
-      { prefix: 'how are you doing today?', suggest: ' Hope everything is going well' },
-      { prefix: 'how are you doing today', suggest: '? Hope all is well with you' },
-      { prefix: 'how are you doing', suggest: ' today? Hope all is well with you' },
-      { prefix: 'how are you', suggest: ' doing today? Hope everything is great' },
-      { prefix: 'how are things going with the project on your', suggest: ' end this week?' },
-      { prefix: 'how are things going with the project on', suggest: ' your end?' },
-      { prefix: 'how are things going with the', suggest: ' project on your end?' },
-      { prefix: 'how are things going with', suggest: ' the project timeline?' },
-      { prefix: 'how are things going on your side with the', suggest: ' launch this week?' },
-      { prefix: 'how are things going on your side with', suggest: ' the release launch?' },
-      { prefix: 'how are things going on your side', suggest: ' with the launch?' },
-      { prefix: 'how are things going on your', suggest: ' side with the launch?' },
-      { prefix: 'how are things going on', suggest: ' your side with the launch?' },
-      { prefix: 'how are things going', suggest: ' on your side?' },
-      { prefix: 'how are things', suggest: ' going on your side?' },
-      { prefix: 'how are', suggest: ' things going on your side?' },
-      { prefix: 'how is everything coming along with the project timeline', suggest: ' and milestones?' },
-      { prefix: 'how is everything coming along with the project', suggest: ' timeline?' },
-      { prefix: 'how is everything coming along with the', suggest: ' project timeline?' },
-      { prefix: 'how is everything coming along with', suggest: ' the project timeline?' },
-      { prefix: 'how is everything coming along', suggest: ' with the project timeline?' },
-      { prefix: 'how is everything coming', suggest: ' along with the development?' },
-      { prefix: 'how is everything going with the latest', suggest: ' release deployment?' },
-      { prefix: 'how is everything going with the', suggest: ' latest release?' },
-      { prefix: 'how is everything going on your', suggest: ' end today?' },
-      { prefix: 'how is everything going', suggest: ' on your end today?' },
-      { prefix: 'how is everything', suggest: ' on your end today?' },
-      { prefix: 'how is', suggest: ' everything coming along with the project?' },
-
-      { prefix: 'hope you are having a great and productive week so', suggest: ' far with everything' },
-      { prefix: 'hope you are having a great and productive week', suggest: ' so far' },
-      { prefix: 'hope you are having a great and productive', suggest: ' week so far' },
-      { prefix: 'hope you are having a great and', suggest: ' productive week so far' },
-      { prefix: 'hope you are having a wonderful start to your', suggest: ' week and doing well' },
-      { prefix: 'hope you are having a wonderful start to', suggest: ' your week' },
-      { prefix: 'hope you are having a wonderful', suggest: ' start to your week' },
-      { prefix: 'hope you are having a productive week and doing', suggest: ' well with the launch' },
-      { prefix: 'hope you are having a productive week and', suggest: ' doing well' },
-      { prefix: 'hope you are having a productive week', suggest: ' and doing well' },
-      { prefix: 'hope you are having a great rest of your week', suggest: ' and weekend ahead!' },
-      { prefix: 'hope you are having a great rest of your', suggest: ' week and weekend ahead!' },
-      { prefix: 'hope you are having a great', suggest: ' rest of your week' },
-      { prefix: 'hope you are having a', suggest: ' productive week and doing well' },
-      { prefix: 'hope you are doing well and having a great', suggest: ' week with everything' },
-      { prefix: 'hope you are doing well and having a', suggest: ' great week' },
-      { prefix: 'hope you are doing well and having', suggest: ' a great week' },
-      { prefix: 'hope you are doing well and', suggest: ' staying safe' },
-      { prefix: 'hope you are doing well', suggest: ' and having a great week' },
-      { prefix: 'hope you are doing', suggest: ' well and staying safe' },
-      { prefix: 'hope you are', suggest: ' having a great rest of your week' },
-      { prefix: 'hope you have a great weekend ahead and enjoy', suggest: ' the well-deserved break' },
-      { prefix: 'hope you have a great weekend ahead and', suggest: ' enjoy the break' },
-      { prefix: 'hope you have a great weekend ahead', suggest: ' and enjoy the break' },
-      { prefix: 'hope you have a great weekend', suggest: ' and enjoy the time off!' },
-      { prefix: 'hope you have a wonderful day ahead and a', suggest: ' great rest of the week' },
-      { prefix: 'hope you have a wonderful day ahead', suggest: ' and talk to you soon!' },
-      { prefix: 'hope you have a wonderful', suggest: ' day ahead!' },
-      { prefix: 'hope you have a', suggest: ' great rest of your day!' },
-      { prefix: 'hope you have', suggest: ' a wonderful weekend ahead!' },
-      { prefix: 'hope this email finds you well and having a good', suggest: ' start to your week' },
-      { prefix: 'hope this email finds you well and having a', suggest: ' good week' },
-      { prefix: 'hope this email finds you well and having', suggest: ' a good week' },
-      { prefix: 'hope this email finds you well and', suggest: ' doing great today' },
-      { prefix: 'hope this email finds you well', suggest: ' and having a good week' },
-      { prefix: 'hope this email finds you', suggest: ' well today' },
-      { prefix: 'hope this email finds', suggest: ' you well today' },
-      { prefix: 'hope this email', suggest: ' finds you well and doing great' },
-      { prefix: 'hope this helps and let me know if you need', suggest: ' anything else from my end' },
-      { prefix: 'hope this helps and let me know if you', suggest: ' have any questions' },
-      { prefix: 'hope this helps and let me know if', suggest: ' you need anything' },
-      { prefix: 'hope this helps and let me know', suggest: ' if you have questions' },
-      { prefix: 'hope this helps and let me', suggest: ' know if you need anything' },
-      { prefix: 'hope this helps and', suggest: ' let me know if you have questions' },
-      { prefix: 'hope this helps clarify things for', suggest: ' you and the team' },
-      { prefix: 'hope this helps clarify things', suggest: ' for you!' },
-      { prefix: 'hope this helps', suggest: ' clarify things for you!' },
-      { prefix: 'hope all is well with you and the team on', suggest: ' your end' },
-      { prefix: 'hope all is well with you and the', suggest: ' team today' },
-      { prefix: 'hope all is well with you and', suggest: ' the team' },
-      { prefix: 'hope all is well with you', suggest: ' today' },
-      { prefix: 'hope all is well with', suggest: ' you and the team' },
-      { prefix: 'hope all is well on your end', suggest: ' today' },
-      { prefix: 'hope all is well on your', suggest: ' end today' },
-      { prefix: 'hope all is well', suggest: ' on your end today' },
-      { prefix: 'hope all is', suggest: ' well with you today' },
-
-      { prefix: 'sounds good to me, looking forward to the next steps', suggest: ' and getting started' },
-      { prefix: 'sounds good to me, looking forward to the next', suggest: ' steps' },
-      { prefix: 'sounds good to me, looking forward to the', suggest: ' next steps' },
-      { prefix: 'sounds good to me, looking forward to', suggest: ' the next steps' },
-      { prefix: 'sounds good to me, looking forward', suggest: ' to the next steps' },
-      { prefix: 'sounds good to me, let\'s proceed with that plan', suggest: ' and get started' },
-      { prefix: 'sounds good to me, let\'s proceed with that', suggest: ' plan' },
-      { prefix: 'sounds good to me, let\'s proceed with', suggest: ' that plan' },
-      { prefix: 'sounds good to me, let\'s proceed', suggest: ' with that plan' },
-      { prefix: 'sounds good to me, let\'s connect', suggest: ' tomorrow to finalize' },
-      { prefix: 'sounds good to me,', suggest: ' let\'s proceed with that plan' },
-      { prefix: 'sounds good to me', suggest: ', looking forward to it' },
-      { prefix: 'sounds good to', suggest: ' me, looking forward to it' },
-      { prefix: 'sounds good, let\'s proceed with that plan', suggest: ' and keep moving' },
-      { prefix: 'sounds good, let\'s connect tomorrow to', suggest: ' discuss the details' },
-      { prefix: 'sounds good, let\'s', suggest: ' connect tomorrow' },
-      { prefix: 'sounds good', suggest: ' to me, let\'s connect tomorrow' },
-      { prefix: 'sounds like a great plan, looking forward to getting', suggest: ' started on this' },
-      { prefix: 'sounds like a great plan, looking forward to', suggest: ' getting started' },
-      { prefix: 'sounds like a great plan, looking forward', suggest: ' to getting started' },
-      { prefix: 'sounds like a great plan, let\'s make it', suggest: ' happen!' },
-      { prefix: 'sounds like a great plan', suggest: ', looking forward to getting started' },
-      { prefix: 'sounds like a great idea, let\'s do', suggest: ' that!' },
-      { prefix: 'sounds like a great idea,', suggest: ' let\'s do that' },
-      { prefix: 'sounds like a great idea', suggest: ', let\'s move forward with it' },
-      { prefix: 'sounds like a great', suggest: ' plan, let\'s make it happen' },
-      { prefix: 'sounds like a', suggest: ' great plan to me' },
-      { prefix: 'sounds like', suggest: ' a great plan to me' },
-      { prefix: 'sounds', suggest: ' good to me, let\'s proceed' },
-
-      { prefix: 'we should definitely connect and align on the next', suggest: ' milestones this week' },
-      { prefix: 'we should definitely connect and align on the', suggest: ' next milestones' },
-      { prefix: 'we should definitely connect and align on', suggest: ' the next milestones' },
-      { prefix: 'we should definitely connect and align', suggest: ' on the next milestones' },
-      { prefix: 'we should definitely connect and', suggest: ' align on the next milestones' },
-      { prefix: 'we should definitely connect sometime later this', suggest: ' week to sync up' },
-      { prefix: 'we should definitely connect sometime later', suggest: ' this week' },
-      { prefix: 'we should definitely connect sometime', suggest: ' later this week' },
-      { prefix: 'we should definitely connect', suggest: ' sometime later this week' },
-      { prefix: 'we should definitely schedule a follow-up call soon', suggest: ' to review the details' },
-      { prefix: 'we should definitely schedule a follow-up call', suggest: ' soon' },
-      { prefix: 'we should definitely schedule a follow-up', suggest: ' call soon' },
-      { prefix: 'we should definitely schedule a', suggest: ' follow-up call soon' },
-      { prefix: 'we should definitely schedule', suggest: ' a follow-up call soon' },
-      { prefix: 'we should definitely', suggest: ' schedule a follow-up call soon' },
-      { prefix: 'we should schedule a quick sync to discuss this', suggest: ' further when you are free' },
-      { prefix: 'we should schedule a quick sync to discuss', suggest: ' this further' },
-      { prefix: 'we should schedule a quick sync to', suggest: ' discuss this further' },
-      { prefix: 'we should schedule a quick sync', suggest: ' to discuss this further' },
-      { prefix: 'we should schedule a quick', suggest: ' sync to discuss this further' },
-      { prefix: 'we should schedule a follow-up call this', suggest: ' week to finalize' },
-      { prefix: 'we should schedule a follow-up call', suggest: ' this week' },
-      { prefix: 'we should schedule a follow-up', suggest: ' call this week' },
-      { prefix: 'we should schedule a', suggest: ' follow-up call this week' },
-      { prefix: 'we should schedule', suggest: ' a meeting to discuss this' },
-      { prefix: 'we should', suggest: ' schedule a follow-up discussion soon' },
-      { prefix: 'we can discuss this in more detail during our', suggest: ' next meeting' },
-      { prefix: 'we can discuss this in more detail during', suggest: ' our next meeting' },
-      { prefix: 'we can discuss this in more detail', suggest: ' during our next sync' },
-      { prefix: 'we can discuss this in more', suggest: ' detail on our call' },
-      { prefix: 'we can discuss this during our weekly sync', suggest: ' tomorrow afternoon' },
-      { prefix: 'we can discuss this during our weekly', suggest: ' sync tomorrow' },
-      { prefix: 'we can discuss this during our', suggest: ' weekly sync tomorrow' },
-      { prefix: 'we can discuss this during', suggest: ' our weekly sync tomorrow' },
-      { prefix: 'we can discuss this', suggest: ' in more detail on our call' },
-      { prefix: 'we can schedule a quick call whenever you are', suggest: ' free to chat' },
-      { prefix: 'we can schedule a quick call whenever you', suggest: ' are free' },
-      { prefix: 'we can schedule a quick call', suggest: ' whenever you are free' },
-      { prefix: 'we can schedule a quick', suggest: ' call whenever you are free' },
-      { prefix: 'we can schedule a', suggest: ' quick call to chat' },
-      { prefix: 'we can schedule', suggest: ' a quick call whenever you are free' },
-      { prefix: 'we can', suggest: ' discuss this during our next sync' },
-
-      { prefix: 'feel free to reach out if you have any further questions', suggest: ' or need help' },
-      { prefix: 'feel free to reach out if you have any further', suggest: ' questions' },
-      { prefix: 'feel free to reach out if you have any', suggest: ' questions or concerns' },
-      { prefix: 'feel free to reach out if you have', suggest: ' any further questions' },
-      { prefix: 'feel free to reach out if you need', suggest: ' any additional help' },
-      { prefix: 'feel free to reach out if you', suggest: ' have any questions' },
-      { prefix: 'feel free to reach out if', suggest: ' you have any further questions' },
-      { prefix: 'feel free to reach out to me directly anytime', suggest: ' you need assistance' },
-      { prefix: 'feel free to reach out to me directly', suggest: ' anytime' },
-      { prefix: 'feel free to reach out to me', suggest: ' directly anytime' },
-      { prefix: 'feel free to reach out to', suggest: ' me directly anytime' },
-      { prefix: 'feel free to reach out', suggest: ' to me directly anytime' },
-      { prefix: 'feel free to reach', suggest: ' out if you have any questions' },
-      { prefix: 'feel free to let me know if anything else comes', suggest: ' up on your end' },
-      { prefix: 'feel free to let me know if anything else', suggest: ' comes up' },
-      { prefix: 'feel free to let me know if', suggest: ' anything else comes up' },
-      { prefix: 'feel free to let me know', suggest: ' if anything else comes up' },
-      { prefix: 'feel free to let me', suggest: ' know if you need anything' },
-      { prefix: 'feel free to', suggest: ' reach out if you have questions' },
-
-      { prefix: 'don\'t hesitate to reach out if you need any further', suggest: ' help or guidance' },
-      { prefix: 'don\'t hesitate to reach out if you need any', suggest: ' further assistance' },
-      { prefix: 'don\'t hesitate to reach out if you need', suggest: ' any further help' },
-      { prefix: 'don\'t hesitate to reach out if you have', suggest: ' any questions or issues' },
-      { prefix: 'don\'t hesitate to reach out if you', suggest: ' need any help' },
-      { prefix: 'don\'t hesitate to reach out if', suggest: ' you need any further help' },
-      { prefix: 'don\'t hesitate to reach out', suggest: ' if you have any questions' },
-      { prefix: 'don\'t hesitate to reach', suggest: ' out anytime' },
-      { prefix: 'don\'t hesitate to let me know if you need anything', suggest: ' else from my end' },
-      { prefix: 'don\'t hesitate to let me know if you need', suggest: ' anything else' },
-      { prefix: 'don\'t hesitate to let me know if', suggest: ' you need anything else' },
-      { prefix: 'don\'t hesitate to let me know', suggest: ' if you need assistance' },
-      { prefix: 'don\'t hesitate to let me', suggest: ' know if you need assistance' },
-      { prefix: 'don\'t hesitate to', suggest: ' let me know if you need help' },
-
-      { prefix: 'have a great weekend and enjoy the time off', suggest: ' with family and friends!' },
-      { prefix: 'have a great weekend and enjoy the time', suggest: ' off!' },
-      { prefix: 'have a great weekend and enjoy the', suggest: ' time off!' },
-      { prefix: 'have a great weekend and enjoy', suggest: ' the time off!' },
-      { prefix: 'have a great weekend and see you next Monday', suggest: ' morning!' },
-      { prefix: 'have a great weekend and see you next', suggest: ' Monday!' },
-      { prefix: 'have a great weekend and see you', suggest: ' next week!' },
-      { prefix: 'have a great weekend and see', suggest: ' you next Monday!' },
-      { prefix: 'have a great weekend and', suggest: ' see you next week!' },
-      { prefix: 'have a great weekend', suggest: ' and see you next week!' },
-      { prefix: 'have a wonderful rest of your week and weekend ahead', suggest: ', take care!' },
-      { prefix: 'have a wonderful rest of your week and weekend', suggest: ' ahead!' },
-      { prefix: 'have a wonderful rest of your week and', suggest: ' weekend ahead' },
-      { prefix: 'have a wonderful rest of your week', suggest: ' and weekend ahead' },
-      { prefix: 'have a wonderful rest of your', suggest: ' week and weekend ahead' },
-      { prefix: 'have a wonderful rest of', suggest: ' your week and weekend ahead' },
-      { prefix: 'have a great rest of your week and weekend ahead', suggest: ' and talk to you soon!' },
-      { prefix: 'have a great rest of your week and weekend', suggest: ' ahead!' },
-      { prefix: 'have a great rest of your week and', suggest: ' weekend ahead!' },
-      { prefix: 'have a great rest of your week', suggest: ' and weekend ahead!' },
-      { prefix: 'have a great rest of your', suggest: ' week and weekend ahead!' },
-      { prefix: 'have a great rest of', suggest: ' your week and take care!' },
-      { prefix: 'have a great rest', suggest: ' of your week and weekend ahead!' },
-      { prefix: 'have a great day and talk to you soon', suggest: ', take care!' },
-      { prefix: 'have a great day and talk to you', suggest: ' soon!' },
-      { prefix: 'have a great day and talk to', suggest: ' you soon!' },
-      { prefix: 'have a great day and talk', suggest: ' to you soon!' },
-      { prefix: 'have a great day and', suggest: ' talk to you soon!' },
-      { prefix: 'have a great day', suggest: ' and talk to you soon!' },
-      { prefix: 'have a great', suggest: ' rest of your week and weekend ahead!' },
-
-      { prefix: 'good morning, hope you had a wonderful and restful', suggest: ' weekend ahead' },
-      { prefix: 'good morning, hope you had a wonderful and', suggest: ' restful weekend' },
-      { prefix: 'good morning, hope you had a wonderful', suggest: ' and restful weekend' },
-      { prefix: 'good morning, hope you had a', suggest: ' wonderful weekend ahead' },
-      { prefix: 'good morning, hope you had', suggest: ' a wonderful weekend ahead' },
-      { prefix: 'good morning, hope you are having a great start to', suggest: ' your week' },
-      { prefix: 'good morning, hope you are having a great start', suggest: ' to your week' },
-      { prefix: 'good morning, hope you are having a great', suggest: ' start to your week' },
-      { prefix: 'good morning, hope you are having a', suggest: ' wonderful day' },
-      { prefix: 'good morning, hope you are having', suggest: ' a great start to your week' },
-      { prefix: 'good morning, hope you are', suggest: ' having a wonderful day' },
-      { prefix: 'good morning, hope you', suggest: ' are having a wonderful day' },
-      { prefix: 'good morning', suggest: ', hope you had a wonderful weekend' },
-      { prefix: 'good afternoon, hope you are having a productive day so', suggest: ' far with everything' },
-      { prefix: 'good afternoon, hope you are having a productive day', suggest: ' so far' },
-      { prefix: 'good afternoon, hope you are having a productive', suggest: ' day so far' },
-      { prefix: 'good afternoon, hope you are having a', suggest: ' productive day so far' },
-      { prefix: 'good afternoon, hope you are having', suggest: ' a productive day so far' },
-      { prefix: 'good afternoon, hope you are', suggest: ' having a productive day so far' },
-      { prefix: 'good afternoon', suggest: ', hope your day is going smoothly' },
-
-      { prefix: 'sorry for the delayed response on this, getting back to you', suggest: ' now with the updates' },
-      { prefix: 'sorry for the delayed response on this, getting back to', suggest: ' you now' },
-      { prefix: 'sorry for the delayed response on this, getting back', suggest: ' to you now' },
-      { prefix: 'sorry for the delayed response on this, getting', suggest: ' back to you now' },
-      { prefix: 'sorry for the delayed response on this,', suggest: ' getting back to you now' },
-      { prefix: 'sorry for the delayed response on this', suggest: ', getting back to you now' },
-      { prefix: 'sorry for the delayed response on', suggest: ' this, getting back to you now' },
-      { prefix: 'sorry for the delayed response, just getting caught up on', suggest: ' messages today' },
-      { prefix: 'sorry for the delayed response, just getting caught up', suggest: ' on messages' },
-      { prefix: 'sorry for the delayed response, just getting caught', suggest: ' up on messages' },
-      { prefix: 'sorry for the delayed response, just getting', suggest: ' caught up on messages' },
-      { prefix: 'sorry for the delayed response, just', suggest: ' getting caught up on messages' },
-      { prefix: 'sorry for the delayed response,', suggest: ' just getting caught up on messages' },
-      { prefix: 'sorry for the delayed response', suggest: ', I was away from my desk' },
-      { prefix: 'sorry for the delay in getting back to you on', suggest: ' this matter' },
-      { prefix: 'sorry for the delay in getting back to you', suggest: ' on this' },
-      { prefix: 'sorry for the delay in getting back to', suggest: ' you on this' },
-      { prefix: 'sorry for the delay in getting back', suggest: ' to you on this' },
-      { prefix: 'sorry for the delay in getting', suggest: ' back to you on this' },
-      { prefix: 'sorry for the delay in', suggest: ' getting back to you on this' },
-      { prefix: 'sorry for the delay, just saw your message', suggest: ' now and wanted to respond' },
-      { prefix: 'sorry for the delay, just saw your message', suggest: ' now' },
-      { prefix: 'sorry for the delay, just saw your', suggest: ' message now' },
-      { prefix: 'sorry for the delay, just saw', suggest: ' your message now' },
-      { prefix: 'sorry for the delay, just', suggest: ' saw your message now' },
-      { prefix: 'sorry for the delay,', suggest: ' just saw your message now' },
-      { prefix: 'sorry for the delay', suggest: ', getting back to you now' },
-      { prefix: 'sorry for the', suggest: ' delayed response on this' },
-
-      { prefix: 'congratulations on the successful launch of the new release', suggest: ' today, fantastic work!' },
-      { prefix: 'congratulations on the successful launch of the new', suggest: ' release today!' },
-      { prefix: 'congratulations on the successful launch of the', suggest: ' new release today!' },
-      { prefix: 'congratulations on the successful launch of', suggest: ' the new release today!' },
-      { prefix: 'congratulations on the successful launch', suggest: ' of the new release today!' },
-      { prefix: 'congratulations on the successful release launch', suggest: ' today, great job!' },
-      { prefix: 'congratulations on the successful release', suggest: ' launch today!' },
-      { prefix: 'congratulations on the successful', suggest: ' release launch today!' },
-      { prefix: 'congratulations on the fantastic achievement and', suggest: ' launch today!' },
-      { prefix: 'congratulations on the fantastic achievement', suggest: ' and launch!' },
-      { prefix: 'congratulations on the fantastic', suggest: ' achievement and launch!' },
-      { prefix: 'congratulations on the', suggest: ' fantastic achievement and launch!' },
-      { prefix: 'congratulations on', suggest: ' the successful release launch!' },
-      { prefix: 'congratulations', suggest: ' on the successful release launch!' },
-
-      { prefix: 'welcome to the team, glad to have you working with', suggest: ' us on this project' },
-      { prefix: 'welcome to the team, glad to have you working', suggest: ' with us' },
-      { prefix: 'welcome to the team, glad to have you', suggest: ' working with us' },
-      { prefix: 'welcome to the team, glad to have', suggest: ' you aboard!' },
-      { prefix: 'welcome to the team, glad to', suggest: ' have you working with us' },
-      { prefix: 'welcome to the team, glad', suggest: ' to have you working with us' },
-      { prefix: 'welcome to the team, excited to collaborate with you', suggest: ' and get started' },
-      { prefix: 'welcome to the team, excited to collaborate with', suggest: ' you' },
-      { prefix: 'welcome to the team, excited to collaborate', suggest: ' with you' },
-      { prefix: 'welcome to the team, excited to', suggest: ' collaborate with you' },
-      { prefix: 'welcome to the team, excited', suggest: ' to collaborate with you' },
-      { prefix: 'welcome to the team,', suggest: ' excited to collaborate with you' },
-      { prefix: 'welcome to the team', suggest: ', glad to have you aboard!' },
-      { prefix: 'welcome to the', suggest: ' team, glad to have you aboard!' },
-      { prefix: 'welcome to', suggest: ' the team, excited to work together!' },
-      { prefix: 'welcome', suggest: ' to the team, glad to have you aboard!' },
-
-      { prefix: 'definitely agree with this approach and look forward to the', suggest: ' next steps' },
-      { prefix: 'definitely agree with this approach and look forward to', suggest: ' the next steps' },
-      { prefix: 'definitely agree with this approach and look forward', suggest: ' to the next steps' },
-      { prefix: 'definitely agree with this approach and look', suggest: ' forward to the next steps' },
-      { prefix: 'definitely agree with this approach and', suggest: ' look forward to the next steps' },
-      { prefix: 'definitely agree with this approach', suggest: ' and look forward to the next steps' },
-      { prefix: 'definitely agree with this proposal and', suggest: ' the suggested timeline' },
-      { prefix: 'definitely agree with this proposal', suggest: ' and the timeline' },
-      { prefix: 'definitely agree with this', suggest: ' approach and proposal' },
-      { prefix: 'definitely agree with', suggest: ' this plan of action' },
-      { prefix: 'definitely agree', suggest: ' with this approach' },
-      { prefix: 'definitely', suggest: ' agree with this approach' },
-
-      { prefix: 'absolutely love the new design and how intuitive everything', suggest: ' feels to use' },
-      { prefix: 'absolutely love the new design and how intuitive', suggest: ' everything feels' },
-      { prefix: 'absolutely love the new design and how', suggest: ' intuitive everything feels' },
-      { prefix: 'absolutely love the new design and', suggest: ' how intuitive everything feels' },
-      { prefix: 'absolutely love the new design', suggest: ' and how intuitive everything feels' },
-      { prefix: 'absolutely love the new look and', suggest: ' clean layout' },
-      { prefix: 'absolutely love the new look', suggest: ' and clean layout' },
-      { prefix: 'absolutely love the new', suggest: ' look and clean layout' },
-      { prefix: 'absolutely love the', suggest: ' new design and clean feel' },
-      { prefix: 'absolutely agree with your suggestions here and', suggest: ' will implement them' },
-      { prefix: 'absolutely agree with your suggestions here', suggest: ' on this' },
-      { prefix: 'absolutely agree with your suggestions', suggest: ' here' },
-      { prefix: 'absolutely agree with your', suggest: ' suggestions on this' },
-      { prefix: 'absolutely agree with', suggest: ' your suggestions here' },
-      { prefix: 'absolutely agree', suggest: ' with this direction' },
-      { prefix: 'absolutely', suggest: ' agree with this direction' },
-
-      { prefix: 'let\'s connect tomorrow afternoon to go over the final', suggest: ' checklist for release' },
-      { prefix: 'let\'s connect tomorrow afternoon to go over the', suggest: ' final checklist' },
-      { prefix: 'let\'s connect tomorrow afternoon to go over', suggest: ' the final checklist' },
-      { prefix: 'let\'s connect tomorrow afternoon to go', suggest: ' over the final checklist' },
-      { prefix: 'let\'s connect tomorrow afternoon to', suggest: ' go over the final checklist' },
-      { prefix: 'let\'s connect tomorrow afternoon and review the', suggest: ' progress so far' },
-      { prefix: 'let\'s connect tomorrow afternoon and review', suggest: ' the progress' },
-      { prefix: 'let\'s connect tomorrow afternoon and', suggest: ' review the progress' },
-      { prefix: 'let\'s connect tomorrow afternoon', suggest: ' and review the progress' },
-      { prefix: 'let\'s connect tomorrow to go over the', suggest: ' details and finalize' },
-      { prefix: 'let\'s connect tomorrow to go over', suggest: ' the details' },
-      { prefix: 'let\'s connect tomorrow to go', suggest: ' over the details' },
-      { prefix: 'let\'s connect tomorrow to', suggest: ' go over the details' },
-      { prefix: 'let\'s connect tomorrow and finalize the', suggest: ' release schedule' },
-      { prefix: 'let\'s connect tomorrow and finalize', suggest: ' the release' },
-      { prefix: 'let\'s connect tomorrow and', suggest: ' finalize the release' },
-      { prefix: 'let\'s connect tomorrow', suggest: ' and finalize the release' },
-      { prefix: 'let\'s connect later this week to follow up on', suggest: ' this project' },
-      { prefix: 'let\'s connect later this week to follow up', suggest: ' on this' },
-      { prefix: 'let\'s connect later this week to', suggest: ' follow up on this' },
-      { prefix: 'let\'s connect later this week', suggest: ' to follow up on this' },
-      { prefix: 'let\'s connect later this', suggest: ' week to follow up on this' },
-      { prefix: 'let\'s connect later today to discuss the', suggest: ' details in full' },
-      { prefix: 'let\'s connect later today to discuss', suggest: ' the details' },
-      { prefix: 'let\'s connect later today to', suggest: ' discuss the details' },
-      { prefix: 'let\'s connect later today', suggest: ' to discuss the details' },
-      { prefix: 'let\'s connect later', suggest: ' today to discuss the details' },
-      { prefix: 'let\'s connect', suggest: ' tomorrow to discuss the next steps' },
-      { prefix: 'let\'s schedule a call to discuss the latest', suggest: ' updates and feedback' },
-      { prefix: 'let\'s schedule a call to discuss the', suggest: ' latest updates' },
-      { prefix: 'let\'s schedule a call to discuss', suggest: ' the latest updates' },
-      { prefix: 'let\'s schedule a call to', suggest: ' discuss the latest updates' },
-      { prefix: 'let\'s schedule a call sometime tomorrow', suggest: ' afternoon at 2pm' },
-      { prefix: 'let\'s schedule a call sometime', suggest: ' tomorrow afternoon' },
-      { prefix: 'let\'s schedule a call', suggest: ' sometime tomorrow afternoon' },
-      { prefix: 'let\'s catch up later today to review the', suggest: ' project status' },
-      { prefix: 'let\'s catch up later today to review', suggest: ' the project status' },
-      { prefix: 'let\'s catch up later today to', suggest: ' review the project status' },
-      { prefix: 'let\'s catch up later today', suggest: ' to review the project status' },
-      { prefix: 'let\'s catch up later this week when you', suggest: ' have time' },
-      { prefix: 'let\'s catch up later this week when', suggest: ' you are free' },
-      { prefix: 'let\'s catch up later this week', suggest: ' when you are free' },
-      { prefix: 'let\'s catch up later this', suggest: ' week when you are free' },
-      { prefix: 'let\'s catch up later', suggest: ' this week when you are free' },
-      { prefix: 'let\'s catch up soon and discuss the', suggest: ' progress so far' },
-      { prefix: 'let\'s catch up soon and discuss', suggest: ' the progress' },
-      { prefix: 'let\'s catch up soon and', suggest: ' discuss the progress' },
-      { prefix: 'let\'s catch up soon', suggest: ' and discuss the progress' },
-      { prefix: 'let\'s catch up', suggest: ' soon and discuss the progress' },
-      { prefix: 'let\'s', suggest: ' connect tomorrow to discuss next steps' },
-
-      { prefix: 'works on both macOS and Windows without any', suggest: ' extra configuration required' },
-      { prefix: 'works on both macOS and Windows without', suggest: ' configuration' },
-      { prefix: 'works on both macOS and Windows flawlessly', suggest: ' across all applications' },
-      { prefix: 'works on both macOS and Windows', suggest: ' without configuration' },
-      { prefix: 'works on both macOS', suggest: ' and Windows flawlessly' },
-      { prefix: 'works on both', suggest: ' macOS and Windows seamlessly' },
-      { prefix: 'works on', suggest: ' both macOS and Windows flawlessly' }
-    ];
-
-    // Single-word instant completions
-    const wordCompletions = {
-      'tha': 'nk',
-      'than': 'k',
-      'thank': ' you',
-      'look': 'ing',
-      'looki': 'ng',
-      'plea': 'se',
-      'ple': 'ase',
-      'meet': 'ing',
-      'meeti': 'ng',
-      'auto': 'correct',
-      'autoc': 'orrect',
-      'pred': 'iction',
-      'predi': 'ction',
-      'sett': 'ings',
-      'setti': 'ngs',
-      'term': 'inal',
-      'appl': 'ication',
-      'deve': 'lopment',
-      'rele': 'ase',
-      'feat': 'ure',
-      'conf': 'iguration',
-      'sens': 'itivity',
-      'inst': 'allation',
-      'wind': 'ows',
-      'syst': 'em',
-      'sched': 'ule',
-      'perf': 'ormance',
-      'conn': 'ection',
-      'docu': 'ment',
-      'foll': 'owing',
-      'resp': 'onse',
-      'curr': 'ently',
-      'diff': 'erent',
-      'impo': 'rtant',
-      'requ': 'est',
-      'comp': 'lete',
-      'posi': 'tion',
-      'mess': 'age'
-    };
-
-    // Comprehensive typo dictionary for autocorrect (380+ real-world English typos)
-    const typoDictionary = {
-      // Inversions & transpositions
-      'teh': 'the',
-      'taht': 'that',
-      'thier': 'their',
-      'tihs': 'this',
-      'thsi': 'this',
-      'waht': 'what',
-      'wrok': 'work',
-      'wroks': 'works',
-      'woudl': 'would',
-      'shoudl': 'should',
-      'coudl': 'could',
-      'jsut': 'just',
-      'hvae': 'have',
-      'haev': 'have',
-      'wiht': 'with',
-      'wtiho': 'with',
-      'fo': 'of',
-      'adn': 'and',
-      'nad': 'and',
-      'form': 'from', // handled if typed in context
-      'yuor': 'your',
-      'yuo': 'you',
-      'oyu': 'you',
-      'tehm': 'them',
-      'mroe': 'more',
-      'fro': 'for',
-      'ofr': 'for',
-      'abotu': 'about',
-      'abouta': 'about a',
-      'agian': 'again',
-      'alot': 'a lot',
-      'alredy': 'already',
-      'anohter': 'another',
-      'awsome': 'awesome',
-      'beter': 'better',
-      'breif': 'brief',
-      'comuter': 'computer',
-      'dident': 'didn\'t',
-      'dosent': 'doesn\'t',
-      'doesnt': 'doesn\'t',
-      'dont': 'don\'t',
-      'cant': 'can\'t',
-      'wont': 'won\'t',
-      'didnt': 'didn\'t',
-      'isnt': 'isn\'t',
-      'arent': 'aren\'t',
-      'wasnt': 'wasn\'t',
-      'werent': 'weren\'t',
-      'hasnt': 'hasn\'t',
-      'havent': 'haven\'t',
-      'hadnt': 'hadn\'t',
-      'wouldnt': 'wouldn\'t',
-      'couldnt': 'couldn\'t',
-      'shouldnt': 'shouldn\'t',
-      'im': 'I\'m',
-      'ive': 'I\'ve',
-      'id': 'I\'d',
-      'ill': 'I\'ll',
-      'youre': 'you\'re',
-      'theyre': 'they\'re',
-      'weve': 'we\'ve',
-      'thats': 'that\'s',
-      'theres': 'there\'s',
-      'whats': 'what\'s',
-      'heres': 'here\'s',
-      'whos': 'who\'s',
-      'lets': 'let\'s',
-      'itll': 'it\'ll',
-      'youll': 'you\'ll',
-      'theyll': 'they\'ll',
-      'shed': 'she\'d',
-      'hed': 'he\'d',
-      'weall': 'we all',
-
-      // Common spelling errors & missed letters
-      'meetign': 'meeting',
-      'rescheduld': 'rescheduled',
-      'reschedual': 'reschedule',
-      'definately': 'definitely',
-      'definetly': 'definitely',
-      'definitly': 'definitely',
-      'recieved': 'received',
-      'recieve': 'receive',
-      'recieving': 'receiving',
-      'seperate': 'separate',
-      'seperated': 'separated',
-      'seperet': 'separate',
-      'tommorow': 'tomorrow',
-      'tomorow': 'tomorrow',
-      'tomarrow': 'tomorrow',
-      'wierd': 'weird',
-      'calender': 'calendar',
-      'untill': 'until',
-      'unil': 'until',
-      'occured': 'occurred',
-      'occurence': 'occurrence',
-      'thru': 'through',
-      'beleive': 'believe',
-      'beleived': 'believed',
-      'goverment': 'government',
-      'neccessary': 'necessary',
-      'neccesary': 'necessary',
-      'accomodate': 'accommodate',
-      'acheive': 'achieve',
-      'acheived': 'achieved',
-      'acrosss': 'across',
-      'adress': 'address',
-      'adressing': 'addressing',
-      'becuase': 'because',
-      'begining': 'beginning',
-      'collegue': 'colleague',
-      'concious': 'conscious',
-      'embarass': 'embarrass',
-      'enviroment': 'environment',
-      'foward': 'forward',
-      'freind': 'friend',
-      'freinds': 'friends',
-      'garantee': 'guarantee',
-      'happend': 'happened',
-      'immediatly': 'immediately',
-      'interupt': 'interrupt',
-      'knowlege': 'knowledge',
-      'mispell': 'misspell',
-      'noticable': 'noticeable',
-      'peice': 'piece',
-      'prefered': 'preferred',
-      'perfer': 'prefer',
-      'realy': 'really',
-      'relly': 'really',
-      'truely': 'truly',
-      'unfortunatly': 'unfortunately',
-      'wich': 'which',
-      'whitch': 'which',
-      'writting': 'writing',
-      'weclome': 'welcome',
-      'thx': 'thanks',
-      'plz': 'please',
-      'pls': 'please',
-      'thnaks': 'thanks',
-      'thansk': 'thanks',
-      'helllo': 'hello',
-      'alway': 'always',
-      'alwayz': 'always',
-      'comming': 'coming',
-      'diffrent': 'different',
-      'exmaple': 'example',
-      'favorate': 'favorite',
-      'greast': 'great',
-      'graet': 'great',
-      'langauge': 'language',
-      'libary': 'library',
-      'managment': 'management',
-      'peaple': 'people',
-      'poeple': 'people',
-      'posible': 'possible',
-      'pritty': 'pretty',
-      'prety': 'pretty',
-      'probly': 'probably',
-      'probaly': 'probably',
-      'reccomend': 'recommend',
-      'recommed': 'recommend',
-      'securty': 'security',
-      'somthing': 'something',
-      'succesful': 'successful',
-      'suprise': 'surprise',
-      'usefull': 'useful',
-      'vaule': 'value',
-      'wether': 'whether',
-      'yeild': 'yield',
-      'everthing': 'everything',
-      'feild': 'field',
-      'finnally': 'finally',
-      'foriegn': 'foreign',
-      'goodluck': 'good luck',
-      'hopfully': 'hopefully',
-      'intrest': 'interest',
-      'learnign': 'learning',
-      'litature': 'literature',
-      'measurment': 'measurement',
-      'ocasion': 'occasion',
-      'occassion': 'occasion',
-      'oppurtunity': 'opportunity',
-      'orignal': 'original',
-      'presance': 'presence',
-      'publically': 'publicly',
-      'remeber': 'remember',
-      'restarant': 'restaurant',
-      'saftey': 'safety',
-      'similer': 'similar',
-      'succes': 'success',
-      'supose': 'suppose',
-      'temprature': 'temperature',
-      'tendancy': 'tendency',
-      'thaught': 'thought',
-      'thougt': 'thought',
-      'trough': 'through',
-      'tounge': 'tongue',
-      'totaly': 'totally',
-      'disapoint': 'disappoint',
-      'disapear': 'disappear',
-      'aswell': 'as well',
-      'infact': 'in fact',
-      'atleast': 'at least',
-      'eachother': 'each other',
-      'everytime': 'every time',
-      'thankyou': 'thank you',
-      'gng': 'going',
-      'brb': 'be right back',
-      'tbh': 'to be honest',
-      'ngl': 'not gonna lie',
-      'idk': 'I don\'t know'
-    };
-
-    function showStatus(text) {
-      if (!eventStatus) return;
-      eventStatus.textContent = text;
-      eventStatus.style.display = 'inline-block';
-      setTimeout(() => {
-        eventStatus.style.display = 'none';
-      }, 2500);
-    }
-
-    function syncScroll() {
-      if (ghostLayer && demoInput) {
-        ghostLayer.scrollTop = demoInput.scrollTop;
-        ghostLayer.scrollLeft = demoInput.scrollLeft;
+      function loadEngine() {
+        const t0 = performance.now();
+        setStats('loading dictionary...');
+        const get = (p) => fetch(p).then((r) => { if (!r.ok) throw new Error(p); return r.text(); });
+        return Promise.all([get('data/unigrams.txt'), get('data/bigrams.txt')]).then(([u, b]) => {
+          const uLines = u.split('\n');
+          for (let i = 0; i < uLines.length; i++) {
+            const line = uLines[i];
+            const sp = line.indexOf(' ');
+            if (sp < 1) continue;
+            engine.uni.set(line.slice(0, sp), parseInt(line.slice(sp + 1), 10));
+          }
+          engine.sorted = Array.from(engine.uni.keys()).sort();
+          for (const w of engine.uni.keys()) {
+            (engine.byLen[w.length] = engine.byLen[w.length] || []).push(w);
+          }
+          const bLines = b.split('\n');
+          for (let i = 0; i < bLines.length; i++) {
+            const p = bLines[i].split(' ');
+            if (p.length !== 3) continue;
+            const f = parseInt(p[2], 10);
+            engine.bi.set(p[0] + ' ' + p[1], f);
+            let arr = engine.next.get(p[0]);
+            if (!arr) { arr = []; engine.next.set(p[0], arr); }
+            if (arr.length < 6) arr.push([p[1], f]);
+          }
+          engine.ready = true;
+          const ms = Math.round(performance.now() - t0);
+          setStats(engine.uni.size.toLocaleString() + ' words, ' + engine.bi.size.toLocaleString() + ' bigrams, loaded in ' + ms + ' ms');
+          updatePredictions();
+        }).catch(() => {
+          setStats('dictionary failed to load (open the page over http)');
+        });
       }
-    }
 
-    function cleanSuggestion(before, suggest) {
-      if (before.endsWith(' ') && suggest.startsWith(' ')) {
-        return suggest.slice(1);
-      }
-      return suggest;
-    }
-
-    function extractFirstWord(suggest) {
-      const match = suggest.match(/^(\s*\S+)/);
-      return match ? match[1] : suggest;
-    }
-
-    function runAutocorrect(triggerDelimiter) {
-      if (!demoInput) return false;
-      const cursorPos = demoInput.selectionStart;
-      const val = demoInput.value;
-      const before = val.substring(0, cursorPos);
-      const after = val.substring(demoInput.selectionEnd);
-
-      let rawWord = '';
-      let delimiter = triggerDelimiter || '';
-      let wordStart = 0;
-
-      if (triggerDelimiter) {
-        // Desktop keydown: delimiter (Space/Enter/Punctuation) pressed, not yet in textarea
-        const match = before.match(/([a-zA-Z']+)$/);
-        if (match) {
-          rawWord = match[1];
-          wordStart = cursorPos - rawWord.length;
+      // ---------- Spell correction (bounded Damerau-Levenshtein, OSA) ----------
+      function osa(a, b, max) {
+        const la = a.length, lb = b.length;
+        if (Math.abs(la - lb) > max) return max + 1;
+        let prev2 = null;
+        let prev = new Array(lb + 1);
+        let cur = new Array(lb + 1);
+        for (let j = 0; j <= lb; j++) prev[j] = j;
+        for (let i = 1; i <= la; i++) {
+          cur[0] = i;
+          let rowMin = i;
+          for (let j = 1; j <= lb; j++) {
+            const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
+            let v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+            if (i > 1 && j > 1 && a.charCodeAt(i - 1) === b.charCodeAt(j - 2) && a.charCodeAt(i - 2) === b.charCodeAt(j - 1)) {
+              v = Math.min(v, prev2[j - 2] + 1);
+            }
+            cur[j] = v;
+            if (v < rowMin) rowMin = v;
+          }
+          if (rowMin > max) return max + 1;
+          prev2 = prev; prev = cur; cur = new Array(lb + 1);
         }
-      } else {
-        // Input event: delimiter was just typed into textarea
-        const match = before.match(/([a-zA-Z']+)([\s.,!?;:\n])$/);
-        if (match) {
-          rawWord = match[1];
-          delimiter = match[2];
-          wordStart = cursorPos - match[0].length;
+        return prev[lb];
+      }
+
+      function bigramScore(prevWord, w) {
+        if (!prevWord) return 0;
+        const bf = engine.bi.get(prevWord + ' ' + w);
+        return bf ? 1.5 * LOG(bf) : 0;
+      }
+
+      function spellCandidate(lower, prevWord) {
+        const maxEd = lower.length <= 2 ? 0 : (lower.length <= 4 ? 1 : 2);
+        if (maxEd === 0) return null;
+        let best = null;
+        let bestD = maxEd + 1;
+        for (let L = lower.length - maxEd; L <= lower.length + maxEd; L++) {
+          const arr = engine.byLen[L];
+          if (!arr) continue;
+          for (let i = 0; i < arr.length; i++) {
+            const w = arr[i];
+            const d = osa(lower, w, Math.min(bestD, maxEd));
+            if (d > maxEd || d > bestD) continue;
+            let s = LOG(engine.uni.get(w)) + bigramScore(prevWord, w);
+            if (w[0] === lower[0]) s += 0.5;
+            if (d < bestD || (d === bestD && s > best.s)) { bestD = d; best = { w: w, s: s, d: d }; }
+          }
         }
+        return best;
       }
 
-      if (!rawWord) return false;
-      const rawLower = rawWord.toLowerCase();
-
-      let corrected = null;
-
-      // 1. Direct typo dictionary lookup
-      if (typoDictionary[rawLower]) {
-        corrected = typoDictionary[rawLower];
+      function okPart(p, minLen) {
+        return engine.uni.has(p) && (p.length >= minLen || p === 'a' || p === 'i');
       }
 
-      // 2. Sentence capitalization & standalone 'I' check
-      const textBeforeWord = before.substring(0, wordStart);
-      const isSentenceStart = (wordStart === 0 || /(?:[.!?\n]|\A)\s*$/.test(textBeforeWord));
-
-      if (rawLower === 'i') {
-        corrected = 'I';
-      } else if (!corrected && isSentenceStart && /^[a-z]/.test(rawWord)) {
-        // Auto-capitalize first word of a sentence
-        corrected = rawWord.charAt(0).toUpperCase() + rawWord.slice(1);
+      // Run-together word splitting: best 2-way (then 3-way) dictionary segmentation
+      function segment(lower, prevWord) {
+        if (lower.length < 4) return null;
+        let best = null;
+        for (let i = 1; i < lower.length; i++) {
+          const w1 = lower.slice(0, i), w2 = lower.slice(i);
+          if (!okPart(w1, 2) || !okPart(w2, 2)) continue;
+          const bf = engine.bi.get(w1 + ' ' + w2) || 0;
+          let s = LOG(engine.uni.get(w1)) + LOG(engine.uni.get(w2)) + (bf ? 1.5 * LOG(bf) : 0) + bigramScore(prevWord, w1);
+          const lens = [w1, w2].filter((x) => x !== 'a' && x !== 'i').map((x) => x.length);
+          if (!best || s > best.s) best = { text: w1 + ' ' + w2, s: s, bf: bf, minLen: lens.length ? Math.min.apply(null, lens) : 1, minF: Math.min(engine.uni.get(w1), engine.uni.get(w2)) };
+        }
+        if (best) return best;
+        for (let i = 3; i < lower.length - 5; i++) {
+          for (let j = i + 3; j < lower.length - 2; j++) {
+            const a = lower.slice(0, i), b = lower.slice(i, j), c = lower.slice(j);
+            if (!okPart(a, 3) || !okPart(b, 3) || !okPart(c, 3)) continue;
+            const s = LOG(engine.uni.get(a)) + LOG(engine.uni.get(b)) + LOG(engine.uni.get(c)) - 6;
+            if (!best || s > best.s) best = { text: a + ' ' + b + ' ' + c, s: s, bf: 0, minLen: 3 };
+          }
+        }
+        return best;
       }
 
-      if (!corrected || corrected === rawWord) return false;
-
-      // Match TitleCase or UPPERCASE from rawWord if not already uppercase
-      if (rawWord === rawWord.toUpperCase() && rawWord.length > 1) {
-        corrected = corrected.toUpperCase();
-      } else if ((isSentenceStart || rawWord[0] === rawWord[0].toUpperCase()) && corrected[0] !== corrected[0].toUpperCase()) {
-        corrected = corrected.charAt(0).toUpperCase() + corrected.slice(1);
-      }
-
-      const replacement = corrected + delimiter;
-      demoInput.value = before.substring(0, wordStart) + replacement + after;
-      const newCursor = wordStart + replacement.length;
-      demoInput.setSelectionRange(newCursor, newCursor);
-
-      lastAutocorrect = {
-        raw: rawWord,
-        corrected: corrected,
-        start: wordStart,
-        end: newCursor,
-        delimiter: delimiter
+      const CONTRACTIONS = {
+        dont: "don't", doesnt: "doesn't", didnt: "didn't", cant: "can't", wont: "won't", isnt: "isn't",
+        arent: "aren't", wasnt: "wasn't", werent: "weren't", hasnt: "hasn't", havent: "haven't",
+        hadnt: "hadn't", couldnt: "couldn't", wouldnt: "wouldn't", shouldnt: "shouldn't",
+        im: "I'm", ive: "I've", thats: "that's", whats: "what's", theres: "there's", theyre: "they're",
+        youre: "you're", youve: "you've", youll: "you'll", theyll: "they'll", weve: "we've", lets: "let's"
       };
 
-      showStatus('Autocorrected: ' + rawWord + ' → ' + corrected);
-      updatePredictions();
-      return true;
-    }
-
-    function updatePredictions() {
-      if (!demoInput || !ghostMirror || !ghostText) return;
-      const val = demoInput.value;
-      const cursorPos = (demoInput.selectionStart !== undefined) ? demoInput.selectionStart : val.length;
-      
-      const beforeCursor = val.substring(0, cursorPos);
-      const afterCursor = val.substring(cursorPos);
-
-      // Trailing newline handling for HTML span pre-wrap
-      ghostMirror.textContent = beforeCursor;
-      if (ghostMirrorAfter) {
-        ghostMirrorAfter.textContent = afterCursor;
+      function applyCase(raw, out) {
+        if (raw.length > 1 && raw === raw.toUpperCase()) return out.toUpperCase();
+        if (/^[A-Z]/.test(raw)) return out.charAt(0).toUpperCase() + out.slice(1);
+        return out;
       }
 
-      syncScroll();
+      function correctWord(raw, prevWord, sentenceStart) {
+        const lower = raw.toLowerCase();
+        let result = raw;
+        const hasDigitOrSym = /[0-9_@#\/\\]/.test(raw);
 
-      if (!beforeCursor || beforeCursor.length === 0) {
-        ghostText.textContent = '';
-        return;
-      }
-
-      const matchWord = beforeCursor.match(/([a-zA-Z0-9']+)\s*$/);
-      const rawCurrentWord = matchWord ? matchWord[1] : '';
-      const currentWordLower = rawCurrentWord.toLowerCase();
-      const lowerBefore = beforeCursor.toLowerCase();
-      const trimmedLower = lowerBefore.trimEnd();
-
-      let bestSuggestion = '';
-
-      // 1. Contextual Multi-Word / Full Sentence Matching (ordered by longest prefix)
-      for (const p of multiPredictions) {
-        const pfx = p.prefix.toLowerCase();
-
-        // Exact prefix match at word boundary (e.g. "looking forward" -> suggest: " to hearing from you soon")
-        if (trimmedLower.endsWith(pfx)) {
-          bestSuggestion = cleanSuggestion(beforeCursor, p.suggest);
-          break;
+        if (hasDigitOrSym) {
+          result = raw;
+        } else if (raw.indexOf("'") >= 0) {
+          if (/^i'/i.test(raw)) result = 'I' + raw.slice(1);
+        } else if (suppressed.has(lower)) {
+          result = raw;
+        } else if (/^[a-z]{2,}I$/.test(raw) && engine.uni.has(raw.slice(0, -1))) {
+          result = raw.slice(0, -1) + ' I';
+        } else if (/[a-z][A-Z]/.test(raw)) {
+          result = raw;
+        } else if (CONTRACTIONS[lower]) {
+          result = applyCase(raw, CONTRACTIONS[lower]);
+        } else if (lower === 'i') {
+          result = 'I';
+        } else if (engine.uni.has(lower)) {
+          result = raw;
+        } else if (lower.length >= 3) {
+          const allCaps = raw === raw.toUpperCase();
+          const cand = spellCandidate(lower, prevWord);
+          const seg = allCaps ? null : segment(lower, prevWord);
+          let out = null;
+          const segTrusted = seg && (seg.bf > 0 || seg.minF >= 2e7);
+          if (seg && segTrusted && (!cand || (seg.bf > 0 && seg.minLen >= 2) || (cand.d >= 2 && seg.minLen >= 3))) {
+            out = seg.text;
+          } else if (cand && (!allCaps || (cand.d === 1 && engine.uni.get(cand.w) >= 1e8))) {
+            out = cand.w;
+          }
+          if (out) result = applyCase(raw, out);
         }
 
-        // Type-Through Partial Word Continuation:
-        // User typed a prefix plus the start of the continuation
-        // e.g. p.prefix is "looking forward", p.suggest is " to hearing from you soon"
-        // User typed "looking forward to h" -> match and suggest remaining suffix!
-        if (pfx.length > 2) {
-          const originalPhrase = p.prefix + p.suggest;
-          const fullPhraseLower = originalPhrase.toLowerCase();
-          if (trimmedLower.length < fullPhraseLower.length && fullPhraseLower.startsWith(trimmedLower)) {
-            const remaining = originalPhrase.substring(trimmedLower.length);
-            if (remaining.length > 0) {
-              bestSuggestion = cleanSuggestion(beforeCursor, remaining);
-              break;
+        if (sentenceStart && /^[a-z]/.test(result)) {
+          result = result.charAt(0).toUpperCase() + result.slice(1);
+        }
+        return result !== raw ? result : null;
+      }
+
+      // ---------- Prediction (prefix completion + bigram continuation) ----------
+      function lowerBound(prefix) {
+        const arr = engine.sorted;
+        let lo = 0, hi = arr.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (arr[mid] < prefix) lo = mid + 1; else hi = mid;
+        }
+        return lo;
+      }
+
+      function bestCompletion(curL, prevWord) {
+        if (curL.length < 2) return null;
+        const arr = engine.sorted;
+        let best = null, bestS = -Infinity;
+        for (let i = lowerBound(curL); i < arr.length && arr[i].startsWith(curL); i++) {
+          const w = arr[i];
+          if (w.length === curL.length) continue;
+          const s = LOG(engine.uni.get(w)) + bigramScore(prevWord, w);
+          if (s > bestS) { bestS = s; best = w; }
+        }
+        return best;
+      }
+
+      function chain(prev, count, lead) {
+        const out = [];
+        const seen = new Set([prev]);
+        let p = prev;
+        for (let i = 0; i < count; i++) {
+          const arr = engine.next.get(p);
+          if (!arr) break;
+          let pick = null;
+          for (let k = 0; k < arr.length; k++) { if (!seen.has(arr[k][0])) { pick = arr[k][0]; break; } }
+          if (!pick) break;
+          out.push(pick === 'i' ? 'I' : pick);
+          seen.add(pick);
+          p = pick;
+        }
+        return out.length ? lead + out.join(' ') : '';
+      }
+
+      function prevWordOf(head) {
+        if (/[.!?]\s*$/.test(head) || /\n\s*$/.test(head)) return null;
+        const m = head.match(/([A-Za-z']+)\s*$/);
+        return m ? m[1].toLowerCase() : null;
+      }
+
+      function predictText(before, after, mode, forceNext) {
+        if (!engine.ready || !before) return '';
+        if (after && /^[A-Za-z0-9]/.test(after)) return '';
+        const maxWords = mode === 'one' ? 1 : 3;
+        const m = before.match(/([A-Za-z']+)$/);
+        if (m) {
+          const cur = m[1];
+          const curL = cur.toLowerCase();
+          const prev = prevWordOf(before.slice(0, before.length - cur.length));
+          if (!forceNext) {
+            const comp = bestCompletion(curL, prev);
+            if (comp) {
+              if (!engine.uni.has(curL)) {
+                let out = comp.slice(curL.length);
+                if (mode !== 'one') out += chain(comp, maxWords - 1, ' ');
+                return out;
+              }
             }
           }
+          if (!engine.uni.has(curL)) return '';
+          return chain(curL, maxWords, ' ');
+        }
+        if (/[ \t]$/.test(before)) {
+          const prev = prevWordOf(before);
+          return prev ? chain(prev, maxWords, '') : '';
+        }
+        return '';
+      }
+
+      // ---------- UI plumbing ----------
+      function showStatus(text) {
+        if (!eventStatus) return;
+        eventStatus.textContent = text;
+        eventStatus.style.display = 'inline-block';
+        clearTimeout(statusTimer);
+        statusTimer = setTimeout(() => { eventStatus.style.display = 'none'; }, 2500);
+      }
+
+      function syncScroll() {
+        if (ghostLayer) {
+          ghostLayer.scrollTop = demoInput.scrollTop;
+          ghostLayer.scrollLeft = demoInput.scrollLeft;
         }
       }
 
-      // 2. Fallback to active word completion if no multi-word phrase matched
-      if (!bestSuggestion && currentWordLower && wordCompletions[currentWordLower]) {
-        let completion = wordCompletions[currentWordLower];
-        if (rawCurrentWord.length > 0 && rawCurrentWord[0] === rawCurrentWord[0].toUpperCase()) {
-          completion = completion.charAt(0).toUpperCase() + completion.slice(1);
-        }
-        bestSuggestion = completion;
+      function updatePredictions() {
+        const val = demoInput.value;
+        const pos = demoInput.selectionStart;
+        const before = val.substring(0, pos);
+        const after = val.substring(demoInput.selectionEnd);
+        ghostMirror.textContent = before;
+        if (ghostMirrorAfter) ghostMirrorAfter.textContent = after;
+        syncScroll();
+        if (demoInput.selectionStart !== demoInput.selectionEnd) { ghostText.textContent = ''; return; }
+        ghostText.textContent = predictText(before, after, activeMode, justAccepted);
       }
 
-      if (!bestSuggestion) {
-        ghostText.textContent = '';
-        return;
-      }
+      function setCursor(pos) { demoInput.setSelectionRange(pos, pos); }
 
-      // 3. One-Word Mode: return only the first token/word
-      if (activeMode === 'one') {
-        ghostText.textContent = extractFirstWord(bestSuggestion);
-      } else {
-        ghostText.textContent = bestSuggestion;
-      }
-    }
+      // delimiterAlreadyInserted: true when the browser already put the space in the box (mobile keyboards)
+      function runAutocorrect(delim, delimiterAlreadyInserted) {
+        if (!engine.ready) return false;
+        if (demoInput.selectionStart !== demoInput.selectionEnd) return false;
+        const val = demoInput.value;
+        let cursor = demoInput.selectionStart;
+        let core = val.substring(0, cursor);
+        if (delimiterAlreadyInserted) core = core.slice(0, -delim.length);
+        const m = core.match(/([^\s.,!?;:()"]+)$/);
+        if (!m) return false;
+        const raw = m[1];
+        const wordStart = core.length - raw.length;
+        const tb = core.slice(0, wordStart);
+        const sentenceStart = tb.trim() === '' || /[.!?]["')\]]*\s*$/.test(tb) || /\n\s*$/.test(tb);
+        const prevWord = prevWordOf(tb);
 
-    if (demoInput) {
-      demoInput.addEventListener('input', () => {
-        runAutocorrect();
+        const t0 = performance.now();
+        const corrected = correctWord(raw, prevWord, sentenceStart);
+        const ms = performance.now() - t0;
+        if (!corrected) return false;
+
+        const after = val.substring(delimiterAlreadyInserted ? cursor : demoInput.selectionEnd);
+        const replacement = corrected + delim;
+        demoInput.value = tb + replacement + after;
+        const newCursor = wordStart + replacement.length;
+        setCursor(newCursor);
+        lastAction = { type: 'correct', raw: raw, corrected: corrected, start: wordStart, end: newCursor };
+        justAccepted = false;
+        showStatus(raw + ' -> ' + corrected + '  (' + ms.toFixed(2) + ' ms)');
         updatePredictions();
-      });
-      demoInput.addEventListener('scroll', syncScroll);
-      demoInput.addEventListener('click', updatePredictions);
-      demoInput.addEventListener('keyup', (e) => {
-        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
-          updatePredictions();
+        return true;
+      }
+
+      function acceptGhost() {
+        const pred = ghostText.textContent;
+        if (!pred) return false;
+        const pos = demoInput.selectionStart;
+        const val = demoInput.value;
+        demoInput.value = val.substring(0, pos) + pred + val.substring(demoInput.selectionEnd);
+        const end = pos + pred.length;
+        setCursor(end);
+        lastAction = { type: 'ghost', start: pos, end: end, text: pred };
+        justAccepted = true;
+        showStatus('Accepted: ' + pred.trim());
+        updatePredictions();
+        return true;
+      }
+
+      function undoLast() {
+        const pos = demoInput.selectionStart;
+        if (!lastAction || pos !== lastAction.end || demoInput.selectionEnd !== pos) return false;
+        const val = demoInput.value;
+        const a = lastAction;
+        if (a.type === 'correct') {
+          demoInput.value = val.substring(0, a.start) + a.raw + val.substring(a.end);
+          setCursor(a.start + a.raw.length);
+          suppressed.add(a.raw.toLowerCase());
+          showStatus('Undone: reverted to ' + a.raw);
+        } else {
+          demoInput.value = val.substring(0, a.start) + val.substring(a.end);
+          setCursor(a.start);
+          showStatus('Undone: removed suggestion');
         }
-      });
+        lastAction = null;
+        justAccepted = false;
+        updatePredictions();
+        return true;
+      }
+
+      function insertText(s) {
+        const pos = demoInput.selectionStart;
+        const val = demoInput.value;
+        demoInput.value = val.substring(0, pos) + s + val.substring(demoInput.selectionEnd);
+        setCursor(pos + s.length);
+      }
+
+      // Same code path as the keyboard, used by the sample chips
+      function typeChar(ch) {
+        if (ch === ' ') {
+          if (!runAutocorrect(' ', false)) { insertText(' '); lastAction = null; justAccepted = false; }
+        } else {
+          insertText(ch);
+          lastAction = null;
+          justAccepted = false;
+        }
+        updatePredictions();
+      }
+
+      function stopTyping() { if (typingTimer) { clearInterval(typingTimer); typingTimer = null; } }
+
+      function simulateTyping(text) {
+        stopTyping();
+        demoInput.focus();
+        demoInput.value = '';
+        lastAction = null;
+        justAccepted = false;
+        updatePredictions();
+        let i = 0;
+        typingTimer = setInterval(() => {
+          if (i >= text.length) { stopTyping(); return; }
+          typeChar(text[i++]);
+        }, 55);
+      }
+
+      // ---------- Events ----------
+      if (modeMulti && modeOne) {
+        modeMulti.addEventListener('click', () => {
+          activeMode = 'multi'; modeMulti.classList.add('active'); modeOne.classList.remove('active'); updatePredictions();
+        });
+        modeOne.addEventListener('click', () => {
+          activeMode = 'one'; modeOne.classList.add('active'); modeMulti.classList.remove('active'); updatePredictions();
+        });
+      }
+
+      let spaceHandledByKeydown = false;
 
       demoInput.addEventListener('keydown', (e) => {
-        // 1. Accept Ghost Text on Tab
+        stopTyping();
+        spaceHandledByKeydown = false;
+
         if (e.key === 'Tab') {
-          e.preventDefault();
-          const pred = ghostText.textContent;
-          if (pred && pred.length > 0) {
-            const cursorPos = demoInput.selectionStart;
-            const val = demoInput.value;
-            const before = val.substring(0, cursorPos);
-            const after = val.substring(demoInput.selectionEnd);
-
-            demoInput.value = before + pred + after;
-            const newCursor = cursorPos + pred.length;
-            demoInput.setSelectionRange(newCursor, newCursor);
-
-            ghostText.textContent = '';
-            showStatus('Accepted: ' + pred.trim());
-            // Immediately cue the next continuation or word for seamless Tab-chaining!
-            updatePredictions();
-          }
+          if (ghostText.textContent) { e.preventDefault(); acceptGhost(); }
           return;
         }
-
-        // 2. Autocorrect on Space, Enter, or Punctuation keydown
-        const isTriggerKey = (e.key === ' ' || e.code === 'Space' || e.key === 'Enter' || [',', '.', '!', '?', ';', ':'].includes(e.key));
-        if (isTriggerKey) {
-          const delim = (e.key === 'Enter') ? '\n' : (e.key === 'Space' || e.code === 'Space') ? ' ' : e.key;
-          if (runAutocorrect(delim)) {
-            e.preventDefault();
-            return;
-          }
-          lastAutocorrect = null;
-        }
-
-        // 3. Single-Key Undo on Backspace
         if (e.key === 'Backspace') {
-          const cursorPos = demoInput.selectionStart;
-          if (lastAutocorrect && cursorPos === lastAutocorrect.end && demoInput.selectionEnd === cursorPos) {
-            e.preventDefault();
-            const val = demoInput.value;
-            const before = val.substring(0, lastAutocorrect.start);
-            const after = val.substring(lastAutocorrect.end);
-
-            demoInput.value = before + lastAutocorrect.raw + after;
-            const newCursor = lastAutocorrect.start + lastAutocorrect.raw.length;
-            demoInput.setSelectionRange(newCursor, newCursor);
-
-            showStatus('Undone: reverted to ' + lastAutocorrect.raw);
-            lastAutocorrect = null;
-            updatePredictions();
-            return;
-          }
-          lastAutocorrect = null;
+          if (undoLast()) e.preventDefault();
+          return;
         }
-
-        // Other keys clear undo buffer
-        if (!isTriggerKey && e.key !== 'Backspace' && e.key !== 'Tab') {
-          lastAutocorrect = null;
+        if (e.key === 'Enter') { lastAction = null; justAccepted = false; return; }
+        if (e.key === ' ' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+          spaceHandledByKeydown = true;
+          if (runAutocorrect(' ', false)) e.preventDefault();
+          return;
         }
       });
-    }
 
-    const typingContainer = document.getElementById('typingContainer');
-    if (typingContainer && demoInput) {
-      typingContainer.addEventListener('click', (e) => {
-        if (e.target !== demoInput) {
-          demoInput.focus();
-        }
-      });
-    }
-
-    // Sample chip clicks
-    document.querySelectorAll('.sample-chip').forEach(chip => {
-      chip.addEventListener('mousedown', (e) => {
-        e.preventDefault(); // Keep focus in textarea
-      });
-
-      chip.addEventListener('click', (e) => {
-        e.preventDefault();
-        const text = chip.dataset.text;
-        const isAutocorrectDemo = chip.dataset.autocorrect === 'true';
-        if (!demoInput) return;
-
-        demoInput.focus();
-
-        if (isAutocorrectDemo) {
-          demoInput.value = text + ' ';
-          demoInput.setSelectionRange(demoInput.value.length, demoInput.value.length);
-          runAutocorrect();
+      demoInput.addEventListener('input', (e) => {
+        // Mobile keyboards often report key "Unidentified" on keydown, so correct after the fact
+        if (e.inputType === 'insertText' && e.data === ' ' && !spaceHandledByKeydown) {
+          runAutocorrect(' ', true);
         } else {
-          demoInput.value = text;
-          demoInput.setSelectionRange(text.length, text.length);
-          updatePredictions();
+          lastAction = null;
+        }
+        justAccepted = false;
+        updatePredictions();
+      });
+
+      demoInput.addEventListener('scroll', syncScroll);
+      demoInput.addEventListener('click', () => { justAccepted = false; updatePredictions(); });
+      demoInput.addEventListener('keyup', (e) => {
+        if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
+          lastAction = null; justAccepted = false; updatePredictions();
         }
       });
-    });
 
-    // Initial placeholder state
-    if (demoInput) {
-      demoInput.value = 'Looking forward';
-      demoInput.setSelectionRange(demoInput.value.length, demoInput.value.length);
+      const typingContainer = document.getElementById('typingContainer');
+      if (typingContainer) {
+        typingContainer.addEventListener('click', (e) => { if (e.target !== demoInput) demoInput.focus(); });
+      }
+
+      document.querySelectorAll('.sample-chip').forEach((chip) => {
+        chip.addEventListener('mousedown', (e) => e.preventDefault());
+        chip.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (!engine.ready) return;
+          simulateTyping(chip.dataset.text);
+        });
+      });
+
+      demoInput.value = '';
       updatePredictions();
-    }
+      loadEngine();
+    })();
   </script>
 </body>
 </html>
