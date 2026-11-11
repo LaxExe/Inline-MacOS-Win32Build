@@ -39,7 +39,7 @@ struct AppConfig {
     int   ghostStyle = 1;      // 0 = Subtle, 1 = Standard, 2 = High contrast
     std::vector<std::string> disabledApps;      // on mac: bundle identifiers, e.g. "com.apple.Terminal"
     std::vector<std::string> ghostDisabledApps = defaultGhostDisabledApps();
-    int   onboardingVersion = 2;
+    int   onboardingVersion = 3;
 };
 
 extern std::mutex configMutex;

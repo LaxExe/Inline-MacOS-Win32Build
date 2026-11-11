@@ -1,4 +1,7 @@
 #include "core/config/config_json.h"
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <iomanip>
 #include <regex>
@@ -164,4 +167,43 @@ AppConfig deserializeConfig(const std::string& jsonStr, bool& outOk) {
     cfg.onboardingVersion = foundOnboarding ? onboardingVer : 1;
 
     return cfg;
+}
+
+std::string getDefaultConfigPath() {
+    std::string dir;
+#ifdef _WIN32
+    const char* appData = std::getenv("APPDATA");
+    dir = (appData ? appData : ".") + std::string("/Inline");
+#else
+    const char* home = std::getenv("HOME");
+    dir = (home ? home : ".") + std::string("/Library/Application Support/Inline");
+#endif
+    std::error_code ec;
+    std::filesystem::create_directories(dir, ec);
+    return dir + "/config.json";
+}
+
+bool saveConfigToFile(const AppConfig& cfg, const std::string& path) {
+    std::error_code ec;
+    std::filesystem::path p(path);
+    if (p.has_parent_path()) {
+        std::filesystem::create_directories(p.parent_path(), ec);
+    }
+    std::ofstream out(path);
+    if (!out.is_open()) {
+        return false;
+    }
+    out << serializeConfig(cfg);
+    return out.good();
+}
+
+bool migrateConfigIfNeeded(AppConfig& cfg) {
+    // v1.5: Ghost Writer is off by default for everyone (including upgrades from v1.2/v1.3/v1.4)
+    // until the user explicitly enables it in Settings, the menu bar, or via Cmd+Option+Shift+G.
+    if (cfg.onboardingVersion < 3) {
+        cfg.ghostTextEnabled = false;
+        cfg.onboardingVersion = 3;
+        return true;
+    }
+    return false;
 }

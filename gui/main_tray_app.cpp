@@ -5,6 +5,7 @@
 #include "core/buffers/word_boundary.h"
 #include "core/tier1/corrector.h"
 #include "core/ghost/ghost_layout.h"
+#include "core/config/config_json.h"
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
 #include "platform/mac/hotkey/global_hotkey.h"
 #include "platform/mac/permissions.h"
@@ -264,10 +265,13 @@ void MainTrayApp::updateTrayIcon() {
 }
 
 void MainTrayApp::toggleMasterEnabled() {
+    AppConfig cfgCopy;
     {
         std::lock_guard<std::mutex> lock(configMutex);
         sharedConfig.masterEnabled = !sharedConfig.masterEnabled;
+        cfgCopy = sharedConfig;
     }
+    saveConfigToFile(cfgCopy);
     updateTrayIcon();
     if (settingsDialog_ && settingsDialog_->isVisible()) {
         settingsDialog_->loadFromConfig();
@@ -275,10 +279,13 @@ void MainTrayApp::toggleMasterEnabled() {
 }
 
 void MainTrayApp::toggleSentenceCorrection() {
+    AppConfig cfgCopy;
     {
         std::lock_guard<std::mutex> lock(configMutex);
         sharedConfig.sentenceCorrectionEnabled = !sharedConfig.sentenceCorrectionEnabled;
+        cfgCopy = sharedConfig;
     }
+    saveConfigToFile(cfgCopy);
     updateTrayIcon();
     if (settingsDialog_ && settingsDialog_->isVisible()) {
         settingsDialog_->loadFromConfig();
@@ -287,11 +294,14 @@ void MainTrayApp::toggleSentenceCorrection() {
 
 void MainTrayApp::toggleGhostText() {
     bool nowEnabled = false;
+    AppConfig cfgCopy;
     {
         std::lock_guard<std::mutex> lock(configMutex);
         sharedConfig.ghostTextEnabled = !sharedConfig.ghostTextEnabled;
         nowEnabled = sharedConfig.ghostTextEnabled;
+        cfgCopy = sharedConfig;
     }
+    saveConfigToFile(cfgCopy);
     if (!nowEnabled) {
         dismissGhost();
     }

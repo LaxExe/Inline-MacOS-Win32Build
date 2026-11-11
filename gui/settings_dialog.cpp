@@ -461,19 +461,6 @@ void ThemePreviewCard::paintEvent(QPaintEvent*) {
 // ============================================================================
 // 4. SettingsDialog Implementation
 // ============================================================================
-static std::string getConfigFilePath() {
-    std::string path;
-#ifdef _WIN32
-    const char* appData = getenv("APPDATA");
-    path = (appData ? appData : ".") + std::string("/Inline");
-#else
-    const char* home = getenv("HOME");
-    path = (home ? home : ".") + std::string("/Library/Application Support/Inline");
-#endif
-    std::filesystem::create_directories(path);
-    return path + "/config.json";
-}
-
 SettingsDialog::SettingsDialog(QWidget* parent) : QDialog(parent) {
     setWindowTitle(tr("System Settings"));
     resize(840, 620);
@@ -704,7 +691,7 @@ void SettingsDialog::setupUi() {
     sidebarLayout->addWidget(sidebarList_);
 
     // Version label at bottom
-    auto* versionLabel = new QLabel(tr("Inline macOS • v1.4"), sidebarContainer);
+    auto* versionLabel = new QLabel(tr("Inline macOS • v1.5"), sidebarContainer);
     versionLabel->setStyleSheet("font-size: 10px; color: #9CA3AF; padding: 4px 6px; font-weight: 500;");
     sidebarLayout->addWidget(versionLabel);
 
@@ -1526,13 +1513,14 @@ void SettingsDialog::appendLog(const QString& msg) {
 void SettingsDialog::loadFromConfig() {
     isLoadingConfig_ = true;
     AppConfig cfg;
-    std::string configPath = getConfigFilePath();
+    bool loadedOk = false;
+    std::string configPath = getDefaultConfigPath();
     std::ifstream file(configPath);
     if (file.is_open()) {
         std::string jsonStr((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        bool ok = false;
-        cfg = deserializeConfig(jsonStr, ok);
-    } else {
+        cfg = deserializeConfig(jsonStr, loadedOk);
+    }
+    if (!loadedOk) {
         std::lock_guard<std::mutex> lock(configMutex);
         cfg = sharedConfig;
     }
@@ -1673,11 +1661,7 @@ void SettingsDialog::saveToConfig() {
         sharedConfig = cfg;
     }
 
-    std::string configPath = getConfigFilePath();
-    std::ofstream file(configPath);
-    if (file.is_open()) {
-        file << serializeConfig(cfg);
-    }
+    saveConfigToFile(cfg);
 
     emit configChanged();
 }

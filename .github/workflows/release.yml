@@ -44,6 +44,11 @@ jobs:
             
             Lightweight, instantaneous on-device autocorrect engine with macOS System Settings styling.
 
+            #### What's New in v1.5:
+            - **Ghost Writer Off by Default (Including Upgrades)**: Ghost Text predictions are now turned off by default (`ghostTextEnabled = false`) for both fresh installations and users upgrading from v1.2/v1.3/v1.4. Users must explicitly enable Ghost Text in **System Settings > Ghost Text (Beta)**, via the menu bar item, or with `Cmd + Option + Shift + G`.
+            - **Tray & Hotkey Toggle Persistence**: Toggling Autocorrect, Sentence Capitalization, or Ghost Text from the menu bar or global shortcuts now persists immediately to `config.json`.
+            - **Web Simulator & Documentation Updates**: Includes the live in-browser C++20 autocorrect & bigram simulator on GitHub Pages.
+
             #### What's New in v1.4:
             - **Production Automated CI/CD Pipeline**: GitHub Actions workflow (`ci.yml`) runs full static validation, architecture zero-emoji enforcement, CTest 19-suite harness, codesign verification, and automated build artifact generation.
             - **Ghost Writer Default State & Compatibility Status**: Ghost text predictions are disabled by default (`ghostTextEnabled = false`) and classified as an experimental beta feature under active testing that will not work on all Mac hardware and macOS configurations.

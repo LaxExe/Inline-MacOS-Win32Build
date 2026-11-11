@@ -15,15 +15,8 @@
 #include "core/config/config_json.h"
 #include "core/reliability/privacy_logger.h"
 
-static bool loadInitialConfig() {
-    std::string path;
-#ifdef _WIN32
-    const char* appData = getenv("APPDATA");
-    path = (appData ? appData : ".") + std::string("/Inline/config.json");
-#else
-    const char* home = getenv("HOME");
-    path = (home ? home : ".") + std::string("/Library/Application Support/Inline/config.json");
-#endif
+static bool loadInitialConfig(int& outPreviousOnboardingVersion) {
+    std::string path = getDefaultConfigPath();
     if (std::filesystem::exists(path)) {
         std::ifstream in(path);
         if (in.is_open()) {
@@ -31,6 +24,10 @@ static bool loadInitialConfig() {
             bool ok = false;
             AppConfig loaded = deserializeConfig(content, ok);
             if (ok) {
+                outPreviousOnboardingVersion = loaded.onboardingVersion;
+                if (migrateConfigIfNeeded(loaded)) {
+                    saveConfigToFile(loaded, path);
+                }
                 std::lock_guard<std::mutex> lock(configMutex);
                 sharedConfig = loaded;
             }
@@ -61,42 +58,20 @@ int main(int argc, char *argv[]) {
     app.setQuitOnLastWindowClosed(false);
 
     PrivacyLogger::instance().init("Inline");
-    bool hasExistingConfig = loadInitialConfig();
+    int previousOnboardingVersion = 3;
+    bool hasExistingConfig = loadInitialConfig(previousOnboardingVersion);
 
     MainTrayApp trayApp;
     trayApp.initEngine();
 
-    QTimer::singleShot(0, [&trayApp, hasExistingConfig]() {
+    QTimer::singleShot(0, [&trayApp, hasExistingConfig, previousOnboardingVersion]() {
         // On first launch or when permissions are missing, present the 5-slide Walkthrough & Setup guide first,
         // then immediately open the main Settings window on screen.
         if (!hasExistingConfig || !PermissionDialog::areAllPermissionsGranted()) {
             trayApp.openWalkthrough();
-        } else {
-            bool needsUpgradeSlide = false;
-            {
-                std::lock_guard<std::mutex> lock(configMutex);
-                if (sharedConfig.onboardingVersion < 2) {
-                    needsUpgradeSlide = true;
-                    sharedConfig.onboardingVersion = 2;
-                }
-            }
-            if (needsUpgradeSlide) {
-                PermissionDialog dlg(nullptr, PermissionDialog::kGhostTextSlide);
-                dlg.exec();
-                std::string path;
-#ifdef _WIN32
-                const char* appData = getenv("APPDATA");
-                path = (appData ? appData : ".") + std::string("/Inline/config.json");
-#else
-                const char* home = getenv("HOME");
-                path = (home ? home : ".") + std::string("/Library/Application Support/Inline/config.json");
-#endif
-                std::ofstream out(path);
-                if (out.is_open()) {
-                    std::lock_guard<std::mutex> lock(configMutex);
-                    out << serializeConfig(sharedConfig);
-                }
-            }
+        } else if (previousOnboardingVersion < 2) {
+            PermissionDialog dlg(nullptr, PermissionDialog::kGhostTextSlide);
+            dlg.exec();
         }
         trayApp.openPreferences();
     });
