@@ -1947,9 +1947,15 @@ ctest --test-dir build_release --output-on-failure</pre>
       });
     });
 
-    // Download Counter & Post-Download Email Stat Prompt
+    // Persistent Global Download Counter (Abacus API + GitHub Releases API + localStorage fallback) & Email Stat Prompt
     (function () {
       const BASE_DOWNLOADS = 35;
+      const GH_PRE_OFFSET = 9; // 26 existing GitHub release downloads + 9 prior direct installs = 35 baseline
+      const ABACUS_BASE = 'https://abacus.jasoncameron.dev';
+      const ABACUS_NS = 'laxexe-inline-macos';
+      const ABACUS_KEY = 'downloads-v1';
+      const STORAGE_KEY = 'inline_dl_clicks_v1';
+
       const downloadBtn = document.getElementById('downloadMacBtn');
       const countEl = document.getElementById('downloadCountNum');
       const promptEl = document.getElementById('downloadEmailPrompt');
@@ -1957,9 +1963,51 @@ ctest --test-dir build_release --output-on-failure</pre>
       const sendBtn = document.getElementById('sendStatEmailBtn');
       const dismissBtn = document.getElementById('dismissEmailPromptBtn');
 
-      let bonus = parseInt(localStorage.getItem('inline_dl_bonus') || '0', 10);
-      if (isNaN(bonus) || bonus < 0) bonus = 0;
-      if (countEl) countEl.textContent = String(BASE_DOWNLOADS + bonus);
+      let abacusCount = 0;
+      let ghCount = BASE_DOWNLOADS;
+      let localClicks = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+      if (isNaN(localClicks) || localClicks < 0) localClicks = 0;
+
+      function currentTotal() {
+        return Math.max(BASE_DOWNLOADS + abacusCount, BASE_DOWNLOADS + localClicks, ghCount);
+      }
+
+      function renderCount() {
+        if (countEl) countEl.textContent = String(currentTotal());
+      }
+
+      renderCount();
+
+      // Sync persistent global click counter across all visitors
+      fetch(ABACUS_BASE + '/get/' + ABACUS_NS + '/' + ABACUS_KEY, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data && typeof data.value === 'number' && data.value >= 0) {
+            abacusCount = data.value;
+            renderCount();
+          }
+        })
+        .catch(() => {});
+
+      // Also track total GitHub Releases .dmg downloads (covers direct GitHub, brew, and curl installs)
+      fetch('https://api.github.com/repos/LaxExe/Inline-MacOS-Win32Build/releases', { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((releases) => {
+          if (!Array.isArray(releases)) return;
+          let sum = 0;
+          for (let i = 0; i < releases.length; i++) {
+            const assets = releases[i] && releases[i].assets;
+            if (!Array.isArray(assets)) continue;
+            for (let j = 0; j < assets.length; j++) {
+              sum += Number(assets[j].download_count) || 0;
+            }
+          }
+          if (sum > 0) {
+            ghCount = sum + GH_PRE_OFFSET;
+            renderCount();
+          }
+        })
+        .catch(() => {});
 
       function syncMailto() {
         if (!sendBtn || !noteInput) return;
@@ -1976,10 +2024,25 @@ ctest --test-dir build_release --output-on-failure</pre>
 
       if (downloadBtn) {
         downloadBtn.addEventListener('click', () => {
-          bonus += 1;
-          localStorage.setItem('inline_dl_bonus', String(bonus));
-          if (countEl) countEl.textContent = String(BASE_DOWNLOADS + bonus);
+          localClicks = Math.max(localClicks, abacusCount, currentTotal() - BASE_DOWNLOADS) + 1;
+          localStorage.setItem(STORAGE_KEY, String(localClicks));
+          renderCount();
           if (promptEl) promptEl.classList.add('visible');
+
+          fetch(ABACUS_BASE + '/hit/' + ABACUS_NS + '/' + ABACUS_KEY, {
+            keepalive: true,
+            cache: 'no-store'
+          })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+              if (data && typeof data.value === 'number' && data.value >= 0) {
+                abacusCount = data.value;
+                localClicks = Math.max(localClicks, abacusCount);
+                localStorage.setItem(STORAGE_KEY, String(localClicks));
+                renderCount();
+              }
+            })
+            .catch(() => {});
         });
       }
 
