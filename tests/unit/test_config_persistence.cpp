@@ -9,6 +9,7 @@ TEST(ConfigPersistence, RoundTripsAllFields) {
     cfg.ghostAcceptMode = 1;
     cfg.ghostStyle = 2;
     cfg.onboardingVersion = 3;
+    cfg.addWordHotkeyIndex = 2;
     cfg.ignoreWords = {"kubernetes", "laxExe"};
     cfg.ghostDisabledApps = {"com.apple.Terminal", "com.microsoft.VSCode"};
     std::string json = serializeConfig(cfg);
@@ -21,6 +22,7 @@ TEST(ConfigPersistence, RoundTripsAllFields) {
     EXPECT_EQ(roundTripped.ghostAcceptMode, 1);
     EXPECT_EQ(roundTripped.ghostStyle, 2);
     EXPECT_EQ(roundTripped.onboardingVersion, 3);
+    EXPECT_EQ(roundTripped.addWordHotkeyIndex, 2);
     EXPECT_EQ(roundTripped.ignoreWords, cfg.ignoreWords);
     EXPECT_EQ(roundTripped.ghostDisabledApps, cfg.ghostDisabledApps);
 }

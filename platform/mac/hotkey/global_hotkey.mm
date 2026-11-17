@@ -2,13 +2,12 @@
 #import <Carbon/Carbon.h>
 
 static EventHandlerUPP gHotKeyFunction = nullptr;
-static EventHotKeyRef gHotKeyRef = nullptr;
-static EventHandlerRef gEventHandlerRef = nullptr;
-static std::function<void()> gCallback;
 
 static OSStatus hotKeyHandler(EventHandlerCallRef nextHandler, EventRef theEvent, void *userData) {
-    if (gCallback) {
-        gCallback();
+    EventHotKeyID hkId;
+    OSStatus err = GetEventParameter(theEvent, kEventParamDirectObject, typeEventHotKeyID, NULL, sizeof(hkId), NULL, &hkId);
+    if (err == noErr && hkId.signature == 'TKHT') {
+        GlobalHotkeyManager::instance().dispatchHotkey(hkId.id);
     }
     return noErr;
 }
@@ -21,7 +20,7 @@ GlobalHotkeyManager& GlobalHotkeyManager::instance() {
 GlobalHotkeyManager::GlobalHotkeyManager() = default;
 
 GlobalHotkeyManager::~GlobalHotkeyManager() {
-    unregisterHotkey();
+    unregisterAll();
 }
 
 static UInt32 keycodeToMacVirtualKey(KeyCode key) {
@@ -78,38 +77,88 @@ static UInt32 modifiersToCarbonModifiers(ModifierFlags mods) {
     return carbonMods;
 }
 
-bool GlobalHotkeyManager::registerHotkey(KeyCode key, ModifierFlags mods, std::function<void()> callback) {
-    unregisterHotkey();
-    gCallback = callback;
+void GlobalHotkeyManager::installEventHandlerIfNeeded() {
+    if (!eventHandlerRef_) {
+        EventTypeSpec eventType;
+        eventType.eventClass = kEventClassKeyboard;
+        eventType.eventKind = kEventHotKeyPressed;
 
-    EventTypeSpec eventType;
-    eventType.eventClass = kEventClassKeyboard;
-    eventType.eventKind = kEventHotKeyPressed;
-
-    if (!gHotKeyFunction) {
-        gHotKeyFunction = NewEventHandlerUPP(hotKeyHandler);
+        if (!gHotKeyFunction) {
+            gHotKeyFunction = NewEventHandlerUPP(hotKeyHandler);
+        }
+        InstallApplicationEventHandler(gHotKeyFunction, 1, &eventType, NULL, (EventHandlerRef*)&eventHandlerRef_);
     }
-    InstallApplicationEventHandler(gHotKeyFunction, 1, &eventType, NULL, &gEventHandlerRef);
+}
 
+uint32_t GlobalHotkeyManager::registerHotkey(KeyCode key, ModifierFlags mods, std::function<void()> callback) {
+    if (key == KeyCode::None || !callback) return 0;
+
+    installEventHandlerIfNeeded();
+
+    // Check if duplicate (key, mods) already registered — replace it
+    for (auto it = hotkeys_.begin(); it != hotkeys_.end(); ++it) {
+        if (it->second.key == key && it->second.mods == mods) {
+            unregisterHotkey(it->first);
+            break;
+        }
+    }
+
+    uint32_t id = nextId_++;
     EventHotKeyID hotKeyID;
     hotKeyID.signature = 'TKHT';
-    hotKeyID.id = 1;
+    hotKeyID.id = id;
 
     UInt32 vkey = keycodeToMacVirtualKey(key);
     UInt32 cmods = modifiersToCarbonModifiers(mods);
 
-    OSStatus status = RegisterEventHotKey(vkey, cmods, hotKeyID, GetApplicationEventTarget(), 0, &gHotKeyRef);
-    return status == noErr;
+    EventHotKeyRef ref = nullptr;
+    OSStatus status = RegisterEventHotKey(vkey, cmods, hotKeyID, GetApplicationEventTarget(), 0, &ref);
+    if (status != noErr) {
+        return 0;
+    }
+
+    HotkeyItem item;
+    item.id = id;
+    item.key = key;
+    item.mods = mods;
+    item.hotKeyRef = ref;
+    item.callback = std::move(callback);
+
+    hotkeys_[id] = std::move(item);
+    return id;
+}
+
+void GlobalHotkeyManager::unregisterHotkey(uint32_t id) {
+    auto it = hotkeys_.find(id);
+    if (it != hotkeys_.end()) {
+        if (it->second.hotKeyRef) {
+            UnregisterEventHotKey(static_cast<EventHotKeyRef>(it->second.hotKeyRef));
+        }
+        hotkeys_.erase(it);
+    }
 }
 
 void GlobalHotkeyManager::unregisterHotkey() {
-    if (gHotKeyRef) {
-        UnregisterEventHotKey(gHotKeyRef);
-        gHotKeyRef = nullptr;
+    unregisterAll();
+}
+
+void GlobalHotkeyManager::unregisterAll() {
+    for (auto& pair : hotkeys_) {
+        if (pair.second.hotKeyRef) {
+            UnregisterEventHotKey(static_cast<EventHotKeyRef>(pair.second.hotKeyRef));
+        }
     }
-    if (gEventHandlerRef) {
-        RemoveEventHandler(gEventHandlerRef);
-        gEventHandlerRef = nullptr;
+    hotkeys_.clear();
+
+    if (eventHandlerRef_) {
+        RemoveEventHandler(static_cast<EventHandlerRef>(eventHandlerRef_));
+        eventHandlerRef_ = nullptr;
     }
-    gCallback = nullptr;
+}
+
+void GlobalHotkeyManager::dispatchHotkey(uint32_t id) {
+    auto it = hotkeys_.find(id);
+    if (it != hotkeys_.end() && it->second.callback) {
+        it->second.callback();
+    }
 }

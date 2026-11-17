@@ -126,11 +126,12 @@ private:
     ToggleSwitch* masterEnabledToggle_ = nullptr;
     ToggleSwitch* singleKeyUndoToggle_ = nullptr;
 
-    // Page 1: Features
+    // Page 1: Typing Engine
     ToggleSwitch* sentenceCorrectionToggle_ = nullptr;
     ToggleSwitch* runTogetherToggle_ = nullptr;
     QComboBox* sensitivityCombo_ = nullptr;
     QComboBox* editDistanceCombo_ = nullptr;
+    QComboBox* addWordHotkeyCombo_ = nullptr;
 
     // Page 2: Ghost Text
     ToggleSwitch* ghostEnabledToggle_ = nullptr;
@@ -176,7 +177,8 @@ private:
     void buildSidebar();
 
     QWidget* createGeneralPage();
-    QWidget* createFeaturesPage();
+    QWidget* createTypingEnginePage();
+    QWidget* createFeaturesPage() { return createTypingEnginePage(); }
     QWidget* createGhostTextPage();
     QWidget* createAppearancePage();
     QWidget* createVocabularyPage();

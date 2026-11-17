@@ -42,7 +42,7 @@ A high-performance, ultra-lightweight native macOS menu bar typing engine built 
 Visit the official website to try the **Live Interactive Simulator** (running Inline's full 83,017-word and 243,342-bigram engine directly in your browser) or download the latest macOS release:
 - **Official Website & Architecture Walkthrough:** [**https://laxexe.github.io/Inline-MacOS-Win32Build/**](https://laxexe.github.io/Inline-MacOS-Win32Build/)
 - **Try the Live In-Browser Simulator:** [**https://laxexe.github.io/Inline-MacOS-Win32Build/#demo**](https://laxexe.github.io/Inline-MacOS-Win32Build/#demo)
-- **Direct macOS DMG Installer (v1.5):** [**Download `Inline-v1.5-macOS.dmg`**](https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.5/Inline-v1.5-macOS.dmg)
+- **Direct macOS DMG Installer (v1.6):** [**Download `Inline-v1.6-macOS.dmg`**](https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.6/Inline-v1.6-macOS.dmg)
 
 ---
 
@@ -120,7 +120,8 @@ Once launched, Inline lives discreetly in your macOS menu bar with an adaptive s
 ### Everyday Typing Workflow
 
 - **Automatic Correction on Space**: Type naturally in any application. When you press the **Spacebar**, Inline evaluates the completed word. If a typo is recognized, it immediately replaces it with the corrected word.
-- **Predictive Ghost Text on Tab**: As you type, Inline shows predictive word suggestions in soft gray inline text immediately to the right of your cursor. Press **Tab** to insert the suggestion.
+- **Teach Words with Global Shortcut (`Cmd + Option + Shift + D`)**: If you frequently type a person's name (e.g. `Sarah`), technical jargon, or acronym, simply highlight the word in any application and press your shortcut. Inline immediately adds it to your known dictionary and stops autocorrecting it. If the word was just autocorrected, pressing the shortcut automatically restores your original text in-place.
+- **Predictive Ghost Text on Tab (Beta)**: As you type, Inline can show predictive word suggestions in soft gray inline text immediately to the right of your cursor. Press **Tab** to insert the suggestion (turned off by default).
 - **One Word Mode**: When you prefer to complete only the active word being typed (e.g. typing `tha` suggests `nk`), enable One Word Mode. Pressing Tab finishes only that word without chaining additional words.
 - **Single-Key Undo via Backspace**: If Inline makes a correction you did not want, simply press **Backspace** once. Inline immediately reverts to your exact raw typed text.
 - **Enter / Return Never Autocorrects**: Pressing `Enter` or `Return` (`\n`) commits whatever text you entered as-is, immediately clears the internal buffer, and passes the Return key straight through.
@@ -131,10 +132,14 @@ Once launched, Inline lives discreetly in your macOS menu bar with an adaptive s
 
 | Shortcut | Action |
 | :--- | :--- |
+| **`Cmd + Option + Shift + D`** | Add highlighted word/name to dictionary (stops autocorrecting) |
 | **`Cmd + Option + Shift + K`** | Toggle Autocorrect Engine On / Off |
-| **`Cmd + Option + Shift + G`** | Toggle Ghost Text Predictions On / Off |
+| **`Cmd + Option + Shift + G`** | Toggle Ghost Text Predictions On / Off (Beta) |
 | **`Tab`** | Accept visible Ghost Text suggestion |
 | **`Backspace`** | Revert last autocorrection or accepted suggestion (Single-Key Undo) |
+
+> [!TIP]
+> **Customizable Shortcut**: You can customize the *Add Known Word* shortcut in **Settings > Typing Engine** (`⌘⌥⇧D`, `⌘⌥⇧I`, `⌘⇧D`, `⌥⇧D`, `⌃⌥D`, or `⌘⌥D`). Rebinds dynamically in memory without restarting the app.
 
 ---
 
@@ -466,6 +471,10 @@ Tested and verified across daily macOS workflows:
 
 ## Key Features
 
+- **Highlight & Save Known Words (`Cmd+Option+Shift+D`)**: Highlight any person's name (e.g. `Sarah`), rare acronym, or industry jargon in any app and hit your shortcut to save it to your known dictionary and immediately stop autocorrecting. Restores the original word in-place if already corrected.
+- **Dedicated Typing Engine Settings**: Customize your shortcut combination dynamically (`⌘⌥⇧D`, `⌘⌥⇧I`, `⌘⇧D`, `⌥⇧D`, `⌃⌥D`, or `⌘⌥D`), adjust correction sensitivity, and toggle sentence capitalization or run-together splitting in memory.
+- **Interactive Onboarding Walkthrough**: Minimalist 3-step setup matching Apple System Settings visual language with live autocorrect testing sandbox (`teh` -> `the`, Single-Key Undo on Backspace).
+- **Ghost Type Predictions (Beta)**: Optional contextual next-word completions beside your cursor across native and browser apps, kept **OFF by default** while under active testing.
 - **Microsecond Response Time**: Event tap keystroke inspection completes in $\le 2\,\mu\text{s}$.
 - **Context-Aware Bigram Model**: Disambiguates homophones using preceding context words.
 - **Single-Key Undo**: Immediate one-touch undo via Backspace to restore raw input.

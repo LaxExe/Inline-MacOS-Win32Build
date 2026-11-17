@@ -39,3 +39,15 @@ TEST(UndoStateMachine, BackspaceImmediatelyAfterGhostAcceptRevertsFullAcceptedSp
     EXPECT_EQ(action.correctedText, L" the meeting tomorrow");
     EXPECT_TRUE(action.revertedText.empty());
 }
+
+TEST(UndoStateMachine, ExposesLastOriginalAndCorrectedWhenEligible) {
+    UndoStateMachine sm;
+    EXPECT_FALSE(sm.isEligibleForUndo());
+    sm.onWordCorrected(L"IBM", L"BIM");
+    EXPECT_TRUE(sm.isEligibleForUndo());
+    EXPECT_EQ(sm.getLastOriginal(), L"IBM");
+    EXPECT_EQ(sm.getLastCorrected(), L"BIM");
+
+    sm.onOtherKey();
+    EXPECT_FALSE(sm.isEligibleForUndo());
+}

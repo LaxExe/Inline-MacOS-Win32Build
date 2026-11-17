@@ -1,7 +1,10 @@
 #include "platform/mac/permissions.h"
 #include "platform/mac/caret/mac_caret_tracker.h"
+#include "platform/mac/hook/synthetic_filter.h"
 #import <Cocoa/Cocoa.h>
 #import <ApplicationServices/ApplicationServices.h>
+#include <Carbon/Carbon.h>
+#include <unistd.h>
 #include <atomic>
 #include <chrono>
 #include <mutex>
@@ -120,22 +123,26 @@ bool isSystemInDarkMode() {
     // 1. Inspect any NSStatusBarWindow in the application
     for (NSWindow *window in [NSApp windows]) {
         NSString *name = [window className];
-        if ([name containsString:@"Status"] || [name containsString:@"Menu"]) {
-            __block bool dark = false;
-            [window.effectiveAppearance performAsCurrentDrawingAppearance:^{
-                NSColor *c = [[NSColor labelColor] colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
-                if (c && ((0.299 * c.redComponent + 0.587 * c.greenComponent + 0.114 * c.blueComponent) > 0.5)) {
-                    dark = true;
+        if ([name containsString:@"Status"]) {
+            NSAppearance *app = window.effectiveAppearance;
+            if (app) {
+                NSAppearanceName match = [app bestMatchFromAppearancesWithNames:@[
+                    NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
+                    NSAppearanceNameVibrantLight, NSAppearanceNameVibrantDark
+                ]];
+                if ([match isEqualToString:NSAppearanceNameDarkAqua] ||
+                    [match isEqualToString:NSAppearanceNameVibrantDark]) {
+                    return true;
                 }
-            }];
-            if (dark || [window.effectiveAppearance.name containsString:@"Dark"]) {
-                return true;
+                if ([match isEqualToString:NSAppearanceNameAqua] ||
+                    [match isEqualToString:NSAppearanceNameVibrantLight]) {
+                    return false;
+                }
             }
-            return false;
         }
     }
 
-    // 2. Check Global macOS Interface Style preference
+    // 2. Global macOS Interface Style preference
     CFStringRef style = (CFStringRef)CFPreferencesCopyAppValue(CFSTR("AppleInterfaceStyle"), kCFPreferencesAnyApplication);
     if (style) {
         bool isDark = [(__bridge NSString*)style isEqualToString:@"Dark"];
@@ -143,10 +150,15 @@ bool isSystemInDarkMode() {
         if (isDark) return true;
     }
 
-    // 3. Check application effective appearance
+    // 3. Application effective appearance
     NSAppearance *appAppearance = [NSApp effectiveAppearance];
-    if (appAppearance && [appAppearance.name containsString:@"Dark"]) {
-        return true;
+    if (appAppearance) {
+        NSAppearanceName match = [appAppearance bestMatchFromAppearancesWithNames:@[
+            NSAppearanceNameAqua, NSAppearanceNameDarkAqua
+        ]];
+        if ([match isEqualToString:NSAppearanceNameDarkAqua]) {
+            return true;
+        }
     }
 
     return false;
@@ -291,7 +303,7 @@ bool isFrontmostAppExcluded(const std::vector<std::string>& disabledApps) {
     return false;
 }
 
-void updateNativeStatusBarIcon(bool active) {
+void updateNativeStatusBarIcon(bool active, int themeOverride) {
     for (NSWindow *w in [NSApp windows]) {
         if ([w isKindOfClass:NSClassFromString(@"NSStatusBarWindow")]) {
             NSStatusBarButton *btn = nil;
@@ -308,17 +320,24 @@ void updateNativeStatusBarIcon(bool active) {
             if (btn) {
                 NSImage *img = [NSImage imageWithSize:NSMakeSize(18, 18) flipped:NO drawingHandler:^BOOL(NSRect dstRect) {
                     BOOL isDark = NO;
-                    NSAppearance *current = [NSAppearance currentDrawingAppearance];
-                    if (current) {
-                        NSAppearanceName match = [current bestMatchFromAppearancesWithNames:@[NSAppearanceNameAqua, NSAppearanceNameDarkAqua, NSAppearanceNameVibrantLight, NSAppearanceNameVibrantDark]];
-                        if ([match isEqualToString:NSAppearanceNameDarkAqua] || [match isEqualToString:NSAppearanceNameVibrantDark] || [current.name containsString:@"Dark"]) {
-                            isDark = YES;
-                        }
-                    }
-                    if (!isDark) {
-                        NSColor *fg = [[NSColor labelColor] colorUsingColorSpace:[NSColorSpace sRGBColorSpace]];
-                        if (fg && (0.299 * fg.redComponent + 0.587 * fg.greenComponent + 0.114 * fg.blueComponent > 0.45)) {
-                            isDark = YES;
+                    if (themeOverride == 1) {
+                        isDark = NO; // Explicit Light Mode
+                    } else if (themeOverride == 2) {
+                        isDark = YES; // Explicit Dark Mode
+                    } else {
+                        NSAppearance *current = [NSAppearance currentDrawingAppearance];
+                        if (current) {
+                            NSAppearanceName match = [current bestMatchFromAppearancesWithNames:@[
+                                NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
+                                NSAppearanceNameVibrantLight, NSAppearanceNameVibrantDark
+                            ]];
+                            if ([match isEqualToString:NSAppearanceNameDarkAqua] || [match isEqualToString:NSAppearanceNameVibrantDark]) {
+                                isDark = YES;
+                            } else if ([match isEqualToString:NSAppearanceNameAqua] || [match isEqualToString:NSAppearanceNameVibrantLight]) {
+                                isDark = NO;
+                            } else if ([current.name containsString:@"Dark"]) {
+                                isDark = YES;
+                            }
                         }
                     }
 
@@ -345,5 +364,228 @@ void updateNativeStatusBarIcon(bool active) {
                 [btn setImage:img];
             }
         }
+    }
+}
+
+std::string getSelectedTextFromFrontmostApp() {
+    @autoreleasepool {
+        NSRunningApplication* front = [[NSWorkspace sharedWorkspace] frontmostApplication];
+        pid_t frontPid = front ? [front processIdentifier] : 0;
+        if (frontPid <= 0 || frontPid == getpid()) return "";
+
+        // 1. Accessibility query: fast, zero clipboard alteration
+        AXUIElementRef elem = nullptr;
+        AXUIElementRef appElem = AXUIElementCreateApplication(frontPid);
+        if (appElem) {
+            AXUIElementSetMessagingTimeout(appElem, 0.08f);
+            AXUIElementSetAttributeValue(appElem, CFSTR("AXEnhancedUserInterface"), kCFBooleanTrue);
+            AXUIElementSetAttributeValue(appElem, CFSTR("AXManualAccessibility"), kCFBooleanTrue);
+
+            CFTypeRef focusVal = nullptr;
+            if (AXUIElementCopyAttributeValue(appElem, kAXFocusedUIElementAttribute, &focusVal) == kAXErrorSuccess && focusVal) {
+                if (CFGetTypeID(focusVal) == AXUIElementGetTypeID()) {
+                    elem = static_cast<AXUIElementRef>(focusVal);
+                } else {
+                    CFRelease(focusVal);
+                }
+            }
+
+            if (!elem) {
+                CFTypeRef winVal = nullptr;
+                if (AXUIElementCopyAttributeValue(appElem, kAXFocusedWindowAttribute, &winVal) == kAXErrorSuccess && winVal) {
+                    if (CFGetTypeID(winVal) == AXUIElementGetTypeID()) {
+                        CFTypeRef winFocus = nullptr;
+                        if (AXUIElementCopyAttributeValue(static_cast<AXUIElementRef>(winVal), kAXFocusedUIElementAttribute, &winFocus) == kAXErrorSuccess && winFocus) {
+                            if (CFGetTypeID(winFocus) == AXUIElementGetTypeID()) {
+                                elem = static_cast<AXUIElementRef>(winFocus);
+                            } else {
+                                CFRelease(winFocus);
+                            }
+                        }
+                    }
+                    CFRelease(winVal);
+                }
+            }
+            CFRelease(appElem);
+        }
+
+        if (!elem) {
+            AXUIElementRef sys = AXUIElementCreateSystemWide();
+            if (sys) {
+                AXUIElementSetMessagingTimeout(sys, 0.08f);
+                CFTypeRef sysFocus = nullptr;
+                if (AXUIElementCopyAttributeValue(sys, kAXFocusedUIElementAttribute, &sysFocus) == kAXErrorSuccess && sysFocus) {
+                    if (CFGetTypeID(sysFocus) == AXUIElementGetTypeID()) {
+                        elem = static_cast<AXUIElementRef>(sysFocus);
+                    } else {
+                        CFRelease(sysFocus);
+                    }
+                }
+                CFRelease(sys);
+            }
+        }
+
+        if (elem) {
+            AXUIElementSetMessagingTimeout(elem, 0.08f);
+            CFTypeRef selVal = nullptr;
+            if (AXUIElementCopyAttributeValue(elem, kAXSelectedTextAttribute, &selVal) == kAXErrorSuccess && selVal) {
+                if (CFGetTypeID(selVal) == CFStringGetTypeID()) {
+                    NSString* ns = (__bridge NSString*)selVal;
+                    if (ns && [ns length] > 0) {
+                        std::string res = [ns UTF8String];
+                        CFRelease(selVal);
+                        CFRelease(elem);
+                        return res;
+                    }
+                }
+                CFRelease(selVal);
+            }
+
+            CFTypeRef rangeVal = nullptr;
+            if (AXUIElementCopyAttributeValue(elem, kAXSelectedTextRangeAttribute, &rangeVal) == kAXErrorSuccess && rangeVal) {
+                if (CFGetTypeID(rangeVal) == AXValueGetTypeID()) {
+                    CFRange range;
+                    if (AXValueGetValue(static_cast<AXValueRef>(rangeVal), kAXValueTypeCFRange, &range) && range.length > 0) {
+                        CFTypeRef strVal = nullptr;
+                        if (AXUIElementCopyParameterizedAttributeValue(elem, kAXStringForRangeParameterizedAttribute, rangeVal, &strVal) == kAXErrorSuccess && strVal) {
+                            if (CFGetTypeID(strVal) == CFStringGetTypeID()) {
+                                NSString* ns = (__bridge NSString*)strVal;
+                                if (ns && [ns length] > 0) {
+                                    std::string res = [ns UTF8String];
+                                    CFRelease(strVal);
+                                    CFRelease(rangeVal);
+                                    CFRelease(elem);
+                                    return res;
+                                }
+                            }
+                            CFRelease(strVal);
+                        }
+                    }
+                }
+                CFRelease(rangeVal);
+            }
+            CFRelease(elem);
+        }
+
+        // 2. Clipboard fallback (Cmd+C) for non-AX applications
+        NSPasteboard* pb = [NSPasteboard generalPasteboard];
+        NSInteger oldChangeCount = [pb changeCount];
+
+        NSArray<NSPasteboardItem*>* origItems = [pb pasteboardItems];
+        NSMutableArray<NSDictionary<NSPasteboardType, NSData*>*>* savedData = [NSMutableArray array];
+        for (NSPasteboardItem* itm in origItems) {
+            NSMutableDictionary<NSPasteboardType, NSData*>* dict = [NSMutableDictionary dictionary];
+            for (NSPasteboardType t in [itm types]) {
+                NSData* d = [itm dataForType:t];
+                if (d) dict[t] = d;
+            }
+            if (dict.count > 0) [savedData addObject:dict];
+        }
+
+        CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStatePrivate);
+        CGEventRef cDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)kVK_ANSI_C, true);
+        CGEventSetFlags(cDown, kCGEventFlagMaskCommand);
+        CGEventSetIntegerValueField(cDown, kCGEventSourceUserData, kOurAppMagicTagValue);
+
+        CGEventRef cUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)kVK_ANSI_C, false);
+        CGEventSetFlags(cUp, kCGEventFlagMaskCommand);
+        CGEventSetIntegerValueField(cUp, kCGEventSourceUserData, kOurAppMagicTagValue);
+
+        if (frontPid > 0) {
+            CGEventPostToPid(frontPid, cDown);
+            CGEventPostToPid(frontPid, cUp);
+        } else {
+            CGEventPost(kCGSessionEventTap, cDown);
+            CGEventPost(kCGSessionEventTap, cUp);
+        }
+
+        CFRelease(cDown);
+        CFRelease(cUp);
+        CFRelease(src);
+
+        for (int i = 0; i < 24; ++i) {
+            usleep(5000);
+            if ([pb changeCount] != oldChangeCount) break;
+        }
+
+        std::string result = "";
+        if ([pb changeCount] != oldChangeCount) {
+            NSString* s = [pb stringForType:NSPasteboardTypeString];
+            if (s && [s length] > 0) {
+                result = [s UTF8String];
+            }
+            if (savedData.count > 0) {
+                [pb clearContents];
+                NSMutableArray<NSPasteboardItem*>* restoreList = [NSMutableArray array];
+                for (NSDictionary<NSPasteboardType, NSData*>* dict in savedData) {
+                    NSPasteboardItem* item = [[NSPasteboardItem alloc] init];
+                    for (NSPasteboardType t in dict) {
+                        [item setData:dict[t] forType:t];
+                    }
+                    [restoreList addObject:item];
+                }
+                [pb writeObjects:restoreList];
+            }
+        }
+
+        return result;
+    }
+}
+
+bool replaceSelectedTextInFrontmostApp(const std::string& newText) {
+    @autoreleasepool {
+        NSRunningApplication* front = [[NSWorkspace sharedWorkspace] frontmostApplication];
+        pid_t frontPid = front ? [front processIdentifier] : 0;
+        if (frontPid <= 0 || frontPid == getpid()) return false;
+
+        // 1. Try Accessibility API first
+        AXUIElementRef appElem = AXUIElementCreateApplication(frontPid);
+        if (appElem) {
+            AXUIElementSetMessagingTimeout(appElem, 0.1f);
+            CFTypeRef focusVal = nullptr;
+            if (AXUIElementCopyAttributeValue(appElem, kAXFocusedUIElementAttribute, &focusVal) == kAXErrorSuccess && focusVal) {
+                if (CFGetTypeID(focusVal) == AXUIElementGetTypeID()) {
+                    AXUIElementRef elem = static_cast<AXUIElementRef>(focusVal);
+                    CFStringRef cfNew = CFStringCreateWithCString(kCFAllocatorDefault, newText.c_str(), kCFStringEncodingUTF8);
+                    AXError err = AXUIElementSetAttributeValue(elem, kAXSelectedTextAttribute, cfNew);
+                    CFRelease(cfNew);
+                    CFRelease(focusVal);
+                    CFRelease(appElem);
+                    if (err == kAXErrorSuccess) {
+                        return true;
+                    }
+                } else {
+                    CFRelease(focusVal);
+                }
+            }
+            CFRelease(appElem);
+        }
+
+        // 2. Fallback: Put newText on general pasteboard and simulate Cmd+V
+        NSPasteboard* pb = [NSPasteboard generalPasteboard];
+        [pb clearContents];
+        [pb setString:[NSString stringWithUTF8String:newText.c_str()] forType:NSPasteboardTypeString];
+
+        CGEventSourceRef src = CGEventSourceCreate(kCGEventSourceStatePrivate);
+        CGEventRef vDown = CGEventCreateKeyboardEvent(src, (CGKeyCode)kVK_ANSI_V, true);
+        CGEventSetFlags(vDown, kCGEventFlagMaskCommand);
+        CGEventSetIntegerValueField(vDown, kCGEventSourceUserData, kOurAppMagicTagValue);
+
+        CGEventRef vUp = CGEventCreateKeyboardEvent(src, (CGKeyCode)kVK_ANSI_V, false);
+        CGEventSetFlags(vUp, kCGEventFlagMaskCommand);
+        CGEventSetIntegerValueField(vUp, kCGEventSourceUserData, kOurAppMagicTagValue);
+
+        if (frontPid > 0) {
+            CGEventPostToPid(frontPid, vDown);
+            CGEventPostToPid(frontPid, vUp);
+        } else {
+            CGEventPost(kCGSessionEventTap, vDown);
+            CGEventPost(kCGSessionEventTap, vUp);
+        }
+
+        CFRelease(vDown);
+        CFRelease(vUp);
+        CFRelease(src);
+        return true;
     }
 }

@@ -28,6 +28,10 @@ public:
     void onOtherKey();
     void reset();
 
+    bool isEligibleForUndo() const { return state_ == State::EligibleForUndo; }
+    std::wstring getLastOriginal() const { return lastOriginal_; }
+    std::wstring getLastCorrected() const { return lastCorrected_; }
+
 private:
     enum class State {
         Idle,

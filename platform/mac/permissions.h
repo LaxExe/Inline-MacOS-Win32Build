@@ -28,4 +28,6 @@ void registerAppearanceNotifications(std::function<void()> callback);
 void registerAppReopenCallback(std::function<void()> callback);
 void registerPassiveCaretResetMonitors(std::function<void()> onReset);
 bool isFrontmostAppExcluded(const std::vector<std::string>& disabledApps);
-void updateNativeStatusBarIcon(bool active);
+void updateNativeStatusBarIcon(bool active, int themeOverride = 0);
+std::string getSelectedTextFromFrontmostApp();
+bool replaceSelectedTextInFrontmostApp(const std::string& newText);

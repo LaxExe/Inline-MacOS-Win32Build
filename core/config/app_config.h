@@ -21,6 +21,7 @@ struct AppConfig {
     bool splitRunTogetherWords = true;
     int  appTheme = 0; // 0 = System, 1 = Light, 2 = Dark
     KeyCode toggleHotkey = KeyCode::None;
+    int  addWordHotkeyIndex = 0; // 0 = Cmd+Opt+Shift+D, 1 = Cmd+Opt+Shift+I, 2 = Cmd+Shift+D, 3 = Opt+Shift+D, 4 = Ctrl+Opt+D, 5 = Cmd+Opt+D
     float correctionAggressiveness = 0.5f;
     int   maxDictionaryEditDistance = 2;
     std::vector<std::string> ignoreWords;

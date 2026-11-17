@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# Build and Package Inline macOS DMG (v1.5)
+# Build and Package Inline macOS DMG
 # ==============================================================================
 set -e
 
@@ -13,7 +13,9 @@ NC='\033[0m'
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-echo -e "${BOLD}${BLUE}=== Building and Packaging Inline v1.5 for macOS ===${NC}\n"
+VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$ROOT_DIR/Info.plist" 2>/dev/null || echo "1.6.0")
+
+echo -e "${BOLD}${BLUE}=== Building and Packaging Inline v${VERSION} for macOS ===${NC}\n"
 
 # 0. Ensure bundled GGUF model & llama.cpp are fetched
 ./tools/fetch_model.sh
@@ -57,7 +59,9 @@ cp -R "$APP_SRC" "$STAGING_DIR/"
 ln -s /Applications "$STAGING_DIR/Applications"
 
 # 5. Generate Compressed DMG
-DMG_NAME="Inline-v1.5-macOS.dmg"
+# Shorten version 1.6.0 to 1.6 for DMG name if ending in .0
+SHORT_VER="${VERSION%.0}"
+DMG_NAME="Inline-v${SHORT_VER}-macOS.dmg"
 DMG_PATH="$DIST_DIR/$DMG_NAME"
 rm -f "$DMG_PATH"
 

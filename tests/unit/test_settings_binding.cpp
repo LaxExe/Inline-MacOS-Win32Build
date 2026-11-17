@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "gui/settings_binding.h"
 #include "gui/settings_dialog.h"
+#include "gui/permission_dialog.h"
 #include <QApplication>
 
 TEST(SettingsBinding, AggressivenessSliderMapsToUnitRange) {
@@ -59,4 +60,40 @@ TEST(SettingsBinding, ToggleSwitchVisuallyReflectsOnState) {
     toggle.setChecked(false);
     EXPECT_FALSE(toggle.isChecked());
     EXPECT_DOUBLE_EQ(toggle.offset(), 0.0);
+}
+
+TEST(SettingsBinding, PermissionDialogHasThreeCleanSlides) {
+    int argc = 0;
+    char* argv[] = {nullptr};
+    QApplication* app = qobject_cast<QApplication*>(QCoreApplication::instance());
+    std::unique_ptr<QApplication> ownedApp;
+    if (!app) {
+        ownedApp = std::make_unique<QApplication>(argc, argv);
+    }
+
+    EXPECT_EQ(PermissionDialog::kSlideCount, 3);
+    PermissionDialog dlg(nullptr, 0);
+    dlg.resize(700, 520);
+
+    for (int step = 0; step < 3; ++step) {
+        dlg.setCurrentSlide(step);
+        QPixmap pixmap(dlg.size());
+        dlg.render(&pixmap);
+        EXPECT_FALSE(pixmap.isNull());
+
+        std::string path = "/Users/lakshman/.gemini/antigravity/brain/2d6cc60c-ccaf-47cd-ae08-05516b88a5b5/slide_" + std::to_string(step) + ".png";
+        pixmap.save(QString::fromStdString(path), "PNG");
+    }
+
+    // Also verify Dark Mode
+    dlg.toggleTheme();
+    for (int step = 0; step < 3; ++step) {
+        dlg.setCurrentSlide(step);
+        QPixmap pixmap(dlg.size());
+        dlg.render(&pixmap);
+        EXPECT_FALSE(pixmap.isNull());
+
+        std::string path = "/Users/lakshman/.gemini/antigravity/brain/2d6cc60c-ccaf-47cd-ae08-05516b88a5b5/slide_" + std::to_string(step) + "_dark.png";
+        pixmap.save(QString::fromStdString(path), "PNG");
+    }
 }

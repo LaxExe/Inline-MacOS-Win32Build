@@ -32,28 +32,28 @@ This file serves as the definitive reference for AI assistants working on this c
 | Action | Command |
 | :--- | :--- |
 | **Build macOS DMG Installer** | `./tools/create_dmg.sh` *(generates `dist/Inline-vX.X-macOS.dmg`)* |
-| **Mount & Test DMG** | `hdiutil attach dist/Inline-v1.1-macOS.dmg` |
+| **Mount & Test DMG** | `hdiutil attach dist/Inline-v1.6-macOS.dmg` |
 | **Unmount DMG** | `hdiutil detach /Volumes/Inline` |
 | **Reset macOS TCC Cache** | `tccutil reset Accessibility com.inline.mac && tccutil reset ListenEvent com.inline.mac` |
 
 ---
 
-## 2. How to Release a New Version (e.g. v1.4)
+## 2. How to Release a New Version (e.g. v1.6)
 
 ### Automated GitHub Release Workflow:
 1. Update version strings:
-   - [`Info.plist`](Info.plist): Update `CFBundleShortVersionString` and `CFBundleVersion` to `1.4.0`.
-   - [`gui/settings_dialog.cpp`](gui/settings_dialog.cpp): Update version label (`Inline macOS • v1.4`).
+   - [`Info.plist`](Info.plist): Update `CFBundleShortVersionString` and `CFBundleVersion` to `1.6.0`.
+   - [`gui/settings_dialog.cpp`](gui/settings_dialog.cpp): Update version label (`Inline macOS • v1.6`).
 2. Commit and push:
    ```bash
    git add -A
-   git commit -m "Release v1.4"
+   git commit -m "Release v1.6"
    git push origin mac-branch
    ```
 3. Tag and push tag:
    ```bash
-   git tag -a v1.4 -m "Release v1.4"
-   git push origin v1.4
+   git tag -a v1.6 -m "Release v1.6"
+   git push origin v1.6
    ```
 4. GitHub Actions [`.github/workflows/release.yml`](.github/workflows/release.yml) automatically runs on Apple Silicon runners, builds the DMG, and publishes the release on GitHub.
 
@@ -77,6 +77,7 @@ Outputs compressed `dist/Inline-vX.X-macOS.dmg` with `/Applications` drag-and-dr
   - Monochrome icon badges (`34x34`, background `#F3F4F6`, border `#E5E7EB`, dark ink strokes `#111827`).
   - No amber, orange, or yellow backgrounds on badges.
   - Responsive layout: Text areas (`ignoreWordsEdit_`, `disabledAppsEdit_`, `liveLogEdit_`) must expand dynamically with window resizing (`QSizePolicy::Expanding`).
+  - Streamlined Onboarding Walkthrough: 3 minimalist slides only (`Vocabulary`, `Shortcuts`, `Permissions`). No redundant model selection slides, unboxed "100% On-Device" text badge, clean single-line labels, and zero cut-off text.
 
 ### 3. Default Engine & Toggle States
 - The following features must **always be enabled by default** on initial launch:
@@ -109,3 +110,12 @@ Outputs compressed `dist/Inline-vX.X-macOS.dmg` with `/Applications` drag-and-dr
 - Keystroke interception via `CGEventTap` must complete in **$\le 2\,\mu\text{s}$** per keystroke.
 - Active memory footprint must remain **$< 120\,\text{MB}$ RSS** and **$\sim 0.0\%$ idle CPU**.
 - Never perform disk I/O, regex, or large allocations inside `onRawKeyEvent`.
+
+### 8. Add to Known Words Shortcut & Typing Engine Settings
+- **Shortcut (`Cmd+Option+Shift+D` / `Cmd+Option+Shift+I` by default)**:
+  - Highlight any word in any app (e.g. `IBM`) and press the shortcut to immediately add it to `ignoreWords` and stop autocorrecting.
+  - Grabs selected text across macOS apps via `AXUIElement` Accessibility API with a reliable clipboard-safe fallback.
+  - If the user highlights an autocorrected word (e.g. `BIM` right after `IBM` was corrected), Inline restores the original text (`IBM`) in place and adds it to known words.
+  - Persists directly to `config.json` (`addWordHotkeyIndex`) and updates live dictionary and settings in real time.
+  - **Customizable**: In **Settings > Typing Engine**, users can customize the shortcut (`⌘⌥⇧D`, `⌘⌥⇧I`, `⌘⇧D`, `⌥⇧D`, `⌃⌥D`, or `⌘⌥D`). Rebinds dynamically in memory without needing an app restart.
+  - **Dedicated Typing Engine Page**: Centralizes engine architecture info (`Tier-1 SymSpell + 243K Bigrams`, `< 2 µs latency`), correction confidence, maximum typo edit distance, transformation toggles (sentence capitalization, run-together split, protected slang), and global shortcut rebinding.

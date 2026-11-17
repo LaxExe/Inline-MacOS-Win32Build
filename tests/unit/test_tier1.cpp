@@ -166,6 +166,27 @@ TEST_F(Tier1Test, ContextDisambiguatesRepoAndSlang) {
     EXPECT_EQ(correctWord(L"reop", dict, cfg, false, L"the").corrected, L"repo");
 }
 
+TEST_F(Tier1Test, AutocorrectsIbmToBimByDefault) {
+    // Before adding to known words, "IBM" is corrected to "BIM"
+    auto res = correctWord(L"IBM", dict, cfg);
+    EXPECT_TRUE(res.didCorrect);
+    EXPECT_EQ(res.corrected, L"BIM");
+}
+
+TEST_F(Tier1Test, StopsAutocorrectingIbmWhenInIgnoreWords) {
+    AppConfig customCfg = cfg;
+    customCfg.ignoreWords.push_back("IBM");
+    auto res = correctWord(L"IBM", dict, customCfg);
+    EXPECT_FALSE(res.didCorrect);
+    EXPECT_EQ(res.corrected, L"IBM");
+
+    // Case-insensitive check: "ibm" typed also protected
+    auto resLower = correctWord(L"ibm", dict, customCfg);
+    EXPECT_FALSE(resLower.didCorrect);
+    EXPECT_EQ(resLower.corrected, L"ibm");
+}
+
+
 
 
 

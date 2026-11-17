@@ -49,6 +49,7 @@ public slots:
     void toggleMasterEnabled();
     void toggleSentenceCorrection();
     void toggleGhostText();
+    void addSelectedWordToKnownWords();
     void openPreferences();
     void openPermissions();
     void openWalkthrough();
@@ -62,6 +63,7 @@ private:
     QAction* pauseAction_ = nullptr;
     QAction* sentenceToggleAction_ = nullptr;
     QAction* ghostToggleAction_ = nullptr;
+    QAction* addWordAction_ = nullptr;
     QAction* clearAction_ = nullptr;
     QAction* walkthroughAction_ = nullptr;
     QAction* permAction_ = nullptr;
@@ -129,8 +131,11 @@ private:
     double cachedFontSize_{13.0};
     std::atomic<bool> hasBufferedData_{false};
     std::atomic<bool> clearRequested_{false};
+    uint32_t addWordHotkeyId_ = 0;
+    uint32_t addWordAliasHotkeyId_ = 0;
 
     void setupTray();
+    void rebindAddWordHotkey();
     void dismissGhost();
     void scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText = L"", int settleMs = 0, double minExpectedX = 0.0);
     void ghostWorkerLoop();

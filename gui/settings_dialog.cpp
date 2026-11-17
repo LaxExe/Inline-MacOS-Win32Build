@@ -326,7 +326,7 @@ void ToggleSwitch::paintEvent(QPaintEvent*) {
 
     // Track background
     QColor trackOff(209, 213, 219);     // #D1D5DB
-    QColor trackOn(52, 199, 89);        // Apple green #34C759
+    QColor trackOn(34, 197, 94);        // #22C55E Inline signature green
     QColor currentTrack(
         static_cast<int>(trackOff.red()   + offset_ * (trackOn.red()   - trackOff.red())),
         static_cast<int>(trackOff.green() + offset_ * (trackOn.green() - trackOff.green())),
@@ -437,7 +437,7 @@ void ThemePreviewCard::paintEvent(QPaintEvent*) {
     }
 
     if (selected_) {
-        p.setPen(QPen(QColor(0, 122, 255), 2.5));
+        p.setPen(QPen(QColor(34, 197, 94), 2.5));
         p.setBrush(Qt::NoBrush);
         p.drawRoundedRect(previewRect.adjusted(-1, -1, 1, 1), 9, 9);
     }
@@ -449,7 +449,7 @@ void ThemePreviewCard::paintEvent(QPaintEvent*) {
             break;
         }
     }
-    QColor labelColor = selected_ ? QColor(0, 122, 255) : (isDark ? QColor(229, 231, 235) : QColor(29, 29, 31));
+    QColor labelColor = selected_ ? QColor(34, 197, 94) : (isDark ? QColor(229, 231, 235) : QColor(29, 29, 31));
     p.setPen(labelColor);
     QFont font = p.font();
     font.setPointSize(11);
@@ -569,7 +569,7 @@ void SettingsDialog::applyTheme(ThemePreviewCard::ThemeMode mode) {
         "  color: %2;"
         "}"
         "QLineEdit:focus, QPlainTextEdit:focus {"
-        "  border: 1px solid #007AFF;"
+        "  border: 1px solid #22C55E;"
         "}"
         "QComboBox {"
         "  background-color: %11;"
@@ -581,10 +581,10 @@ void SettingsDialog::applyTheme(ThemePreviewCard::ThemeMode mode) {
         "  font-weight: 500;"
         "}"
         "QComboBox:hover {"
-        "  border: 1px solid #007AFF;"
+        "  border: 1px solid #22C55E;"
         "}"
         "QComboBox:focus {"
-        "  border: 1px solid #007AFF;"
+        "  border: 1px solid #22C55E;"
         "}"
         "QComboBox::drop-down {"
         "  subcontrol-origin: padding;"
@@ -604,7 +604,7 @@ void SettingsDialog::applyTheme(ThemePreviewCard::ThemeMode mode) {
         "  border-radius: 8px;"
         "  padding: 4px;"
         "  color: %2;"
-        "  selection-background-color: #007AFF;"
+        "  selection-background-color: #22C55E;"
         "  selection-color: #FFFFFF;"
         "  outline: none;"
         "}"
@@ -615,7 +615,7 @@ void SettingsDialog::applyTheme(ThemePreviewCard::ThemeMode mode) {
         "  color: %2;"
         "}"
         "QComboBox QAbstractItemView::item:selected {"
-        "  background-color: #007AFF;"
+        "  background-color: #22C55E;"
         "  color: #FFFFFF;"
         "}"
         "QPushButton {"
@@ -659,6 +659,9 @@ void SettingsDialog::applyTheme(ThemePreviewCard::ThemeMode mode) {
     ));
 
     buildSidebar();
+    for (auto* child : findChildren<QWidget*>()) {
+        child->update();
+    }
     update();
 }
 
@@ -691,7 +694,7 @@ void SettingsDialog::setupUi() {
     sidebarLayout->addWidget(sidebarList_);
 
     // Version label at bottom
-    auto* versionLabel = new QLabel(tr("Inline macOS • v1.5"), sidebarContainer);
+    auto* versionLabel = new QLabel(tr("Inline macOS • v1.6"), sidebarContainer);
     versionLabel->setStyleSheet("font-size: 10px; color: #9CA3AF; padding: 4px 6px; font-weight: 500;");
     sidebarLayout->addWidget(versionLabel);
 
@@ -702,7 +705,7 @@ void SettingsDialog::setupUi() {
     // ==========================================
     pageStack_ = new QStackedWidget(this);
     pageStack_->addWidget(createGeneralPage());        // 0
-    pageStack_->addWidget(createFeaturesPage());       // 1
+    pageStack_->addWidget(createTypingEnginePage());   // 1 (Typing Engine)
     pageStack_->addWidget(createGhostTextPage());      // 2
     pageStack_->addWidget(createAppearancePage());     // 3
     pageStack_->addWidget(createVocabularyPage());     // 4
@@ -729,7 +732,7 @@ void SettingsDialog::buildSidebar() {
     const std::vector<NavItem> items = {
         {IconType::Gear, tr("ESSENTIALS"), true},
         {IconType::Gear, tr("General"), false},
-        {IconType::Grid, tr("Features"), false},
+        {IconType::Bolt, tr("Typing Engine"), false},
         {IconType::GhostText, tr("Ghost Text (Beta)"), false},
         {IconType::Display, tr("Appearance"), false},
         {IconType::Book, tr("CUSTOMIZATION"), true},
@@ -750,7 +753,7 @@ void SettingsDialog::buildSidebar() {
             f.setPointSize(9);
             f.setWeight(QFont::Bold);
             listItem->setFont(f);
-            listItem->setForeground(QColor(156, 163, 175));
+            listItem->setForeground(isDarkTheme_ ? QColor(156, 163, 175) : QColor(107, 114, 128));
             listItem->setSizeHint(QSize(200, 26));
         } else {
             listItem->setText(item.title);
@@ -915,9 +918,9 @@ QWidget* SettingsDialog::createGeneralPage() {
 }
 
 // ============================================================================
-// Page 1: Features
+// Page 1: Typing Engine
 // ============================================================================
-QWidget* SettingsDialog::createFeaturesPage() {
+QWidget* SettingsDialog::createTypingEnginePage() {
     auto* scroll = new QScrollArea();
     scroll->setWidgetResizable(true);
     auto* content = new QWidget();
@@ -925,11 +928,11 @@ QWidget* SettingsDialog::createFeaturesPage() {
     layout->setContentsMargins(28, 28, 28, 28);
     layout->setSpacing(16);
 
-    auto* header = new QLabel(tr("Features"), content);
+    auto* header = new QLabel(tr("Typing Engine"), content);
     header->setObjectName("pageHeader");
     layout->addWidget(header);
 
-    auto* sec1 = new QLabel(tr("INTELLIGENT CORRECTIONS"), content);
+    auto* sec1 = new QLabel(tr("ENGINE ARCHITECTURE & SENSITIVITY"), content);
     sec1->setObjectName("sectionHeader");
     layout->addWidget(sec1);
 
@@ -938,22 +941,29 @@ QWidget* SettingsDialog::createFeaturesPage() {
     card1Layout->setContentsMargins(0, 0, 0, 0);
     card1Layout->setSpacing(0);
 
-    sentenceCorrectionToggle_ = new ToggleSwitch(card1);
-    sentenceCorrectionToggle_->setChecked(true);
-    connect(sentenceCorrectionToggle_, &QAbstractButton::toggled, this, &SettingsDialog::saveToConfig);
-    card1Layout->addWidget(createSettingRow(IconType::TextCase, tr("Sentence Capitalization"), tr("Automatically capitalizes the first letter of sentences and quotes."), sentenceCorrectionToggle_, false));
+    auto* engineBadge = new QLabel(tr("Active (< 2 µs)"), card1);
+    engineBadge->setStyleSheet("background-color: #DCFCE7; color: #166534; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 4px 8px;");
+    card1Layout->addWidget(createSettingRow(IconType::Bolt, tr("Tier-1 Hybrid SymSpell + 243K Bigrams"), tr("Sub-microsecond deterministic typo correction with contextual n-gram probability."), engineBadge, false));
 
-    runTogetherToggle_ = new ToggleSwitch(card1);
-    runTogetherToggle_->setChecked(true);
-    connect(runTogetherToggle_, &QAbstractButton::toggled, this, &SettingsDialog::saveToConfig);
-    card1Layout->addWidget(createSettingRow(IconType::WordSplit, tr("Run-Together Word Splitting"), tr("Detects concatenated words (e.g. 'whenI', 'twowords') and cleanly adds spaces."), runTogetherToggle_, false));
+    sensitivityCombo_ = new QComboBox(card1);
+    sensitivityCombo_->addItem(tr("Conservative"));
+    sensitivityCombo_->addItem(tr("Balanced"));
+    sensitivityCombo_->addItem(tr("Aggressive"));
+    sensitivityCombo_->setMinimumWidth(180);
+    sensitivityCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    connect(sensitivityCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsDialog::saveToConfig);
+    card1Layout->addWidget(createSettingRow(IconType::Gauge, tr("Correction Confidence"), tr("Determines how confident the bigram and frequency model must be before replacing text."), sensitivityCombo_, false));
 
-    auto* slangBadge = new QLabel(tr("Protected"), card1);
-    slangBadge->setStyleSheet("background-color: #DCFCE7; color: #166534; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 4px 8px;");
-    card1Layout->addWidget(createSettingRow(IconType::Tag, tr("Slang & Chat Acronyms"), tr("Preserves words like 'gng', 'brb', 'ttyl', 'idk', 'ngl', and 'repo' without corruption."), slangBadge, true));
+    editDistanceCombo_ = new QComboBox(card1);
+    editDistanceCombo_->addItem(tr("1 letter mistake"));
+    editDistanceCombo_->addItem(tr("2 letter mistakes"));
+    editDistanceCombo_->setMinimumWidth(180);
+    editDistanceCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    connect(editDistanceCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsDialog::saveToConfig);
+    card1Layout->addWidget(createSettingRow(IconType::Ruler, tr("Maximum Typo Distance"), tr("Allows correcting typos that are up to 1 or 2 letters apart from the target word."), editDistanceCombo_, true));
     layout->addWidget(card1);
 
-    auto* sec2 = new QLabel(tr("TUNING & THRESHOLDS"), content);
+    auto* sec2 = new QLabel(tr("TEXT TRANSFORMATION RULES"), content);
     sec2->setObjectName("sectionHeader");
     layout->addWidget(sec2);
 
@@ -962,23 +972,42 @@ QWidget* SettingsDialog::createFeaturesPage() {
     card2Layout->setContentsMargins(0, 0, 0, 0);
     card2Layout->setSpacing(0);
 
-    sensitivityCombo_ = new QComboBox(card2);
-    sensitivityCombo_->addItem(tr("Conservative"));
-    sensitivityCombo_->addItem(tr("Balanced"));
-    sensitivityCombo_->addItem(tr("Aggressive"));
-    sensitivityCombo_->setMinimumWidth(180);
-    sensitivityCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-    connect(sensitivityCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsDialog::saveToConfig);
-    card2Layout->addWidget(createSettingRow(IconType::Gauge, tr("Correction Confidence"), tr("Determines how confident the bigram and frequency model must be before replacing text."), sensitivityCombo_, false));
+    sentenceCorrectionToggle_ = new ToggleSwitch(card2);
+    sentenceCorrectionToggle_->setChecked(true);
+    connect(sentenceCorrectionToggle_, &QAbstractButton::toggled, this, &SettingsDialog::saveToConfig);
+    card2Layout->addWidget(createSettingRow(IconType::TextCase, tr("Sentence Capitalization"), tr("Automatically capitalizes the first letter of sentences and quotes."), sentenceCorrectionToggle_, false));
 
-    editDistanceCombo_ = new QComboBox(card2);
-    editDistanceCombo_->addItem(tr("1 letter mistake"));
-    editDistanceCombo_->addItem(tr("2 letter mistakes"));
-    editDistanceCombo_->setMinimumWidth(180);
-    editDistanceCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
-    connect(editDistanceCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsDialog::saveToConfig);
-    card2Layout->addWidget(createSettingRow(IconType::Ruler, tr("Maximum Typo Distance"), tr("Allows correcting typos that are up to 1 or 2 letters apart from the target word."), editDistanceCombo_, true));
+    runTogetherToggle_ = new ToggleSwitch(card2);
+    runTogetherToggle_->setChecked(true);
+    connect(runTogetherToggle_, &QAbstractButton::toggled, this, &SettingsDialog::saveToConfig);
+    card2Layout->addWidget(createSettingRow(IconType::WordSplit, tr("Run-Together Word Splitting"), tr("Detects concatenated words (e.g. 'whenI', 'twowords') and cleanly adds spaces."), runTogetherToggle_, false));
+
+    auto* slangBadge = new QLabel(tr("Protected"), card2);
+    slangBadge->setStyleSheet("background-color: #DCFCE7; color: #166534; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 4px 8px;");
+    card2Layout->addWidget(createSettingRow(IconType::Tag, tr("Slang & Chat Acronyms"), tr("Preserves words like 'gng', 'brb', 'ttyl', 'idk', 'ngl', and 'repo' without corruption."), slangBadge, true));
     layout->addWidget(card2);
+
+    auto* sec3 = new QLabel(tr("GLOBAL SHORTCUTS"), content);
+    sec3->setObjectName("sectionHeader");
+    layout->addWidget(sec3);
+
+    auto* card3 = createSettingCard();
+    auto* card3Layout = new QVBoxLayout(card3);
+    card3Layout->setContentsMargins(0, 0, 0, 0);
+    card3Layout->setSpacing(0);
+
+    addWordHotkeyCombo_ = new QComboBox(card3);
+    addWordHotkeyCombo_->addItem("⌘⌥⇧D  (Cmd + Option + Shift + D)");
+    addWordHotkeyCombo_->addItem("⌘⌥⇧I  (Cmd + Option + Shift + I)");
+    addWordHotkeyCombo_->addItem("⌘⇧D  (Cmd + Shift + D)");
+    addWordHotkeyCombo_->addItem("⌥⇧D  (Option + Shift + D)");
+    addWordHotkeyCombo_->addItem("⌃⌥D  (Control + Option + D)");
+    addWordHotkeyCombo_->addItem("⌘⌥D  (Cmd + Option + D)");
+    addWordHotkeyCombo_->setMinimumWidth(260);
+    addWordHotkeyCombo_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+    connect(addWordHotkeyCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsDialog::saveToConfig);
+    card3Layout->addWidget(createSettingRow(IconType::Keyboard, tr("Add to Known Words Shortcut"), tr("Highlight any word in any app and press this shortcut to save it to known words and revert the correction."), addWordHotkeyCombo_, true));
+    layout->addWidget(card3);
 
     layout->addStretch();
     scroll->setWidget(content);
@@ -1185,7 +1214,7 @@ QWidget* SettingsDialog::createVocabularyPage() {
     titleLabel->setObjectName("settingRowTitle");
     cardLayout->addWidget(titleLabel);
 
-    auto* subLabel = new QLabel(tr("Words entered here will never be touched, modified, or flagged by Inline. Separate words by commas or new lines."), card);
+    auto* subLabel = new QLabel(tr("Words entered here will never be touched, modified, or autocorrected by Inline. Highlight any word in any app and press Cmd+Option+Shift+D to instantly add it. Separate words by commas or new lines."), card);
     subLabel->setObjectName("settingRowSubtitle");
     cardLayout->addWidget(subLabel);
 
@@ -1561,6 +1590,10 @@ void SettingsDialog::loadFromConfig() {
         editDistanceCombo_->setCurrentIndex(cfg.maxDictionaryEditDistance <= 1 ? 0 : 1);
     }
 
+    if (addWordHotkeyCombo_) {
+        addWordHotkeyCombo_->setCurrentIndex(std::clamp(cfg.addWordHotkeyIndex, 0, 5));
+    }
+
     if (ignoreWordsEdit_) {
         QString text;
         for (const auto& w : cfg.ignoreWords) {
@@ -1608,6 +1641,7 @@ void SettingsDialog::saveToConfig() {
     if (acceptModeCombo_) cfg.ghostAcceptMode = ghostAcceptModeFromIndex(acceptModeCombo_->currentIndex());
     if (predictionLengthCombo_) cfg.predictionLength = predictionLengthFromIndex(predictionLengthCombo_->currentIndex());
     if (ghostStyleCombo_) cfg.ghostStyle = ghostStyleFromIndex(ghostStyleCombo_->currentIndex());
+    if (addWordHotkeyCombo_) cfg.addWordHotkeyIndex = addWordHotkeyCombo_->currentIndex();
     cfg.appTheme = static_cast<int>(currentTheme_);
 
     if (sensitivityCombo_) {

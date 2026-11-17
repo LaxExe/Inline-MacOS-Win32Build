@@ -114,6 +114,13 @@ void MainTrayApp::onIdleCheck() {
         openPreferences();
     }
 
+    std::string walkTriggerPath = "/tmp/com.inline.mac.walkthrough";
+    if (std::filesystem::exists(walkTriggerPath)) {
+        std::error_code ec;
+        std::filesystem::remove(walkTriggerPath, ec);
+        openWalkthrough();
+    }
+
     bool isDark = false;
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
     isDark = isSystemInDarkMode();
@@ -179,6 +186,8 @@ void MainTrayApp::setupTray() {
     pauseAction_ = trayMenu_->addAction(tr("Pause Autocorrection"), this, &MainTrayApp::toggleMasterEnabled);
     sentenceToggleAction_ = trayMenu_->addAction(tr("Sentence Capitalization: Active"), this, &MainTrayApp::toggleSentenceCorrection);
     ghostToggleAction_ = trayMenu_->addAction(tr("Ghost Text Predictions (Beta): Inactive"), this, &MainTrayApp::toggleGhostText);
+    addWordAction_ = trayMenu_->addAction(tr("Add Highlighted Word to Known Words (Cmd+Opt+Shift+D)"), this, &MainTrayApp::addSelectedWordToKnownWords);
+    rebindAddWordHotkey();
     clearAction_ = trayMenu_->addAction(tr("Purge Keystroke Buffer"), this, &MainTrayApp::clearAllBuffers);
 
     trayMenu_->addSeparator();
@@ -218,17 +227,26 @@ void MainTrayApp::setupTray() {
     updateTrayIcon();
     trayIcon_->setVisible(true);
     trayIcon_->show();
+
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    // Hook native status bar item after window server populates it
+    QTimer::singleShot(50, this, [this]() {
+        updateTrayIcon();
+    });
+#endif
 }
 
 void MainTrayApp::updateTrayIcon() {
     bool enabled = false;
     bool sentenceEnabled = false;
     bool ghostEnabled = false;
+    int appTheme = 0;
     {
         std::lock_guard<std::mutex> lock(configMutex);
         enabled = sharedConfig.masterEnabled;
         sentenceEnabled = sharedConfig.sentenceCorrectionEnabled;
         ghostEnabled = sharedConfig.ghostTextEnabled;
+        appTheme = sharedConfig.appTheme;
     }
 
     if (!enabled || !ghostEnabled) {
@@ -236,18 +254,24 @@ void MainTrayApp::updateTrayIcon() {
     }
 
     bool isDark = false;
+    if (appTheme == 1) {
+        isDark = false; // Forced Light
+    } else if (appTheme == 2) {
+        isDark = true;  // Forced Dark
+    } else {
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
-    isDark = isSystemInDarkMode();
+        isDark = isSystemInDarkMode();
 #else
-    isDark = QGuiApplication::palette().color(QPalette::Window).lightness() < 128;
+        isDark = QGuiApplication::palette().color(QPalette::Window).lightness() < 128;
 #endif
+    }
 
     TrayIconState state = iconStateFor(enabled);
     trayIcon_->setIcon(createStatusIcon(state == TrayIconState::Active, isDark));
     trayIcon_->setVisible(true);
 
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
-    updateNativeStatusBarIcon(state == TrayIconState::Active);
+    updateNativeStatusBarIcon(state == TrayIconState::Active, appTheme);
 #endif
 
     if (enabled) {
@@ -311,6 +335,180 @@ void MainTrayApp::toggleGhostText() {
     }
 }
 
+void MainTrayApp::addSelectedWordToKnownWords() {
+    std::string rawSelected;
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    rawSelected = getSelectedTextFromFrontmostApp();
+#endif
+
+    // Trim whitespace and outer punctuation
+    auto trimWord = [](const std::string& str) -> std::string {
+        if (str.empty()) return "";
+        size_t start = 0;
+        while (start < str.size() && (std::isspace(static_cast<unsigned char>(str[start])) ||
+               str[start] == '"' || str[start] == '\'' || str[start] == '`' ||
+               str[start] == '(' || str[start] == '[' || str[start] == '{' ||
+               str[start] == '<' || str[start] == '.' || str[start] == ',' ||
+               str[start] == ';' || str[start] == ':' || str[start] == '!' ||
+               str[start] == '?')) {
+            start++;
+        }
+        if (start >= str.size()) return "";
+        size_t end = str.size() - 1;
+        while (end > start && (std::isspace(static_cast<unsigned char>(str[end])) ||
+               str[end] == '"' || str[end] == '\'' || str[end] == '`' ||
+               str[end] == ')' || str[end] == ']' || str[end] == '}' ||
+               str[end] == '>' || str[end] == '.' || str[end] == ',' ||
+               str[end] == ';' || str[end] == ':' || str[end] == '!' ||
+               str[end] == '?')) {
+            end--;
+        }
+        return str.substr(start, end - start + 1);
+    };
+
+    std::string selected = trimWord(rawSelected);
+    std::wstring lastOrig = undoSM_.getLastOriginal();
+    std::wstring lastCorr = undoSM_.getLastCorrected();
+
+    std::string wordToAdd;
+    bool shouldRevertInApp = false;
+
+    // Check if the user highlighted the autocorrected word (e.g. highlighted "BIM" after "IBM" -> "BIM")
+    if (!selected.empty() && !lastCorr.empty() && !lastOrig.empty()) {
+        std::string lowerSelected = selected;
+        for (char& c : lowerSelected) c = std::tolower(static_cast<unsigned char>(c));
+
+        std::string lowerCorr = QString::fromStdWString(lastCorr).toLower().toStdString();
+        if (lowerSelected == lowerCorr) {
+            wordToAdd = QString::fromStdWString(lastOrig).toStdString();
+            shouldRevertInApp = true;
+        }
+    }
+
+    if (wordToAdd.empty()) {
+        if (!selected.empty()) {
+            wordToAdd = selected;
+        } else if (undoSM_.isEligibleForUndo() && !lastOrig.empty()) {
+            // Nothing highlighted, but an autocorrection just occurred: use last original word
+            wordToAdd = QString::fromStdWString(lastOrig).toStdString();
+            shouldRevertInApp = true;
+        }
+    }
+
+    if (wordToAdd.empty()) {
+        if (trayIcon_) {
+            trayIcon_->showMessage(
+                tr("Add to Known Words"),
+                tr("Please highlight a word first, then press Cmd+Option+Shift+D."),
+                QSystemTrayIcon::Information,
+                3000
+            );
+        }
+        return;
+    }
+
+    // If we detected that the word in the editor is the autocorrected version, revert it back to the original
+    if (shouldRevertInApp) {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+        if (!selected.empty()) {
+            replaceSelectedTextInFrontmostApp(wordToAdd);
+        } else {
+            handleBackspace(true);
+        }
+#endif
+    }
+
+    // Split in case user selected multiple words or comma-separated terms
+    QStringList tokens = QString::fromStdString(wordToAdd).split(QRegularExpression("[\\s,]+"), Qt::SkipEmptyParts);
+    if (tokens.isEmpty()) {
+        tokens.append(QString::fromStdString(wordToAdd));
+    }
+
+    std::vector<std::string> newlyAdded;
+    {
+        std::lock_guard<std::mutex> lock(configMutex);
+        for (const QString& tok : tokens) {
+            std::string w = tok.trimmed().toStdString();
+            if (w.empty()) continue;
+
+            // Case-insensitive duplicate check
+            std::string lowerW = w;
+            for (char& c : lowerW) c = std::tolower(static_cast<unsigned char>(c));
+
+            bool exists = false;
+            for (const auto& existing : sharedConfig.ignoreWords) {
+                std::string lowerEx = existing;
+                for (char& c : lowerEx) c = std::tolower(static_cast<unsigned char>(c));
+                if (lowerEx == lowerW) {
+                    exists = true;
+                    break;
+                }
+            }
+
+            if (!exists) {
+                sharedConfig.ignoreWords.push_back(w);
+                newlyAdded.push_back(w);
+            }
+        }
+    }
+
+    if (!newlyAdded.empty()) {
+        AppConfig cfgCopy;
+        {
+            std::lock_guard<std::mutex> lock(configMutex);
+            cfgCopy = sharedConfig;
+            cachedConfig_ = sharedConfig;
+        }
+        saveConfigToFile(cfgCopy);
+
+        // Also index into SymSpell dictionary so it's a known valid word
+        for (const auto& w : newlyAdded) {
+            std::wstring ww = QString::fromStdString(w).toLower().toStdWString();
+            dict_.addWord(ww, 1000000);
+        }
+
+        if (settingsDialog_ && settingsDialog_->isVisible()) {
+            settingsDialog_->loadFromConfig();
+        }
+
+        QString addedList;
+        for (size_t i = 0; i < newlyAdded.size(); ++i) {
+            if (i > 0) addedList += ", ";
+            addedList += QString("\"%1\"").arg(QString::fromStdString(newlyAdded[i]));
+        }
+
+        QString logMsg = QString("[KNOWN_WORDS] Added %1 to known words list. Autocorrection stopped.").arg(addedList);
+        PrivacyLogger::instance().logDiagnosticText(logMsg.toStdString());
+        if (settingsDialog_ && settingsDialog_->isVisible()) {
+            QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, logMsg));
+        }
+
+        if (trayIcon_) {
+            trayIcon_->showMessage(
+                tr("Added to Known Words"),
+                tr("%1 added to known words. Inline will no longer autocorrect this.").arg(addedList),
+                QSystemTrayIcon::Information,
+                3500
+            );
+        }
+    } else {
+        // Already in known words
+        QString msg = QString("[KNOWN_WORDS] \"%1\" is already in the known words list.").arg(QString::fromStdString(wordToAdd));
+        PrivacyLogger::instance().logDiagnosticText(msg.toStdString());
+        if (settingsDialog_ && settingsDialog_->isVisible()) {
+            QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
+        }
+        if (trayIcon_) {
+            trayIcon_->showMessage(
+                tr("Known Words"),
+                tr("\"%1\" is already in your known words dictionary.").arg(QString::fromStdString(wordToAdd)),
+                QSystemTrayIcon::Information,
+                3000
+            );
+        }
+    }
+}
+
 void MainTrayApp::openWalkthrough() {
     dismissGhost();
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
@@ -352,6 +550,7 @@ void MainTrayApp::openPreferences() {
         settingsDialog_ = std::make_unique<SettingsDialog>();
         connect(settingsDialog_.get(), &SettingsDialog::configChanged, this, [this]() {
             updateTrayIcon();
+            rebindAddWordHotkey();
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
             bool smartOn = true;
             {
@@ -463,7 +662,86 @@ bool MainTrayApp::initEngine() {
         }
     );
 
+    // Register customized global hotkey to add highlighted word to known words (ignore list)
+    rebindAddWordHotkey();
+
     return true;
+}
+
+void MainTrayApp::rebindAddWordHotkey() {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+    if (addWordHotkeyId_ != 0) {
+        GlobalHotkeyManager::instance().unregisterHotkey(addWordHotkeyId_);
+        addWordHotkeyId_ = 0;
+    }
+    if (addWordAliasHotkeyId_ != 0) {
+        GlobalHotkeyManager::instance().unregisterHotkey(addWordAliasHotkeyId_);
+        addWordAliasHotkeyId_ = 0;
+    }
+
+    int idx = 0;
+    {
+        std::lock_guard<std::mutex> lock(configMutex);
+        idx = sharedConfig.addWordHotkeyIndex;
+    }
+
+    KeyCode key = KeyCode::D;
+    ModifierFlags mods = Mod::Cmd | Mod::Option | Mod::Shift;
+    QString keyText = "Cmd+Opt+Shift+D";
+
+    switch (idx) {
+        case 1:
+            key = KeyCode::I;
+            mods = Mod::Cmd | Mod::Option | Mod::Shift;
+            keyText = "Cmd+Opt+Shift+I";
+            break;
+        case 2:
+            key = KeyCode::D;
+            mods = Mod::Cmd | Mod::Shift;
+            keyText = "Cmd+Shift+D";
+            break;
+        case 3:
+            key = KeyCode::D;
+            mods = Mod::Option | Mod::Shift;
+            keyText = "Opt+Shift+D";
+            break;
+        case 4:
+            key = KeyCode::D;
+            mods = Mod::Control | Mod::Option;
+            keyText = "Ctrl+Opt+D";
+            break;
+        case 5:
+            key = KeyCode::D;
+            mods = Mod::Cmd | Mod::Option;
+            keyText = "Cmd+Opt+D";
+            break;
+        case 0:
+        default:
+            key = KeyCode::D;
+            mods = Mod::Cmd | Mod::Option | Mod::Shift;
+            keyText = "Cmd+Opt+Shift+D";
+            break;
+    }
+
+    addWordHotkeyId_ = GlobalHotkeyManager::instance().registerHotkey(
+        key, mods, [this]() {
+            QMetaObject::invokeMethod(this, &MainTrayApp::addSelectedWordToKnownWords, Qt::QueuedConnection);
+        }
+    );
+
+    // Also register Cmd+Opt+Shift+I as alias if user selected default Cmd+Opt+Shift+D
+    if (idx == 0) {
+        addWordAliasHotkeyId_ = GlobalHotkeyManager::instance().registerHotkey(
+            KeyCode::I, Mod::Cmd | Mod::Option | Mod::Shift, [this]() {
+                QMetaObject::invokeMethod(this, &MainTrayApp::addSelectedWordToKnownWords, Qt::QueuedConnection);
+            }
+        );
+    }
+
+    if (addWordAction_) {
+        addWordAction_->setText(tr("Add Highlighted Word to Known Words (%1)").arg(keyText));
+    }
+#endif
 }
 
 void MainTrayApp::scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText, int settleMs, double minExpectedX) {

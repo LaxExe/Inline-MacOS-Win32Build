@@ -34,6 +34,7 @@ std::string serializeConfig(const AppConfig& cfg) {
     ss << "  \"splitRunTogetherWords\": " << (cfg.splitRunTogetherWords ? "true" : "false") << ",\n";
     ss << "  \"appTheme\": " << cfg.appTheme << ",\n";
     ss << "  \"toggleHotkey\": " << static_cast<uint32_t>(cfg.toggleHotkey) << ",\n";
+    ss << "  \"addWordHotkeyIndex\": " << cfg.addWordHotkeyIndex << ",\n";
     ss << "  \"correctionAggressiveness\": " << cfg.correctionAggressiveness << ",\n";
     ss << "  \"maxDictionaryEditDistance\": " << cfg.maxDictionaryEditDistance << ",\n";
     ss << "  \"ignoreWords\": [";
@@ -130,6 +131,7 @@ AppConfig deserializeConfig(const std::string& jsonStr, bool& outOk) {
     int hotkeyInt = 0;
     parseInt("toggleHotkey", hotkeyInt);
     if (hotkeyInt > 0) cfg.toggleHotkey = static_cast<KeyCode>(hotkeyInt);
+    parseInt("addWordHotkeyIndex", cfg.addWordHotkeyIndex);
 
     parseFloat("correctionAggressiveness", cfg.correctionAggressiveness);
     parseInt("maxDictionaryEditDistance", cfg.maxDictionaryEditDistance);
