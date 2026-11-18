@@ -32,7 +32,7 @@ This file serves as the definitive reference for AI assistants working on this c
 | Action | Command |
 | :--- | :--- |
 | **Build macOS DMG Installer** | `./tools/create_dmg.sh` *(generates `dist/Inline-vX.X-macOS.dmg`)* |
-| **Mount & Test DMG** | `hdiutil attach dist/Inline-v1.6-macOS.dmg` |
+| **Mount & Test DMG** | `hdiutil attach dist/Inline-v1.7-macOS.dmg` |
 | **Unmount DMG** | `hdiutil detach /Volumes/Inline` |
 | **Reset macOS TCC Cache** | `tccutil reset Accessibility com.inline.mac && tccutil reset ListenEvent com.inline.mac` |
 

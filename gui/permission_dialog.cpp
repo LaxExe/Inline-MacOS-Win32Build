@@ -50,7 +50,7 @@ void StepProgressWidget::paintEvent(QPaintEvent*) {
     const qreal radius = 2.0;
 
     QColor activeColor(34, 197, 94); // #22C55E Inline signature green
-    QColor inactiveColor = isDark_ ? QColor(50, 46, 42) : QColor(226, 221, 216);
+    QColor inactiveColor = isDark_ ? QColor(46, 46, 52) : QColor(226, 221, 216);
 
     for (int i = 0; i < count; ++i) {
         QRectF r(i * (segWidth + spacing), (height() - segHeight) / 2.0, segWidth, segHeight);
@@ -91,19 +91,19 @@ void LaptopMockupWidget::paintEvent(QPaintEvent*) {
 
     // 1. Laptop Outer Bezel
     QRectF lidRect(laptopX + 16, laptopY, laptopW - 32, laptopH);
-    p.setBrush(isDark_ ? QColor(26, 24, 22) : QColor(230, 226, 222));
-    p.setPen(QPen(isDark_ ? QColor(54, 50, 46) : QColor(200, 195, 190), 1.2));
+    p.setBrush(isDark_ ? QColor(24, 24, 27) : QColor(230, 226, 222));
+    p.setPen(QPen(isDark_ ? QColor(46, 46, 52) : QColor(200, 195, 190), 1.2));
     p.drawRoundedRect(lidRect, 12, 12);
 
     // 2. Screen Area
     QRectF screenRect = lidRect.adjusted(7, 7, -7, -7);
-    p.setBrush(isDark_ ? QColor(18, 16, 15) : QColor(246, 244, 241));
+    p.setBrush(isDark_ ? QColor(18, 18, 20) : QColor(246, 244, 241));
     p.setPen(Qt::NoPen);
     p.drawRoundedRect(screenRect, 8, 8);
 
     // Top menu bar line in simulated screen
     QRectF miniMenuBar(screenRect.left(), screenRect.top(), screenRect.width(), 16);
-    p.setBrush(isDark_ ? QColor(30, 28, 26) : QColor(236, 233, 229));
+    p.setBrush(isDark_ ? QColor(28, 28, 32) : QColor(236, 233, 229));
     p.drawRoundedRect(miniMenuBar, 8, 8);
 
     // Menu bar status icon: vertical bar and green pulse dot
@@ -118,13 +118,13 @@ void LaptopMockupWidget::paintEvent(QPaintEvent*) {
     timeFont.setPixelSize(9);
     timeFont.setWeight(QFont::Medium);
     p.setFont(timeFont);
-    p.setPen(isDark_ ? QColor(160, 155, 150) : QColor(110, 105, 100));
+    p.setPen(isDark_ ? QColor(161, 161, 170) : QColor(110, 105, 100));
     p.drawText(QRectF(screenRect.right() - 36, screenRect.top() + 1, 30, 14), Qt::AlignCenter, "9:41");
 
     // 3. Simulated Application Window (Notes app)
     QRectF winRect(screenRect.left() + 20, screenRect.top() + 24, screenRect.width() - 40, screenRect.height() - 32);
-    p.setBrush(isDark_ ? QColor(34, 32, 30) : QColor(255, 255, 255));
-    p.setPen(QPen(isDark_ ? QColor(56, 52, 48) : QColor(222, 217, 212), 1.0));
+    p.setBrush(isDark_ ? QColor(32, 32, 36) : QColor(255, 255, 255));
+    p.setPen(QPen(isDark_ ? QColor(50, 50, 56) : QColor(222, 217, 212), 1.0));
     p.drawRoundedRect(winRect, 8, 8);
 
     // Traffic lights in window
@@ -208,13 +208,13 @@ void LaptopMockupWidget::paintEvent(QPaintEvent*) {
 
     // 4. Laptop Base & Hinge
     QRectF baseRect(laptopX, laptopY + laptopH - 6, laptopW, 7);
-    p.setBrush(isDark_ ? QColor(36, 33, 30) : QColor(212, 207, 202));
-    p.setPen(QPen(isDark_ ? QColor(56, 52, 48) : QColor(190, 185, 180), 1.0));
+    p.setBrush(isDark_ ? QColor(32, 32, 36) : QColor(212, 207, 202));
+    p.setPen(QPen(isDark_ ? QColor(48, 48, 54) : QColor(190, 185, 180), 1.0));
     p.drawRoundedRect(baseRect, 3, 3);
 
     // Trackpad notch cut
     QRectF notchRect(totalW / 2.0 - 20, laptopY + laptopH - 6, 40, 3);
-    p.setBrush(isDark_ ? QColor(22, 20, 18) : QColor(180, 175, 170));
+    p.setBrush(isDark_ ? QColor(20, 20, 24) : QColor(180, 175, 170));
     p.setPen(Qt::NoPen);
     p.drawRoundedRect(notchRect, 1.5, 1.5);
 }
@@ -850,14 +850,14 @@ void PermissionDialog::toggleTheme() {
 // ============================================================================
 
 void PermissionDialog::applyTheme() {
-    QString mainBg       = isDarkMode_ ? "#1B1917" : "#F8F6F4"; // warm dark / warm light paper
-    QString cardBg       = isDarkMode_ ? "#242220" : "#FFFFFF";
-    QString cardBorder   = isDarkMode_ ? "#383430" : "#E5E0DB";
+    QString mainBg       = isDarkMode_ ? "#18181B" : "#F8F6F4"; // modern zinc-900 slate gray dark / warm light paper
+    QString cardBg       = isDarkMode_ ? "#202024" : "#FFFFFF"; // elevated grayish card
+    QString cardBorder   = isDarkMode_ ? "#2E2E34" : "#E5E0DB";
     QString titleColor   = isDarkMode_ ? "#FFFFFF" : "#1C1917";
-    QString subtitleColor= isDarkMode_ ? "#A8A29E" : "#78716C";
-    QString keycapBg     = isDarkMode_ ? "#36322E" : "#EFEBE6";
-    QString keycapBorder = isDarkMode_ ? "#4A4540" : "#D8D2CB";
-    QString boxBg        = isDarkMode_ ? "#2C2926" : "#F4F1ED";
+    QString subtitleColor= isDarkMode_ ? "#A1A1AA" : "#78716C"; // zinc-400
+    QString keycapBg     = isDarkMode_ ? "#27272A" : "#EFEBE6";
+    QString keycapBorder = isDarkMode_ ? "#3F3F46" : "#D8D2CB";
+    QString boxBg        = isDarkMode_ ? "#18181B" : "#F4F1ED";
     QString accentColor  = "#22C55E"; // #22C55E Inline signature green
 
     themeToggleBtn_->setIcon(renderThemeIcon(isDarkMode_));

@@ -272,9 +272,9 @@ QWidget* SettingsDialog::createIconBadge(IconType type) {
                 }
             }
 
-            QColor bg = isDark ? QColor(31, 31, 31) : QColor(245, 245, 245);
-            QColor border = isDark ? QColor(46, 46, 46) : QColor(229, 229, 229);
-            QColor stroke = isDark ? QColor(255, 255, 255) : QColor(23, 23, 23);
+            QColor bg = isDark ? QColor(32, 32, 36) : QColor(245, 245, 245);
+            QColor border = isDark ? QColor(46, 46, 52) : QColor(229, 229, 229);
+            QColor stroke = isDark ? QColor(244, 244, 245) : QColor(23, 23, 23);
 
             p.setBrush(bg);
             p.setPen(QPen(border, 1.0));
@@ -401,8 +401,8 @@ void ThemePreviewCard::paintEvent(QPaintEvent*) {
         p.drawRoundedRect(12, 38, 50, 6, 3, 3);
         p.drawRoundedRect(70, 38, 50, 6, 3, 3);
     } else if (mode_ == ThemeMode::Dark) {
-        p.fillPath(path, QColor(31, 41, 55));
-        p.setPen(QColor(55, 65, 81));
+        p.fillPath(path, QColor(24, 24, 27)); // #18181B Zinc-900 slate gray
+        p.setPen(QColor(46, 46, 52));
         p.drawPath(path);
 
         p.setPen(Qt::NoPen);
@@ -410,7 +410,7 @@ void ThemePreviewCard::paintEvent(QPaintEvent*) {
         p.setBrush(QColor(234, 179, 8)); p.drawEllipse(22, 12, 6, 6);
         p.setBrush(QColor(34, 197, 94)); p.drawEllipse(32, 12, 6, 6);
 
-        p.setBrush(QColor(75, 85, 99));
+        p.setBrush(QColor(63, 63, 70));
         p.drawRoundedRect(12, 26, 40, 6, 3, 3);
         p.drawRoundedRect(60, 26, 60, 6, 3, 3);
         p.drawRoundedRect(12, 38, 50, 6, 3, 3);
@@ -424,7 +424,7 @@ void ThemePreviewCard::paintEvent(QPaintEvent*) {
         darkHalf.lineTo(previewRect.bottomRight());
         darkHalf.lineTo(previewRect.bottomLeft());
         darkHalf.closeSubpath();
-        p.fillPath(darkHalf, QColor(31, 41, 55));
+        p.fillPath(darkHalf, QColor(24, 24, 27));
         p.restore();
 
         p.setPen(QColor(229, 231, 235));
@@ -485,26 +485,36 @@ void SettingsDialog::applyTheme(ThemePreviewCard::ThemeMode mode) {
 #endif
     isDarkTheme_ = isDark;
 
-    // designlang flat tokens: Inter typography, 14px radii, neutral ramps
-    QString mainBg        = isDark ? "#121212" : "#FFFFFF";
-    QString sidebarBg     = isDark ? "#171717" : "#FBFBFB";
-    QString sidebarBorder = isDark ? "#262626" : "#E5E5E5";
-    QString searchBg      = isDark ? "#1F1F1F" : "#FFFFFF";
-    QString searchBorder  = isDark ? "#2E2E2E" : "#E5E5E5";
-    QString cardBg        = isDark ? "#171717" : "#FFFFFF";
-    QString cardBorder    = isDark ? "#2E2E2E" : "#E5E5E5";
+    // designlang flat tokens: clean Apple neutral grayish dark / warm clean light
+    QString mainBg        = isDark ? "#18181B" : "#FFFFFF"; // Zinc-900 slate gray
+    QString sidebarBg     = isDark ? "#121214" : "#FBFBFB";
+    QString sidebarBorder = isDark ? "#27272A" : "#E5E5E5";
+    QString searchBg      = isDark ? "#202024" : "#FFFFFF";
+    QString searchBorder  = isDark ? "#2E2E34" : "#E5E5E5";
+    QString cardBg        = isDark ? "#202024" : "#FFFFFF"; // elevated grayish card
+    QString cardBorder    = isDark ? "#2E2E34" : "#E5E5E5";
     QString textColor     = isDark ? "#FFFFFF" : "#171717";
-    QString subtextColor  = isDark ? "#9F9F9F" : "#525252";
-    QString dividerColor  = isDark ? "#262626" : "#EAEAEA";
-    QString inputBg       = isDark ? "#1F1F1F" : "#FFFFFF";
-    QString inputBorder   = isDark ? "#2E2E2E" : "#E5E5E5";
-    QString btnBg         = isDark ? "#262626" : "#F5F5F5";
-    QString btnBorder     = isDark ? "#333333" : "#E5E5E5";
-    QString itemHover     = isDark ? "#1F1F1F" : "#F5F5F5";
-    QString itemSelected  = isDark ? "#262626" : "#EAEAEA";
+    QString subtextColor  = isDark ? "#A1A1AA" : "#525252"; // Zinc-400
+    QString dividerColor  = isDark ? "#27272A" : "#EAEAEA";
+    QString inputBg       = isDark ? "#18181B" : "#FFFFFF";
+    QString inputBorder   = isDark ? "#2E2E34" : "#E5E5E5";
+    QString btnBg         = isDark ? "#27272A" : "#F5F5F5";
+    QString btnBorder     = isDark ? "#3F3F46" : "#E5E5E5";
+    QString itemHover     = isDark ? "#1F1F23" : "#F5F5F5";
+    QString itemSelected  = isDark ? "#27272A" : "#EAEAEA";
+
+    QPalette pal = palette();
+    pal.setColor(QPalette::Window, QColor(mainBg));
+    pal.setColor(QPalette::WindowText, QColor(textColor));
+    pal.setColor(QPalette::Base, QColor(mainBg));
+    pal.setColor(QPalette::AlternateBase, QColor(cardBg));
+    pal.setColor(QPalette::Text, QColor(textColor));
+    pal.setColor(QPalette::Button, QColor(btnBg));
+    pal.setColor(QPalette::ButtonText, QColor(textColor));
+    setPalette(pal);
 
     setStyleSheet(QString(
-        "SettingsDialog {"
+        "SettingsDialog, QStackedWidget#pageStack, QScrollArea#pageScrollArea, QWidget#pageContentWidget, QWidget#pageScrollViewport {"
         "  background-color: %1;"
         "  color: %2;"
         "  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;"
@@ -522,7 +532,7 @@ void SettingsDialog::applyTheme(ThemePreviewCard::ThemeMode mode) {
         "  color: %2;"
         "}"
         "#searchEdit:focus {"
-        "  border: 1px solid #171717;"
+        "  border: 1px solid #22C55E;"
         "}"
         "#settingCard {"
         "  background-color: %7;"
@@ -538,7 +548,6 @@ void SettingsDialog::applyTheme(ThemePreviewCard::ThemeMode mode) {
         "  font-size: 12px;"
         "  font-weight: 400;"
         "  color: %9;"
-        "  line-height: 1.4;"
         "}"
         "#settingRowDivider {"
         "  background-color: %10;"
@@ -558,7 +567,13 @@ void SettingsDialog::applyTheme(ThemePreviewCard::ThemeMode mode) {
         "}"
         "QScrollArea {"
         "  border: none;"
-        "  background-color: transparent;"
+        "  background-color: %1;"
+        "}"
+        "QScrollArea > QWidget {"
+        "  background-color: %1;"
+        "}"
+        "QScrollArea > QWidget > QWidget {"
+        "  background-color: %1;"
         "}"
         "QLineEdit, QPlainTextEdit {"
         "  background-color: %11;"
@@ -694,7 +709,7 @@ void SettingsDialog::setupUi() {
     sidebarLayout->addWidget(sidebarList_);
 
     // Version label at bottom
-    auto* versionLabel = new QLabel(tr("Inline macOS • v1.6"), sidebarContainer);
+    auto* versionLabel = new QLabel(tr("Inline macOS • v1.7"), sidebarContainer);
     versionLabel->setStyleSheet("font-size: 10px; color: #9CA3AF; padding: 4px 6px; font-weight: 500;");
     sidebarLayout->addWidget(versionLabel);
 
@@ -704,6 +719,7 @@ void SettingsDialog::setupUi() {
     // Right Content Area (Stacked Pages)
     // ==========================================
     pageStack_ = new QStackedWidget(this);
+    pageStack_->setObjectName("pageStack");
     pageStack_->addWidget(createGeneralPage());        // 0
     pageStack_->addWidget(createTypingEnginePage());   // 1 (Typing Engine)
     pageStack_->addWidget(createGhostTextPage());      // 2
@@ -793,9 +809,27 @@ void SettingsDialog::onSearchFilterChanged(const QString& query) {
     }
 }
 
+static QScrollArea* wrapInPageScrollArea(QWidget* content) {
+    auto* scroll = new QScrollArea();
+    scroll->setObjectName("pageScrollArea");
+    scroll->setWidgetResizable(true);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    if (scroll->viewport()) {
+        scroll->viewport()->setObjectName("pageScrollViewport");
+    }
+    content->setObjectName("pageContentWidget");
+    content->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    scroll->setWidget(content);
+    return scroll;
+}
+
 QWidget* SettingsDialog::createSettingCard() {
     auto* card = new QWidget(this);
     card->setObjectName("settingCard");
+    card->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     return card;
 }
 
@@ -813,12 +847,15 @@ QWidget* SettingsDialog::createSettingRow(IconType icon, const QString& title, c
     textLayout->setSpacing(2);
     auto* titleLabel = new QLabel(title, row);
     titleLabel->setObjectName("settingRowTitle");
+    titleLabel->setWordWrap(true);
+    titleLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     textLayout->addWidget(titleLabel);
 
     if (!subtitle.isEmpty()) {
         auto* subLabel = new QLabel(subtitle, row);
         subLabel->setObjectName("settingRowSubtitle");
         subLabel->setWordWrap(true);
+        subLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
         textLayout->addWidget(subLabel);
     }
     rowLayout->addLayout(textLayout, 1);
@@ -849,8 +886,6 @@ QWidget* SettingsDialog::createSettingRow(IconType icon, const QString& title, c
 // Page 0: General
 // ============================================================================
 QWidget* SettingsDialog::createGeneralPage() {
-    auto* scroll = new QScrollArea();
-    scroll->setWidgetResizable(true);
     auto* content = new QWidget();
     auto* layout = new QVBoxLayout(content);
     layout->setContentsMargins(28, 28, 28, 28);
@@ -913,16 +948,13 @@ QWidget* SettingsDialog::createGeneralPage() {
     layout->addWidget(card3);
 
     layout->addStretch();
-    scroll->setWidget(content);
-    return scroll;
+    return wrapInPageScrollArea(content);
 }
 
 // ============================================================================
 // Page 1: Typing Engine
 // ============================================================================
 QWidget* SettingsDialog::createTypingEnginePage() {
-    auto* scroll = new QScrollArea();
-    scroll->setWidgetResizable(true);
     auto* content = new QWidget();
     auto* layout = new QVBoxLayout(content);
     layout->setContentsMargins(28, 28, 28, 28);
@@ -1010,16 +1042,13 @@ QWidget* SettingsDialog::createTypingEnginePage() {
     layout->addWidget(card3);
 
     layout->addStretch();
-    scroll->setWidget(content);
-    return scroll;
+    return wrapInPageScrollArea(content);
 }
 
 // ============================================================================
 // Page 2: Ghost Text
 // ============================================================================
 QWidget* SettingsDialog::createGhostTextPage() {
-    auto* scroll = new QScrollArea();
-    scroll->setWidgetResizable(true);
     auto* content = new QWidget();
     auto* layout = new QVBoxLayout(content);
     layout->setContentsMargins(28, 28, 28, 28);
@@ -1039,11 +1068,14 @@ QWidget* SettingsDialog::createGhostTextPage() {
     betaNoticeText->setSpacing(2);
     auto* betaNoticeTitle = new QLabel(tr("Beta Feature Under Testing"), betaNoticeCard);
     betaNoticeTitle->setObjectName("settingRowTitle");
+    betaNoticeTitle->setWordWrap(true);
+    betaNoticeTitle->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     betaNoticeText->addWidget(betaNoticeTitle);
 
     auto* betaNoticeDesc = new QLabel(tr("Ghost Text predictive writing is currently an experimental beta feature under active testing and won't work on all Macs. It is disabled by default."), betaNoticeCard);
     betaNoticeDesc->setObjectName("settingRowSubtitle");
     betaNoticeDesc->setWordWrap(true);
+    betaNoticeDesc->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     betaNoticeText->addWidget(betaNoticeDesc);
 
     betaNoticeLayout->addLayout(betaNoticeText, 1);
@@ -1123,16 +1155,13 @@ QWidget* SettingsDialog::createGhostTextPage() {
     layout->addWidget(card2);
 
     layout->addStretch();
-    scroll->setWidget(content);
-    return scroll;
+    return wrapInPageScrollArea(content);
 }
 
 // ============================================================================
 // Page 3: Appearance
 // ============================================================================
 QWidget* SettingsDialog::createAppearancePage() {
-    auto* scroll = new QScrollArea();
-    scroll->setWidgetResizable(true);
     auto* content = new QWidget();
     auto* layout = new QVBoxLayout(content);
     layout->setContentsMargins(28, 28, 28, 28);
@@ -1149,6 +1178,8 @@ QWidget* SettingsDialog::createAppearancePage() {
 
     auto* themeTitle = new QLabel(tr("Interface Theme"), themeCard);
     themeTitle->setObjectName("settingRowTitle");
+    themeTitle->setWordWrap(true);
+    themeTitle->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     themeLayout->addWidget(themeTitle);
 
     auto* cardRow = new QHBoxLayout();
@@ -1172,12 +1203,13 @@ QWidget* SettingsDialog::createAppearancePage() {
 
     auto* themeSub = new QLabel(tr("Applies to Inline's own windows and panels, not to the whole Mac."), themeCard);
     themeSub->setObjectName("settingRowSubtitle");
+    themeSub->setWordWrap(true);
+    themeSub->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     themeLayout->addWidget(themeSub);
     layout->addWidget(themeCard);
 
     layout->addStretch();
-    scroll->setWidget(content);
-    return scroll;
+    return wrapInPageScrollArea(content);
 }
 
 void SettingsDialog::onThemeSelected(ThemePreviewCard::ThemeMode mode) {
@@ -1193,8 +1225,6 @@ void SettingsDialog::onThemeSelected(ThemePreviewCard::ThemeMode mode) {
 // Page 3: Vocabulary & Slang
 // ============================================================================
 QWidget* SettingsDialog::createVocabularyPage() {
-    auto* scroll = new QScrollArea();
-    scroll->setWidgetResizable(true);
     auto* content = new QWidget();
     auto* layout = new QVBoxLayout(content);
     layout->setContentsMargins(28, 28, 28, 28);
@@ -1205,41 +1235,45 @@ QWidget* SettingsDialog::createVocabularyPage() {
     layout->addWidget(header);
 
     auto* card = createSettingCard();
-    card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    card->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     auto* cardLayout = new QVBoxLayout(card);
     cardLayout->setContentsMargins(16, 16, 16, 16);
     cardLayout->setSpacing(10);
 
     auto* titleLabel = new QLabel(tr("Ignored Words & Technical Jargon"), card);
     titleLabel->setObjectName("settingRowTitle");
+    titleLabel->setWordWrap(true);
+    titleLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     cardLayout->addWidget(titleLabel);
 
-    auto* subLabel = new QLabel(tr("Words entered here will never be touched, modified, or autocorrected by Inline. Highlight any word in any app and press Cmd+Option+Shift+D to instantly add it. Separate words by commas or new lines."), card);
+    auto* subLabel = new QLabel(tr("Words entered here will never be touched, modified, or autocorrected by Inline. Highlight any word in any app and press your shortcut to instantly add it. Separate words by commas or new lines."), card);
     subLabel->setObjectName("settingRowSubtitle");
+    subLabel->setWordWrap(true);
+    subLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     cardLayout->addWidget(subLabel);
 
     ignoreWordsEdit_ = new QPlainTextEdit(card);
     ignoreWordsEdit_->setPlaceholderText(tr("Kubernetes, Jira, subagent, monorepo, SwiftUI"));
     ignoreWordsEdit_->setMinimumHeight(180);
+    ignoreWordsEdit_->setLineWrapMode(QPlainTextEdit::WidgetWidth);
     ignoreWordsEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     connect(ignoreWordsEdit_, &QPlainTextEdit::textChanged, this, &SettingsDialog::saveToConfig);
     cardLayout->addWidget(ignoreWordsEdit_, 1);
 
     auto* infoBadge = new QLabel(tr("82,900+ English words and 180+ internet chat acronyms already loaded."), card);
     infoBadge->setStyleSheet("font-size: 11px; color: #059669; font-weight: 500;");
+    infoBadge->setWordWrap(true);
+    infoBadge->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     cardLayout->addWidget(infoBadge);
 
     layout->addWidget(card, 1);
-    scroll->setWidget(content);
-    return scroll;
+    return wrapInPageScrollArea(content);
 }
 
 // ============================================================================
 // Page 5: Excluded Applications
 // ============================================================================
 QWidget* SettingsDialog::createExcludedAppsPage() {
-    auto* scroll = new QScrollArea();
-    scroll->setWidgetResizable(true);
     auto* content = new QWidget();
     auto* layout = new QVBoxLayout(content);
     layout->setContentsMargins(28, 28, 28, 28);
@@ -1250,22 +1284,27 @@ QWidget* SettingsDialog::createExcludedAppsPage() {
     layout->addWidget(header);
 
     auto* card = createSettingCard();
-    card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    card->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     auto* cardLayout = new QVBoxLayout(card);
     cardLayout->setContentsMargins(16, 16, 16, 16);
     cardLayout->setSpacing(10);
 
     auto* titleLabel = new QLabel(tr("Autocorrect Disabled Applications"), card);
     titleLabel->setObjectName("settingRowTitle");
+    titleLabel->setWordWrap(true);
+    titleLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     cardLayout->addWidget(titleLabel);
 
     auto* subLabel = new QLabel(tr("Inline pauses typo autocorrection when typing in these applications (enter bundle identifiers or application names)."), card);
     subLabel->setObjectName("settingRowSubtitle");
+    subLabel->setWordWrap(true);
+    subLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     cardLayout->addWidget(subLabel);
 
     disabledAppsEdit_ = new QPlainTextEdit(card);
     disabledAppsEdit_->setPlaceholderText(tr("com.apple.Terminal\ncom.googlecode.iterm2\ncom.microsoft.VSCode\ncom.apple.dt.Xcode"));
     disabledAppsEdit_->setMinimumHeight(110);
+    disabledAppsEdit_->setLineWrapMode(QPlainTextEdit::WidgetWidth);
     disabledAppsEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     connect(disabledAppsEdit_, &QPlainTextEdit::textChanged, this, &SettingsDialog::saveToConfig);
     cardLayout->addWidget(disabledAppsEdit_, 1);
@@ -1273,37 +1312,39 @@ QWidget* SettingsDialog::createExcludedAppsPage() {
     layout->addWidget(card, 1);
 
     auto* ghostCard = createSettingCard();
-    ghostCard->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    ghostCard->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     auto* ghostCardLayout = new QVBoxLayout(ghostCard);
     ghostCardLayout->setContentsMargins(16, 16, 16, 16);
     ghostCardLayout->setSpacing(10);
 
     auto* ghostTitleLabel = new QLabel(tr("Ghost Text Disabled Applications"), ghostCard);
     ghostTitleLabel->setObjectName("settingRowTitle");
+    ghostTitleLabel->setWordWrap(true);
+    ghostTitleLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     ghostCardLayout->addWidget(ghostTitleLabel);
 
     auto* ghostSubLabel = new QLabel(tr("Inline hides Ghost Text predictions in these apps so Tab always performs native shell or IDE completion."), ghostCard);
     ghostSubLabel->setObjectName("settingRowSubtitle");
+    ghostSubLabel->setWordWrap(true);
+    ghostSubLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     ghostCardLayout->addWidget(ghostSubLabel);
 
     ghostDisabledAppsEdit_ = new QPlainTextEdit(ghostCard);
     ghostDisabledAppsEdit_->setPlaceholderText(tr("com.apple.Terminal\ncom.googlecode.iterm2\ncom.microsoft.VSCode\ncom.todesktop.230313mzl4w4u92\ncom.apple.dt.Xcode"));
     ghostDisabledAppsEdit_->setMinimumHeight(110);
+    ghostDisabledAppsEdit_->setLineWrapMode(QPlainTextEdit::WidgetWidth);
     ghostDisabledAppsEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     connect(ghostDisabledAppsEdit_, &QPlainTextEdit::textChanged, this, &SettingsDialog::saveToConfig);
     ghostCardLayout->addWidget(ghostDisabledAppsEdit_, 1);
 
     layout->addWidget(ghostCard, 1);
-    scroll->setWidget(content);
-    return scroll;
+    return wrapInPageScrollArea(content);
 }
 
 // ============================================================================
 // Page 5: Playground
 // ============================================================================
 QWidget* SettingsDialog::createPlaygroundPage() {
-    auto* scroll = new QScrollArea();
-    scroll->setWidgetResizable(true);
     auto* content = new QWidget();
     auto* layout = new QVBoxLayout(content);
     layout->setContentsMargins(28, 28, 28, 28);
@@ -1314,16 +1355,21 @@ QWidget* SettingsDialog::createPlaygroundPage() {
     layout->addWidget(header);
 
     auto* card1 = createSettingCard();
+    card1->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     auto* card1Layout = new QVBoxLayout(card1);
     card1Layout->setContentsMargins(16, 16, 16, 16);
     card1Layout->setSpacing(10);
 
     auto* testTitle = new QLabel(tr("Live Typing Sandbox"), card1);
     testTitle->setObjectName("settingRowTitle");
+    testTitle->setWordWrap(true);
+    testTitle->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     card1Layout->addWidget(testTitle);
 
     auto* testSub = new QLabel(tr("Test typing 'og', 'whenI', 'twowords', 'brb', or 'teh' here to verify real-time corrections."), card1);
     testSub->setObjectName("settingRowSubtitle");
+    testSub->setWordWrap(true);
+    testSub->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     card1Layout->addWidget(testSub);
 
     testInputEdit_ = new QLineEdit(card1);
@@ -1332,7 +1378,7 @@ QWidget* SettingsDialog::createPlaygroundPage() {
     layout->addWidget(card1);
 
     auto* card2 = createSettingCard();
-    card2->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    card2->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     auto* card2Layout = new QVBoxLayout(card2);
     card2Layout->setContentsMargins(16, 16, 16, 16);
     card2Layout->setSpacing(10);
@@ -1340,6 +1386,8 @@ QWidget* SettingsDialog::createPlaygroundPage() {
     auto* logHeaderLayout = new QHBoxLayout();
     auto* logTitle = new QLabel(tr("Live Correction Feed"), card2);
     logTitle->setObjectName("settingRowTitle");
+    logTitle->setWordWrap(true);
+    logTitle->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     logHeaderLayout->addWidget(logTitle);
     logHeaderLayout->addStretch();
 
@@ -1355,21 +1403,19 @@ QWidget* SettingsDialog::createPlaygroundPage() {
     liveLogEdit_ = new QPlainTextEdit(card2);
     liveLogEdit_->setReadOnly(true);
     liveLogEdit_->setMinimumHeight(180);
+    liveLogEdit_->setLineWrapMode(QPlainTextEdit::WidgetWidth);
     liveLogEdit_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     liveLogEdit_->setStyleSheet("background-color: #111827; color: #34D399; font-family: Menlo, Monaco, monospace; font-size: 11px; border-radius: 8px; padding: 8px;");
     card2Layout->addWidget(liveLogEdit_, 1);
     layout->addWidget(card2, 1);
 
-    scroll->setWidget(content);
-    return scroll;
+    return wrapInPageScrollArea(content);
 }
 
 // ============================================================================
 // Page 6: Permissions & Health
 // ============================================================================
 QWidget* SettingsDialog::createPermissionsPage() {
-    auto* scroll = new QScrollArea();
-    scroll->setWidgetResizable(true);
     auto* content = new QWidget();
     auto* layout = new QVBoxLayout(content);
     layout->setContentsMargins(28, 28, 28, 28);
@@ -1434,8 +1480,7 @@ QWidget* SettingsDialog::createPermissionsPage() {
     layout->addWidget(card2);
 
     layout->addStretch();
-    scroll->setWidget(content);
-    return scroll;
+    return wrapInPageScrollArea(content);
 }
 
 void SettingsDialog::onOpenAccessibilitySettings() {

@@ -42,7 +42,7 @@ A high-performance, ultra-lightweight native macOS menu bar typing engine built 
 Visit the official website to try the **Live Interactive Simulator** (running Inline's full 83,017-word and 243,342-bigram engine directly in your browser) or download the latest macOS release:
 - **Official Website & Architecture Walkthrough:** [**https://laxexe.github.io/Inline-MacOS-Win32Build/**](https://laxexe.github.io/Inline-MacOS-Win32Build/)
 - **Try the Live In-Browser Simulator:** [**https://laxexe.github.io/Inline-MacOS-Win32Build/#demo**](https://laxexe.github.io/Inline-MacOS-Win32Build/#demo)
-- **Direct macOS DMG Installer (v1.6):** [**Download `Inline-v1.6-macOS.dmg`**](https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.6/Inline-v1.6-macOS.dmg)
+- **Direct macOS DMG Installer (v1.7):** [**Download `Inline-v1.7-macOS.dmg`**](https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.7/Inline-v1.7-macOS.dmg)
 
 ---
 

@@ -303,7 +303,7 @@ bool isFrontmostAppExcluded(const std::vector<std::string>& disabledApps) {
     return false;
 }
 
-void updateNativeStatusBarIcon(bool active, int themeOverride) {
+void updateNativeStatusBarIcon(bool active, int /*themeOverride*/) {
     for (NSWindow *w in [NSApp windows]) {
         if ([w isKindOfClass:NSClassFromString(@"NSStatusBarWindow")]) {
             NSStatusBarButton *btn = nil;
@@ -319,26 +319,28 @@ void updateNativeStatusBarIcon(bool active, int themeOverride) {
             }
             if (btn) {
                 NSImage *img = [NSImage imageWithSize:NSMakeSize(18, 18) flipped:NO drawingHandler:^BOOL(NSRect dstRect) {
-                    BOOL isDark = NO;
-                    if (themeOverride == 1) {
-                        isDark = NO; // Explicit Light Mode
-                    } else if (themeOverride == 2) {
-                        isDark = YES; // Explicit Dark Mode
-                    } else {
-                        NSAppearance *current = [NSAppearance currentDrawingAppearance];
-                        if (current) {
-                            NSAppearanceName match = [current bestMatchFromAppearancesWithNames:@[
-                                NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
-                                NSAppearanceNameVibrantLight, NSAppearanceNameVibrantDark
-                            ]];
-                            if ([match isEqualToString:NSAppearanceNameDarkAqua] || [match isEqualToString:NSAppearanceNameVibrantDark]) {
-                                isDark = YES;
-                            } else if ([match isEqualToString:NSAppearanceNameAqua] || [match isEqualToString:NSAppearanceNameVibrantLight]) {
-                                isDark = NO;
-                            } else if ([current.name containsString:@"Dark"]) {
-                                isDark = YES;
-                            }
+                    // Check actual macOS status bar appearance:
+                    // When the menu bar is dark/black, the bar is pure white #FFFFFF.
+                    // When the menu bar is light, the bar is dark charcoal #18181B.
+                    BOOL isDark = YES; // Default to dark menu bar for high contrast
+                    NSAppearance *current = [NSAppearance currentDrawingAppearance];
+                    if (!current && btn) current = btn.effectiveAppearance;
+                    if (!current && btn.window) current = btn.window.effectiveAppearance;
+                    if (current) {
+                        NSAppearanceName match = [current bestMatchFromAppearancesWithNames:@[
+                            NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
+                            NSAppearanceNameVibrantLight, NSAppearanceNameVibrantDark
+                        ]];
+                        if ([match isEqualToString:NSAppearanceNameDarkAqua] ||
+                            [match isEqualToString:NSAppearanceNameVibrantDark] ||
+                            [current.name containsString:@"Dark"]) {
+                            isDark = YES;
+                        } else if ([match isEqualToString:NSAppearanceNameAqua] ||
+                                   [match isEqualToString:NSAppearanceNameVibrantLight]) {
+                            isDark = NO;
                         }
+                    } else {
+                        isDark = isSystemInDarkMode();
                     }
 
                     // On dark/black menu bar: pure white #FFFFFF
@@ -348,13 +350,13 @@ void updateNativeStatusBarIcon(bool active, int themeOverride) {
                     NSColor *dotColor = active ? [NSColor colorWithCalibratedRed:34.0/255.0 green:197.0/255.0 blue:94.0/255.0 alpha:1.0]
                                                : [NSColor colorWithCalibratedRed:245.0/255.0 green:158.0/255.0 blue:11.0/255.0 alpha:1.0];
 
-                    // Vertical Bar: (x: 5.0, y: 3.0, w: 2.2, h: 12.0)
-                    NSBezierPath *barPath = [NSBezierPath bezierPathWithRoundedRect:NSMakeRect(5.0, 3.0, 2.2, 12.0) xRadius:0.5 yRadius:0.5];
+                    // Vertical Bar: reduced width from 2.2 to 1.4 for a sleek, thin profile
+                    NSBezierPath *barPath = [NSBezierPath bezierPathWithRoundedRect:NSMakeRect(5.5, 3.0, 1.4, 12.0) xRadius:0.5 yRadius:0.5];
                     [barColor setFill];
                     [barPath fill];
 
-                    // Status Dot: (x: 9.5, y: 3.2, w: 3.2, h: 3.2)
-                    NSBezierPath *dotPath = [NSBezierPath bezierPathWithRoundedRect:NSMakeRect(9.5, 3.2, 3.2, 3.2) xRadius:0.6 yRadius:0.6];
+                    // Status Dot:
+                    NSBezierPath *dotPath = [NSBezierPath bezierPathWithRoundedRect:NSMakeRect(8.8, 3.2, 3.0, 3.0) xRadius:0.6 yRadius:0.6];
                     [dotColor setFill];
                     [dotPath fill];
 

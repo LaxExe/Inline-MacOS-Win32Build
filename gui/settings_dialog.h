@@ -94,6 +94,8 @@ public:
     void updateStatusInfo(bool hookRunning, size_t dictWords);
     void updatePredictorInfo(bool modelAvailable, bool helperRunning, bool circuitTripped, bool lowPower, int64_t latencyMs);
     bool isDarkTheme() const { return isDarkTheme_; }
+    void setPage(int index) { if (pageStack_) pageStack_->setCurrentIndex(index); }
+    void setThemeMode(ThemePreviewCard::ThemeMode mode) { applyTheme(mode); }
 
 signals:
     void configChanged();

@@ -97,3 +97,36 @@ TEST(SettingsBinding, PermissionDialogHasThreeCleanSlides) {
         pixmap.save(QString::fromStdString(path), "PNG");
     }
 }
+
+TEST(SettingsBinding, SettingsDialogRendersWithoutWidthSpillover) {
+    int argc = 0;
+    char* argv[] = {nullptr};
+    QApplication* app = qobject_cast<QApplication*>(QCoreApplication::instance());
+    std::unique_ptr<QApplication> ownedApp;
+    if (!app) {
+        ownedApp = std::make_unique<QApplication>(argc, argv);
+    }
+
+    SettingsDialog dlg;
+    dlg.resize(840, 620);
+
+    // Test pages: 0 (General), 1 (Typing Engine), 3 (Appearance), 4 (Vocabulary), 5 (Excluded Apps)
+    std::vector<int> pagesToTest = {0, 1, 3, 4, 5};
+    for (int page : pagesToTest) {
+        dlg.setThemeMode(ThemePreviewCard::ThemeMode::Light);
+        dlg.setPage(page);
+        QPixmap lightPx(dlg.size());
+        dlg.render(&lightPx);
+        EXPECT_FALSE(lightPx.isNull());
+        std::string lPath = "/Users/lakshman/.gemini/antigravity/brain/2d6cc60c-ccaf-47cd-ae08-05516b88a5b5/settings_page_" + std::to_string(page) + "_light.png";
+        lightPx.save(QString::fromStdString(lPath), "PNG");
+
+        dlg.setThemeMode(ThemePreviewCard::ThemeMode::Dark);
+        dlg.setPage(page);
+        QPixmap darkPx(dlg.size());
+        dlg.render(&darkPx);
+        EXPECT_FALSE(darkPx.isNull());
+        std::string dPath = "/Users/lakshman/.gemini/antigravity/brain/2d6cc60c-ccaf-47cd-ae08-05516b88a5b5/settings_page_" + std::to_string(page) + "_dark.png";
+        darkPx.save(QString::fromStdString(dPath), "PNG");
+    }
+}

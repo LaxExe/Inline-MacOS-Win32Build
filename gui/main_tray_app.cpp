@@ -41,13 +41,13 @@ static QIcon createStatusIcon(bool active, bool isDark = false) {
 
     painter.setPen(Qt::NoPen);
 
-    // Vertical line (I)
+    // Vertical line (I) - sleek 1.4pt width (reduced from 2.2pt)
     painter.setBrush(barColor);
-    painter.drawRoundedRect(QRectF(5.0, 3.0, 2.2, 12.0), 0.5, 0.5);
+    painter.drawRoundedRect(QRectF(5.5, 3.0, 1.4, 12.0), 0.5, 0.5);
 
     // Precision status dot next to it near bottom
     painter.setBrush(dotColor);
-    painter.drawRoundedRect(QRectF(9.5, 9.8, 3.2, 3.2), 0.6, 0.6);
+    painter.drawRoundedRect(QRectF(8.8, 9.8, 3.0, 3.0), 0.6, 0.6);
 
     return QIcon(pixmap);
 }
@@ -253,25 +253,27 @@ void MainTrayApp::updateTrayIcon() {
         dismissGhost();
     }
 
-    bool isDark = false;
-    if (appTheme == 1) {
-        isDark = false; // Forced Light
-    } else if (appTheme == 2) {
-        isDark = true;  // Forced Dark
-    } else {
+    bool isMenuDark = false;
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
-        isDark = isSystemInDarkMode();
+    // On macOS, the menu bar appearance is determined by the system desktop/menu bar style,
+    // not by the application window's theme selection.
+    isMenuDark = isSystemInDarkMode();
 #else
-        isDark = QGuiApplication::palette().color(QPalette::Window).lightness() < 128;
-#endif
+    if (appTheme == 1) {
+        isMenuDark = false; // Forced Light
+    } else if (appTheme == 2) {
+        isMenuDark = true;  // Forced Dark
+    } else {
+        isMenuDark = QGuiApplication::palette().color(QPalette::Window).lightness() < 128;
     }
+#endif
 
     TrayIconState state = iconStateFor(enabled);
-    trayIcon_->setIcon(createStatusIcon(state == TrayIconState::Active, isDark));
+    trayIcon_->setIcon(createStatusIcon(state == TrayIconState::Active, isMenuDark));
     trayIcon_->setVisible(true);
 
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
-    updateNativeStatusBarIcon(state == TrayIconState::Active, appTheme);
+    updateNativeStatusBarIcon(state == TrayIconState::Active);
 #endif
 
     if (enabled) {
