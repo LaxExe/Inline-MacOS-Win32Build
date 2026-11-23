@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inline &mdash; Native Autocorrect and Ghost Text for macOS</title>
-  <meta name="description" content="Fast, native autocorrect and predictive ghost text for macOS. 100% on-device C++20 with zero telemetry.">
+  <meta name="description" content="Fast, dictionary-backed autocorrect and predictive ghost text for macOS. 100% on-device C++20 with zero telemetry, sub-microsecond latency, and single-key undo.">
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/icon_32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="assets/icon_16x16.png">
@@ -15,33 +15,51 @@
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --canvas: #fafafa;
+      --bg-page: #fcfcfc;
+      --bg-band: #f3f4f5;
       --surface: #ffffff;
-      --surface-subtle: #f5f5f5;
-      --border: #ebebeb;
-      --border-hover: #d4d4d4;
-      --ink: #171717;
-      --ink-secondary: #525252;
-      --ink-muted: #737373;
-      --ink-disabled: #a8a8a8;
-      --code-bg: #f5f5f5;
-      --ghost-color: #8e8e93;
-      --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+      --surface-elevated: #f6f7f8;
+      --surface-pill: #eeeff0;
+      --surface-pill-hover: #e4e5e7;
+      --line: #e4e6e9;
+      --line-strong: #cfd2d7;
+      --ink: #111112;
+      --ink-secondary: #5c5f64;
+      --ink-muted: #74777c;
+      --ink-faint: #989ba0;
+      --cta-bg: #111112;
+      --cta-ink: #fcfcfc;
+      --accent-green: #22c55e;
+      --ghost-color: #8e9299;
+      --code-bg: #f4f5f6;
+      --header-bg: rgba(252, 252, 252, 0.86);
+      --shadow-soft: 0 12px 34px -8px rgba(17, 17, 18, 0.05), 0 2px 8px rgba(17, 17, 18, 0.03);
+      --shadow-card: 0 22px 48px -12px rgba(17, 17, 18, 0.08), 0 4px 12px rgba(17, 17, 18, 0.03);
+      --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+      --font-mono: 'Geist Mono', ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
     }
 
     [data-theme="dark"] {
-      --canvas: #0a0a0a;
-      --surface: #121212;
-      --surface-subtle: #1a1a1a;
-      --border: #262626;
-      --border-hover: #404040;
-      --ink: #ededed;
-      --ink-secondary: #a1a1a1;
-      --ink-muted: #737373;
-      --ink-disabled: #525252;
-      --code-bg: #171717;
-      --ghost-color: #71717a;
+      --bg-page: #0b0b0b;
+      --bg-band: #121214;
+      --surface: #161618;
+      --surface-elevated: #1d1d20;
+      --surface-pill: #202024;
+      --surface-pill-hover: #2a2a2f;
+      --line: #28282c;
+      --line-strong: #3e3e44;
+      --ink: #f2f2f3;
+      --ink-secondary: #a8abb0;
+      --ink-muted: #85888e;
+      --ink-faint: #5e6066;
+      --cta-bg: #f0f0f2;
+      --cta-ink: #111112;
+      --accent-green: #22c55e;
+      --ghost-color: #6e7178;
+      --code-bg: #131315;
+      --header-bg: rgba(11, 11, 11, 0.84);
+      --shadow-soft: 0 14px 40px -8px rgba(0, 0, 0, 0.45);
+      --shadow-card: 0 24px 52px -12px rgba(0, 0, 0, 0.65);
     }
 
     * {
@@ -50,14 +68,20 @@
       padding: 0;
     }
 
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
       font-family: var(--font-sans);
-      font-size: 15px;
-      line-height: 1.7;
-      background-color: var(--canvas);
+      font-size: 16px;
+      line-height: 1.65;
+      background-color: var(--bg-page);
       color: var(--ink);
       -webkit-font-smoothing: antialiased;
-      transition: background-color 0.15s ease, color 0.15s ease;
+      -moz-osx-font-smoothing: grayscale;
+      transition: background-color 0.2s ease, color 0.2s ease;
+      overflow-x: hidden;
     }
 
     a {
@@ -65,56 +89,55 @@
       text-decoration: none;
     }
 
-    /* Minimal Top Navigation */
-    header {
+    /* ==========================================================================
+       1. CLEAN STICKY TOP NAVIGATION (MUSE EDITORIAL BAR — NO NOTCH)
+       ========================================================================== */
+    .site-header {
       position: sticky;
       top: 0;
-      z-index: 100;
-      background-color: rgba(250, 250, 250, 0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-      transition: background-color 0.15s ease, border-color 0.15s ease;
+      z-index: 200;
+      width: 100%;
+      background-color: var(--header-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
+      transition: background-color 0.2s ease, border-color 0.2s ease;
     }
 
-    [data-theme="dark"] header {
-      background-color: rgba(10, 10, 10, 0.85);
-    }
-
-    .nav-inner {
-      max-width: 720px;
+    .site-header-inner {
+      max-width: 1120px;
       margin: 0 auto;
-      padding: 0 20px;
+      height: 64px;
+      padding: 0 32px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      height: 52px;
     }
 
-    .logo {
-      display: flex;
+    .brand-logo {
+      display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       font-weight: 600;
-      font-size: 15px;
-      letter-spacing: -0.01em;
-    }
-
-    .logo-mark {
-      font-family: var(--font-mono);
-      font-size: 13px;
-      font-weight: 700;
+      font-size: 15.5px;
+      letter-spacing: -0.02em;
       color: var(--ink);
     }
 
-    .nav-right {
+    .logo-mark-svg {
+      display: block;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+
+    .nav-links {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 28px;
     }
 
     .nav-link {
-      font-size: 13px;
+      font-size: 14px;
       color: var(--ink-secondary);
       transition: color 0.15s ease;
     }
@@ -123,147 +146,304 @@
       color: var(--ink);
     }
 
-    .theme-btn {
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .icon-btn {
       background: none;
-      border: 1px solid var(--border);
+      border: 1px solid var(--line);
       color: var(--ink-secondary);
-      width: 30px;
-      height: 30px;
+      width: 34px;
+      height: 34px;
       border-radius: 9999px;
       cursor: pointer;
-      display: flex;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
       transition: all 0.15s ease;
     }
 
-    .theme-btn:hover {
+    .icon-btn:hover {
       color: var(--ink);
-      border-color: var(--border-hover);
-      background-color: var(--surface);
+      border-color: var(--line-strong);
+      background-color: var(--surface-elevated);
     }
 
-    .theme-btn:active {
-      transform: scale(0.95);
-    }
-
-    .theme-btn svg {
-      width: 14px;
-      height: 14px;
+    .icon-btn svg {
+      width: 15px;
+      height: 15px;
       stroke: currentColor;
       fill: none;
       stroke-width: 2;
     }
 
-    /* Main Container */
-    .container {
-      max-width: 720px;
+    .nav-cta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 34px;
+      padding: 0 16px;
+      border-radius: 9999px;
+      background-color: var(--cta-bg);
+      color: var(--cta-ink);
+      font-size: 13px;
+      font-weight: 500;
+      transition: opacity 0.15s ease;
+    }
+
+    .nav-cta-pill:hover {
+      opacity: 0.9;
+    }
+
+    /* ==========================================================================
+       2. LAYOUT CONTAINERS & TYPOGRAPHY
+       ========================================================================== */
+    .cv-column {
+      max-width: 1120px;
       margin: 0 auto;
-      padding: 48px 20px 80px;
+      padding: 0 32px;
     }
 
-    /* Hero Section */
-    .hero {
-      margin-bottom: 36px;
+    .editorial-column {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
     }
 
-    .hero-title {
-      font-size: 32px;
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      line-height: 1.15;
-      margin-bottom: 12px;
+    .hairline-divider {
+      width: 100%;
+      max-width: 1120px;
+      height: 1px;
+      margin: 0 auto;
+      background: linear-gradient(90deg, transparent, var(--line) 10%, var(--line) 90%, transparent);
+    }
+
+    .band-secondary {
+      background-color: var(--bg-band);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .section-h2 {
+      font-size: clamp(28px, 3.4vw, 40px);
+      font-weight: 600;
+      line-height: 1.14;
+      letter-spacing: -0.038em;
       color: var(--ink);
+      margin-bottom: 14px;
+      text-wrap: balance;
     }
 
-    .hero-desc {
-      font-size: 16px;
+    .section-h2 span.muted {
+      color: var(--ink-muted);
+      font-weight: 500;
+    }
+
+    .section-lead {
+      font-size: 17px;
+      line-height: 1.62;
+      color: var(--ink-secondary);
+      max-width: 650px;
+    }
+
+    /* ==========================================================================
+       3. HERO + DEDICATED DEMO VIDEO STAGE
+       ========================================================================== */
+    .hero-section {
+      padding: 64px 0 56px;
+    }
+
+    .hero-header-block {
+      max-width: 680px;
+      margin-bottom: 40px;
+    }
+
+    .hero-h1 {
+      font-size: clamp(38px, 4.8vw, 56px);
+      font-weight: 600;
+      line-height: 1.06;
+      letter-spacing: -0.045em;
+      color: var(--ink);
+      margin-bottom: 18px;
+    }
+
+    .hero-h1 span.muted-line {
+      display: block;
+      color: var(--ink-muted);
+      font-weight: 500;
+    }
+
+    .hero-subtitle {
+      font-size: 18px;
       line-height: 1.6;
       color: var(--ink-secondary);
-      margin-bottom: 24px;
+      margin-bottom: 28px;
     }
 
-    /* Hero Actions */
-    .hero-actions {
+    .hero-cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .btn-hero-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      height: 46px;
+      padding: 0 22px;
+      border-radius: 9999px;
+      background-color: var(--cta-bg);
+      color: var(--cta-ink);
+      font-size: 14.5px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    .btn-hero-primary:hover {
+      opacity: 0.92;
+    }
+
+    .btn-hero-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-hero-primary svg {
+      width: 15px;
+      height: 15px;
+      fill: currentColor;
+    }
+
+    .btn-hero-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 46px;
+      padding: 0 20px;
+      border-radius: 9999px;
+      background-color: var(--surface-pill);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      font-size: 14.5px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    .btn-hero-secondary:hover {
+      background-color: var(--surface-pill-hover);
+      border-color: var(--line-strong);
+    }
+
+    .hero-meta-line {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: 10px;
-      margin-bottom: 18px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--ink-muted);
+      margin-bottom: 22px;
     }
 
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background-color: var(--ink);
-      color: var(--canvas);
-      font-size: 13.5px;
-      font-weight: 500;
-      padding: 8px 18px;
-      border-radius: 9999px;
-      transition: all 0.15s ease;
-    }
-
-    .btn-primary:hover {
-      opacity: 0.9;
-    }
-
-    .btn-primary:active {
-      transform: scale(0.97);
-    }
-
-    .btn-secondary {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      background-color: var(--surface);
-      border: 1px solid var(--border);
+    .hero-meta-line strong {
       color: var(--ink);
-      font-size: 13.5px;
-      font-weight: 500;
-      padding: 8px 16px;
-      border-radius: 9999px;
-      transition: all 0.15s ease;
+      font-weight: 600;
     }
 
-    .btn-secondary:hover {
-      border-color: var(--border-hover);
-      background-color: var(--surface-subtle);
+    .meta-sep {
+      color: var(--line-strong);
     }
 
-    .btn-secondary:active {
-      transform: scale(0.97);
+    /* Post-Download Email Prompt */
+    .download-email-prompt {
+      display: none;
+      margin: 0 0 20px;
+      padding: 14px 16px;
+      background-color: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      font-size: 13px;
+      color: var(--ink-secondary);
+      line-height: 1.5;
+      box-shadow: var(--shadow-soft);
     }
 
-    .btn-secondary svg {
-      width: 14px;
-      height: 14px;
-      fill: currentColor;
+    .download-email-prompt.visible {
+      display: block;
     }
 
-    /* Terminal Commands Row */
-    .cmd-group {
+    .download-email-prompt p {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--ink-secondary);
+    }
+
+    .download-email-row {
       display: flex;
-      flex-direction: column;
+      flex-wrap: wrap;
+      align-items: center;
       gap: 8px;
-      margin-bottom: 36px;
     }
 
-    .cmd-row {
-      display: flex;
+    .download-email-input {
+      flex: 1;
+      min-width: 200px;
+      padding: 7px 12px;
+      font-family: var(--font-sans);
+      font-size: 12.5px;
+      color: var(--ink);
+      background-color: var(--bg-page);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      outline: none;
+    }
+
+    .btn-email-stat {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 14px;
+      font-size: 12.5px;
+      font-weight: 500;
+      border-radius: 999px;
+      background-color: var(--cta-bg);
+      color: var(--cta-ink);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-email-dismiss {
+      background: none;
+      border: none;
+      font-size: 12px;
+      color: var(--ink-muted);
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+
+    /* Homebrew CLI Bar */
+    .hero-cli-pill {
+      display: inline-flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: 16px;
+      max-width: 100%;
       background-color: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px 10px 8px 14px;
       font-family: var(--font-mono);
       font-size: 12.5px;
+      box-shadow: var(--shadow-soft);
     }
 
-    .cmd-text {
+    .hero-cli-code {
       display: flex;
       align-items: center;
       gap: 8px;
@@ -272,20 +452,20 @@
       color: var(--ink);
     }
 
-    .cmd-prompt {
-      color: var(--ink-disabled);
+    .cli-prompt {
+      color: var(--ink-faint);
       user-select: none;
     }
 
     .btn-copy {
-      background: none;
-      border: 1px solid var(--border);
+      background-color: var(--surface-pill);
+      border: 1px solid var(--line);
       color: var(--ink-secondary);
-      font-family: var(--font-sans);
+      font-family: var(--font-mono);
       font-size: 11px;
       font-weight: 500;
-      padding: 3px 8px;
-      border-radius: 4px;
+      padding: 4px 10px;
+      border-radius: 6px;
       cursor: pointer;
       transition: all 0.15s ease;
       flex-shrink: 0;
@@ -293,126 +473,230 @@
 
     .btn-copy:hover {
       color: var(--ink);
-      border-color: var(--border-hover);
-      background-color: var(--surface-subtle);
+      background-color: var(--surface-pill-hover);
+      border-color: var(--line-strong);
     }
 
-    .btn-copy:active {
-      transform: scale(0.95);
+    /* ==========================================================================
+       4. MUSE-STYLE PRODUCT VIDEO SHOWCASE SECTION
+       ========================================================================== */
+    .video-showcase-wrap {
+      margin-top: 12px;
     }
 
-    /* Interactive Simulator */
-    .sim-section-header {
-      margin-top: 8px;
-      margin-bottom: 12px;
-    }
-
-    .sim-section-title-row {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 4px;
-      flex-wrap: wrap;
-    }
-
-    .sim-section-title {
-      font-size: 16px;
-      font-weight: 600;
-      letter-spacing: -0.015em;
-      color: var(--ink);
-    }
-
-    .sim-intro {
-      margin: 0;
-      font-size: 14px;
-      line-height: 1.55;
-      color: var(--ink-secondary);
-    }
-
-    .sim-wrap {
+    .video-frame {
       background-color: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      margin-bottom: 48px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow-card);
       overflow: hidden;
-      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
-    .sim-wrap:focus-within {
-      border-color: var(--border-hover);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    }
-
-    .sim-header {
+    .video-top-rail {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 8px 14px;
-      background-color: var(--surface-subtle);
-      border-bottom: 1px solid var(--border);
+      padding: 12px 18px;
+      background-color: var(--surface-elevated);
+      border-bottom: 1px solid var(--line);
+      font-family: var(--font-mono);
       font-size: 12px;
+      color: var(--ink-secondary);
+    }
+
+    .window-dots {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .window-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: var(--line-strong);
+    }
+
+    .video-stage-inner {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      max-height: 540px;
+      background-color: var(--bg-band);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .video-stage-inner video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: none;
+    }
+
+    .video-stage-inner.has-video video {
+      display: block;
+    }
+
+    .video-stage-inner.has-video .video-placeholder-ui {
+      display: none;
+    }
+
+    .video-placeholder-ui {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 32px;
+      max-width: 520px;
+    }
+
+    .video-play-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background-color: var(--surface);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+      color: var(--ink);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .video-frame:hover .video-play-circle {
+      transform: scale(1.04);
+      border-color: var(--line-strong);
+    }
+
+    .video-play-circle svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+      margin-left: 2px;
+    }
+
+    .video-placeholder-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 6px;
+      letter-spacing: -0.015em;
+    }
+
+    .video-placeholder-sub {
+      font-size: 13.5px;
+      color: var(--ink-secondary);
+      line-height: 1.55;
+    }
+
+    /* ==========================================================================
+       5. INTERACTIVE IN-BROWSER SIMULATOR
+       ========================================================================== */
+    .stage-section {
+      padding: 64px 0 72px;
+    }
+
+    .stage-section-header {
+      margin-bottom: 24px;
+    }
+
+    .stage-frame {
+      background-color: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      transition: border-color 0.2s ease;
+    }
+
+    .stage-frame:focus-within {
+      border-color: var(--line-strong);
+    }
+
+    .stage-top-rail {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 18px;
+      background-color: var(--surface-elevated);
+      border-bottom: 1px solid var(--line);
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .stage-rail-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .stage-path {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--ink-secondary);
+      font-weight: 500;
     }
 
     .sim-stats {
       font-family: var(--font-mono);
       font-size: 11px;
-      font-weight: 400;
       color: var(--ink-muted);
-      margin-left: 6px;
-    }
-
-    .sim-title {
-      font-family: var(--font-mono);
-      font-size: 11.5px;
-      font-weight: 500;
-      color: var(--ink-secondary);
+      padding-left: 4px;
     }
 
     .sim-modes {
-      display: flex;
+      display: inline-flex;
       gap: 2px;
-      background-color: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 6px;
+      background-color: var(--bg-page);
+      border: 1px solid var(--line);
+      border-radius: 999px;
       padding: 2px;
     }
 
     .sim-mode-btn {
       background: none;
       border: none;
-      font-size: 11px;
+      font-family: var(--font-sans);
+      font-size: 11.5px;
       font-weight: 500;
       color: var(--ink-secondary);
-      padding: 2px 7px;
-      border-radius: 4px;
+      padding: 4px 12px;
+      border-radius: 999px;
       cursor: pointer;
       transition: all 0.15s ease;
     }
 
     .sim-mode-btn.active {
-      background-color: var(--ink);
-      color: var(--canvas);
+      background-color: var(--cta-bg);
+      color: var(--cta-ink);
     }
 
     .sim-body {
       position: relative;
-      min-height: 110px;
+      min-height: 155px;
       cursor: text;
+      background-color: var(--surface);
     }
 
     .ghost-layer,
     .real-typing-input {
       box-sizing: border-box;
       width: 100%;
-      min-height: 110px;
-      padding: 14px 16px;
+      min-height: 155px;
+      padding: 20px 22px;
       margin: 0;
       border: none;
       outline: none;
       font-family: var(--font-sans);
-      font-size: 15px;
+      font-size: 17px;
       line-height: 1.6;
+      letter-spacing: -0.01em;
       white-space: pre-wrap;
       word-break: break-word;
       overflow-wrap: break-word;
@@ -455,7 +739,7 @@
     }
 
     .real-typing-input::placeholder {
-      color: var(--ink-disabled);
+      color: var(--ink-faint);
     }
 
     .sim-footer {
@@ -463,89 +747,275 @@
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      padding: 8px 14px;
-      background-color: var(--surface-subtle);
-      border-top: 1px solid var(--border);
-      font-size: 11.5px;
+      gap: 12px;
+      padding: 12px 18px;
+      background-color: var(--surface-elevated);
+      border-top: 1px solid var(--line);
+      font-size: 12px;
       color: var(--ink-muted);
     }
 
     .sim-hints {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 14px;
       flex-wrap: wrap;
     }
 
     .kbd {
       font-family: var(--font-mono);
-      font-size: 10.5px;
+      font-size: 11px;
       background-color: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 3px;
-      padding: 1px 4px;
+      border: 1px solid var(--line);
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      padding: 1px 6px;
       color: var(--ink);
+      font-weight: 500;
     }
 
     .sim-samples {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       flex-wrap: wrap;
     }
 
     .sample-chip {
       background-color: var(--surface);
-      border: 1px solid var(--border);
+      border: 1px solid var(--line);
       color: var(--ink-secondary);
-      font-size: 11px;
-      padding: 2px 7px;
-      border-radius: 4px;
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 999px;
       cursor: pointer;
       transition: all 0.15s ease;
     }
 
     .sample-chip:hover {
-      border-color: var(--border-hover);
+      border-color: var(--line-strong);
       color: var(--ink);
+      background-color: var(--surface-pill);
     }
 
     .event-status-pill {
       font-family: var(--font-mono);
-      font-size: 10.5px;
-      padding: 1px 6px;
-      border-radius: 3px;
-      background-color: var(--ink);
-      color: var(--canvas);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background-color: var(--cta-bg);
+      color: var(--cta-ink);
       display: none;
     }
 
-    /* Headings & Paragraphs */
-    h2 {
+    /* ==========================================================================
+       6. BENTO FEATURE GRID
+       ========================================================================== */
+    .bento-section {
+      padding: 84px 0;
+    }
+
+    .bento-header {
+      margin-bottom: 40px;
+    }
+
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 18px;
+    }
+
+    .bento-card {
+      background-color: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 28px 28px 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      transition: border-color 0.2s ease, box-shadow 0.25s ease;
+    }
+
+    .bento-card:hover {
+      border-color: var(--line-strong);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .bento-span-4 { grid-column: span 4; }
+    .bento-span-2 { grid-column: span 2; }
+
+    .bento-card-top h3 {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+
+    .bento-card-top p {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--ink-secondary);
+      max-width: 520px;
+      margin-bottom: 24px;
+    }
+
+    .bento-visual-stage {
+      margin-top: auto;
+      background-color: var(--surface-elevated);
+      border: 1px solid var(--line);
+      border-bottom: none;
+      border-radius: 12px 12px 0 0;
+      padding: 16px 18px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--ink);
+    }
+
+    .mini-diff-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      border-radius: 7px;
+      background-color: var(--surface);
+      border: 1px solid var(--line);
+      margin-bottom: 8px;
+    }
+
+    .mini-diff-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .typo-strike {
+      color: var(--ink-muted);
+      text-decoration: line-through;
+    }
+
+    .typo-fixed {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    .typo-tag {
+      font-size: 10.5px;
+      color: var(--ink-muted);
+      background-color: var(--surface-pill);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* ==========================================================================
+       7. MUSE FULL-BLEED SECONDARY BAND: SYSTEM PIPELINE & METRICS
+       ========================================================================== */
+    .muse-row-section {
+      padding: 84px 0;
+    }
+
+    .muse-feature-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+
+    .muse-copy-col {
+      max-width: 480px;
+    }
+
+    .muse-copy-col h2 {
+      font-size: clamp(28px, 3.2vw, 38px);
+      font-weight: 600;
+      line-height: 1.15;
+      letter-spacing: -0.036em;
+      color: var(--ink);
+      margin-bottom: 16px;
+      text-wrap: balance;
+    }
+
+    .muse-copy-col p {
+      font-size: 16.5px;
+      line-height: 1.65;
+      color: var(--ink-secondary);
+      margin-bottom: 16px;
+    }
+
+    .muse-copy-col p:last-child {
+      margin-bottom: 0;
+    }
+
+    .muse-squircle-stage {
+      background-color: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 32px;
+      box-shadow: var(--shadow-soft);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 40px;
+    }
+
+    .metric-box {
+      background-color: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px 22px;
+    }
+
+    .metric-val {
+      font-family: var(--font-mono);
+      font-size: 26px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+
+    .metric-lbl {
+      font-size: 13px;
+      color: var(--ink-muted);
+    }
+
+    /* ==========================================================================
+       8. MUSE BLOG ("HOW WE DESIGNED INLINE") EDITORIAL DEEP-DIVE
+       ========================================================================== */
+    .editorial-section {
+      padding: 92px 0;
+    }
+
+    .editorial-header {
+      margin-bottom: 48px;
+    }
+
+    .chapter-card {
+      padding: 36px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .chapter-card h3 {
       font-size: 22px;
       font-weight: 600;
-      letter-spacing: -0.02em;
-      margin-top: 48px;
+      letter-spacing: -0.025em;
+      color: var(--ink);
       margin-bottom: 12px;
-      color: var(--ink);
     }
 
-    h3 {
+    .chapter-card p {
       font-size: 16px;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-      margin-top: 32px;
-      margin-bottom: 8px;
-      color: var(--ink);
-    }
-
-    p {
+      line-height: 1.7;
       color: var(--ink-secondary);
-      margin-bottom: 14px;
+      margin-bottom: 16px;
     }
 
-    p strong {
+    .chapter-card p strong {
       color: var(--ink);
       font-weight: 600;
     }
@@ -554,58 +1024,40 @@
       font-family: var(--font-mono);
       font-size: 13px;
       background-color: var(--code-bg);
-      border: 1px solid var(--border);
-      padding: 1px 4px;
-      border-radius: 4px;
+      border: 1px solid var(--line);
+      padding: 1.5px 5px;
+      border-radius: 5px;
       color: var(--ink);
     }
 
-    /* Diagrams & Code Snippets */
-    pre.diagram {
+    pre.diagram,
+    pre.code-snippet {
       background-color: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px 20px;
       font-family: var(--font-mono);
-      font-size: 12px;
-      line-height: 1.45;
+      font-size: 12.5px;
+      line-height: 1.55;
       color: var(--ink);
       overflow-x: auto;
       margin: 16px 0 20px;
+      box-shadow: var(--shadow-soft);
     }
 
     pre.code-snippet {
       background-color: var(--code-bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 16px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      line-height: 1.55;
-      color: var(--ink);
-      overflow-x: auto;
-      margin: 14px 0 20px;
     }
 
     .code-title {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--ink-muted);
       margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .code-title-dot {
-      width: 4px;
-      height: 4px;
-      background-color: var(--ink-muted);
-      border-radius: 50%;
     }
 
     /* Syntax Highlighting */
-    .kw { color: #8b5cf6; font-weight: 600; }
+    .kw { color: #7c3aed; font-weight: 600; }
     .fn { color: #0284c7; font-weight: 600; }
     .str { color: #059669; }
     .cm { color: #737373; }
@@ -617,56 +1069,43 @@
     [data-theme="dark"] .cm { color: #71717a; }
     [data-theme="dark"] .num { color: #fbbf24; }
 
-    /* Performance Metrics Table */
-    .metric-row {
+    /* ==========================================================================
+       9. CLEAN REFERENCE TABLES
+       ========================================================================== */
+    .tables-section {
+      padding: 84px 0;
+    }
+
+    .table-grid-2col {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 10px;
-      margin: 20px 0 28px;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 28px;
     }
 
-    .metric-card {
-      background-color: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
-    }
-
-    .metric-val {
-      font-family: var(--font-mono);
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--ink);
-      margin-bottom: 2px;
-    }
-
-    .metric-lbl {
-      font-size: 11.5px;
-      color: var(--ink-muted);
-    }
-
-        /* Clean Minimal Tables */
     .data-table-wrap {
       width: 100%;
       overflow-x: auto;
-      margin: 16px 0 24px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
+      margin: 16px 0 28px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
       background-color: var(--surface);
+      box-shadow: var(--shadow-soft);
     }
 
     table.data-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 13px;
+      font-size: 13.5px;
       text-align: left;
     }
 
     table.data-table th {
-      padding: 10px 14px;
-      background-color: var(--surface-subtle);
-      border-bottom: 1px solid var(--border);
+      padding: 13px 18px;
+      background-color: var(--surface-elevated);
+      border-bottom: 1px solid var(--line);
       color: var(--ink);
+      font-family: var(--font-mono);
       font-weight: 600;
       font-size: 11.5px;
       text-transform: uppercase;
@@ -674,201 +1113,17 @@
     }
 
     table.data-table td {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border);
+      padding: 13px 18px;
+      border-bottom: 1px solid var(--line);
       color: var(--ink-secondary);
       vertical-align: top;
-      line-height: 1.5;
+      line-height: 1.55;
     }
 
     table.data-table tr:last-child td {
       border-bottom: none;
     }
 
-    table.data-table code {
-      font-size: 12px;
-    }
-
-    .status-tag {
-      display: inline-block;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      padding: 2px 6px;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      background-color: var(--surface-subtle);
-      color: var(--ink);
-    }
-
-/* Windows Beta Section */
-    .windows-note {
-      margin-top: 48px;
-      padding-top: 24px;
-      border-top: 1px solid var(--border);
-      font-size: 13.5px;
-      color: var(--ink-secondary);
-    }
-
-    .windows-note a {
-      text-decoration: underline;
-    }
-
-    /* Footer */
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 24px 0;
-      font-size: 12.5px;
-      color: var(--ink-muted);
-    }
-
-    .footer-inner {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 0 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .footer-links {
-      display: flex;
-      gap: 16px;
-    }
-
-    .footer-links a:hover {
-      color: var(--ink);
-    }
-      html {
-      scroll-behavior: smooth;
-    }
-
-    /* Logo & Brand Styling */
-    .logo {
-      display: inline-flex;
-      align-items: center;
-      gap: 9px;
-      text-decoration: none;
-      color: var(--ink);
-    }
-
-    .logo-mark-svg {
-      display: block;
-      border-radius: 6px;
-      flex-shrink: 0;
-    }
-
-    .logo-text {
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: var(--ink);
-    }
-
-    .logo-badge {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      font-weight: 500;
-      padding: 1px 5px;
-      border-radius: 4px;
-      background-color: var(--surface-subtle);
-      border: 1px solid var(--border);
-      color: var(--ink-secondary);
-      letter-spacing: 0.02em;
-    }
-
-    /* Download Counter & Email Stat Prompt */
-    .download-stat {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--ink-muted);
-      margin-left: 4px;
-    }
-
-    .download-stat strong {
-      color: var(--ink);
-      font-weight: 600;
-    }
-
-    .download-email-prompt {
-      display: none;
-      margin: -8px 0 20px;
-      padding: 12px 14px;
-      background-color: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 13px;
-      color: var(--ink-secondary);
-      line-height: 1.5;
-    }
-
-    .download-email-prompt.visible {
-      display: block;
-    }
-
-    .download-email-prompt p {
-      margin: 0 0 10px;
-      font-size: 13px;
-      color: var(--ink-secondary);
-    }
-
-    .download-email-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .download-email-input {
-      flex: 1;
-      min-width: 200px;
-      padding: 6px 10px;
-      font-family: var(--font-sans);
-      font-size: 12.5px;
-      color: var(--ink);
-      background-color: var(--canvas);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      outline: none;
-    }
-
-    .download-email-input:focus {
-      border-color: var(--border-hover);
-    }
-
-    .btn-email-stat {
-      display: inline-flex;
-      align-items: center;
-      padding: 6px 12px;
-      font-size: 12.5px;
-      font-weight: 500;
-      border-radius: 6px;
-      background-color: var(--ink);
-      color: var(--canvas);
-      border: 1px solid var(--ink);
-      cursor: pointer;
-      text-decoration: none;
-      white-space: nowrap;
-    }
-
-    .btn-email-stat:hover {
-      opacity: 0.9;
-    }
-
-    .btn-email-dismiss {
-      background: none;
-      border: none;
-      font-size: 12px;
-      color: var(--ink-muted);
-      cursor: pointer;
-      padding: 4px 6px;
-    }
-
-    .btn-email-dismiss:hover {
-      color: var(--ink);
-    }
-
-    /* Tactile Keyboard Shortcut Keycaps */
     .kbd-combo {
       display: inline-flex;
       align-items: center;
@@ -880,14 +1135,13 @@
       font-family: var(--font-mono);
       font-size: 11px;
       font-weight: 600;
-      background-color: var(--surface);
-      border: 1px solid var(--border);
-      border-bottom: 2px solid var(--border-hover);
-      border-radius: 4px;
+      background-color: var(--surface-elevated);
+      border: 1px solid var(--line);
+      border-bottom: 2px solid var(--line-strong);
+      border-radius: 5px;
       padding: 2px 6px;
       color: var(--ink);
       line-height: 1.2;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
       display: inline-block;
     }
 
@@ -895,7 +1149,19 @@
       text-decoration: none;
     }
 
-    /* Category Icon Labels in Compatibility Table */
+    .status-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background-color: var(--surface-elevated);
+      color: var(--ink);
+    }
+
     .cat-icon-wrap {
       display: inline-flex;
       align-items: center;
@@ -905,68 +1171,187 @@
     }
 
     .cat-icon {
-      width: 14px;
-      height: 14px;
+      width: 15px;
+      height: 15px;
       flex-shrink: 0;
       color: var(--ink-secondary);
     }
 
-    /* Status Tags */
-    .status-tag-active {
-      display: inline-flex;
+    /* ==========================================================================
+       10. INSTALL CARDS & MINIMAL FOOTER
+       ========================================================================== */
+    .install-section {
+      padding: 84px 0 72px;
+    }
+
+    .install-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 32px;
+    }
+
+    .install-card {
+      min-width: 0;
+      background-color: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 20px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .install-card:hover {
+      border-color: var(--line-strong);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .install-card h3 {
+      font-size: 19px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 6px;
+    }
+
+    .install-card p {
+      font-size: 14.5px;
+      line-height: 1.55;
+      color: var(--ink-secondary);
+    }
+
+    .cmd-box {
+      min-width: 0;
+      display: flex;
       align-items: center;
-      gap: 5px;
+      justify-content: space-between;
+      gap: 10px;
+      background-color: var(--bg-page);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 12px;
       font-family: var(--font-mono);
-      font-size: 11px;
-      padding: 2px 7px;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      background-color: var(--surface-subtle);
+      font-size: 12px;
+    }
+
+    .cmd-box-text {
+      min-width: 0;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      overflow-x: auto;
+      white-space: nowrap;
+      color: var(--ink);
+      scrollbar-width: none;
+    }
+
+    .cmd-box-text::-webkit-scrollbar {
+      display: none;
+    }
+
+    footer.site-footer {
+      padding: 48px 0 40px;
+      border-top: 1px solid var(--line);
+      color: var(--ink-muted);
+      font-size: 13px;
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 32px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .footer-col-title {
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 12px;
+      font-size: 13.5px;
+    }
+
+    .footer-link-list {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+
+    .footer-link-list a:hover {
       color: var(--ink);
     }
 
-    .status-dot-green {
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background-color: #22C55E;
-    }
-
-    .status-dot-amber {
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background-color: #f59e0b;
-    }
-
-    /* Footer Brand */
-    .footer-brand {
-      display: inline-flex;
+    .footer-bottom {
+      padding-top: 24px;
+      display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 12.5px;
     }
-</style>
+
+    @media (max-width: 960px) {
+      .muse-feature-row,
+      .install-cards-grid,
+      .table-grid-2col {
+        grid-template-columns: 1fr;
+      }
+      .bento-span-4,
+      .bento-span-2 {
+        grid-column: span 6;
+      }
+      .metric-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .site-header-inner,
+      .cv-column {
+        padding: 0 20px;
+      }
+      .nav-links {
+        display: none;
+      }
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
 
-  <!-- Minimal Header -->
-  <header>
-    <div class="nav-inner">
-      <a href="#" class="logo" aria-label="Inline for macOS">
+  <!-- 1. Clean Top Navigation Bar -->
+  <header class="site-header">
+    <div class="site-header-inner">
+      <a href="#" class="brand-logo" aria-label="Inline for macOS">
         <svg class="logo-mark-svg" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true">
           <rect width="32" height="32" rx="7.2" fill="#141417"/>
-          <rect x="0.5" y="0.5" width="31" height="31" rx="6.7" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+          <rect x="0.5" y="0.5" width="31" height="31" rx="6.7" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="1"/>
           <rect x="11.8" y="8.3" width="2.6" height="15.4" rx="0.5" fill="#FAFAFA"/>
           <rect x="16.4" y="14.1" width="3.8" height="3.8" rx="0.8" fill="#22C55E"/>
         </svg>
-        <span class="logo-text">Inline</span>
-        <span class="logo-badge">macOS</span>
+        <span>Inline</span>
       </a>
-      <div class="nav-right">
-        <a href="#pipeline" class="nav-link">Architecture</a>
-        <a href="#how-it-works" class="nav-link">How it works</a>
-        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" class="nav-link" target="_blank" rel="noopener">GitHub</a>
-        <button class="theme-btn" id="themeToggleBtn" aria-label="Toggle theme">
+
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#video-demo" class="nav-link">Overview</a>
+        <a href="#demo" class="nav-link">Playground</a>
+        <a href="#features" class="nav-link">Features</a>
+        <a href="#how-it-works" class="nav-link">Architecture</a>
+        <a href="#benchmarks" class="nav-link">Benchmarks</a>
+        <a href="#install" class="nav-link">Install</a>
+      </nav>
+
+      <div class="nav-actions">
+        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" class="icon-btn" target="_blank" rel="noopener" aria-label="GitHub Repository">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+        </a>
+        <button class="icon-btn" id="themeToggleBtn" aria-label="Toggle theme">
           <svg viewBox="0 0 24 24" id="themeIcon">
             <circle cx="12" cy="12" r="5"></circle>
             <line x1="12" y1="1" x2="12" y2="3"></line>
@@ -979,167 +1364,359 @@
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
           </svg>
         </button>
+        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.7/Inline-v1.7-macOS.dmg" class="nav-cta-pill">
+          <span>Download</span>
+        </a>
       </div>
     </div>
   </header>
 
-  <main class="container">
+  <!-- 2. Hero Section & Video Showcase Stage -->
+  <section class="hero-section">
+    <div class="cv-column">
+      <div class="hero-header-block">
+        <h1 class="hero-h1">
+          Native autocorrect.
+          <span class="muted-line">Right at home on Mac.</span>
+        </h1>
 
-    <!-- Hero -->
-    <section class="hero">
-      <h1 class="hero-title">Native autocorrect for macOS.</h1>
-      <p class="hero-desc">
-        Fast, dictionary-backed autocorrect and predictive ghost text for every application. 
-        Runs 100% on-device in native C++20 with zero telemetry, sub-microsecond latency, and single-key undo.
-      </p>
-
-      <!-- Action Buttons: Download macOS + GitHub + Download Counter -->
-      <div class="hero-actions">
-        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.5/Inline-v1.5-macOS.dmg" class="btn-primary" id="downloadMacBtn">
-          <span>Download for macOS (v1.5)</span>
-        </a>
-        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" class="btn-secondary" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-          <span>GitHub</span>
-        </a>
-        <span class="download-stat" id="downloadStat"><strong id="downloadCountNum">35</strong> downloads so far</span>
-      </div>
-
-      <!-- Post-Download Email Prompt to Increase Stat -->
-      <div class="download-email-prompt" id="downloadEmailPrompt">
-        <p>
-          <strong>Thanks for downloading Inline.</strong> Since Inline has zero telemetry, would you like to send a quick email so I can officially add +1 to the public download counter?
+        <p class="hero-subtitle">
+          Dictionary-backed typo correction, run-together word splitting, and inline ghost text for every macOS application. Runs locally in C++20 in under 2 microseconds with single-key undo.
         </p>
-        <div class="download-email-row">
-          <input type="text" class="download-email-input" id="downloadEmailNote" value="Hey Lakshman — I just downloaded Inline for macOS (+1 to the download counter)!" aria-label="Optional note for email" />
-          <a href="mailto:lakshman.r.2008@gmail.com?subject=Inline%20macOS%20Download%20(%2B1%20Stat)&body=Hey%20Lakshman%20%E2%80%94%20I%20just%20downloaded%20Inline%20for%20macOS%20(%2B1%20to%20the%20download%20counter)!" class="btn-email-stat" id="sendStatEmailBtn">Write Email (+1 Stat)</a>
-          <button type="button" class="btn-email-dismiss" id="dismissEmailPromptBtn">Dismiss</button>
-        </div>
-      </div>
 
-      <!-- Terminal Commands: brew & curl -->
-      <div class="cmd-group">
-        <div class="cmd-row">
-          <div class="cmd-text">
-            <span class="cmd-prompt">$</span>
+        <div class="hero-cta-row">
+          <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.7/Inline-v1.7-macOS.dmg" class="btn-hero-primary" id="downloadMacBtn">
+            <svg viewBox="0 0 384 512" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+            <span>Download for Mac (v1.7)</span>
+          </a>
+          <a href="#demo" class="btn-hero-secondary">
+            <span>Try live playground</span>
+          </a>
+        </div>
+
+        <div class="hero-meta-line">
+          <span>macOS 12+ &middot; Apple Silicon &amp; Intel</span>
+          <span class="meta-sep">&bull;</span>
+          <span id="downloadStat"><strong id="downloadCountNum">35</strong> downloads so far</span>
+        </div>
+
+        <!-- Post-Download Email Prompt to Increase Stat -->
+        <div class="download-email-prompt" id="downloadEmailPrompt">
+          <p>
+            <strong>Thanks for downloading Inline.</strong> Since Inline has zero telemetry, would you like to send a quick email so I can officially add +1 to the public download counter?
+          </p>
+          <div class="download-email-row">
+            <input type="text" class="download-email-input" id="downloadEmailNote" value="Hey Lakshman — I just downloaded Inline for macOS (+1 to the download counter)!" aria-label="Optional note for email" />
+            <a href="mailto:lakshman.r.2008@gmail.com?subject=Inline%20macOS%20Download%20(%2B1%20Stat)&body=Hey%20Lakshman%20%E2%80%94%20I%20just%20downloaded%20Inline%20for%20macOS%20(%2B1%20to%20the%20download%20counter)!" class="btn-email-stat" id="sendStatEmailBtn">Write Email (+1 Stat)</a>
+            <button type="button" class="btn-email-dismiss" id="dismissEmailPromptBtn">Dismiss</button>
+          </div>
+        </div>
+
+        <!-- One-Line Homebrew Command Pill -->
+        <div class="hero-cli-pill">
+          <div class="hero-cli-code">
+            <span class="cli-prompt">$</span>
             <span id="cmdBrew">brew install LaxExe/tap/inline</span>
           </div>
           <button class="btn-copy" data-target="cmdBrew">Copy</button>
         </div>
+      </div>
 
-        <div class="cmd-row">
-          <div class="cmd-text">
-            <span class="cmd-prompt">$</span>
-            <span id="cmdCurl">curl -fsSL https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/install.sh | bash</span>
+      <!-- Dedicated Video Showcase Frame (Ready for your recorded demo video at docs/assets/demo.mp4) -->
+      <div class="video-showcase-wrap" id="video-demo">
+        <div class="video-frame">
+          <div class="video-top-rail">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div class="window-dots" aria-hidden="true">
+                <span class="window-dot"></span>
+                <span class="window-dot"></span>
+                <span class="window-dot"></span>
+              </div>
+              <span>Inline on macOS &mdash; Demo Video</span>
+            </div>
+            <span>assets/demo.mp4</span>
           </div>
-          <button class="btn-copy" data-target="cmdCurl">Copy</button>
+
+          <div class="video-stage-inner" id="videoStageInner">
+            <!-- Drop your recorded video at docs/assets/demo.mp4 and it will automatically play here -->
+            <video id="demoVideoPlayer" src="assets/demo.mp4" controls playsinline preload="metadata"></video>
+
+            <div class="video-placeholder-ui">
+              <div class="video-play-circle" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"></polygon></svg>
+              </div>
+              <div class="video-placeholder-title">Product Walkthrough Video</div>
+              <p class="video-placeholder-sub">
+                Place your recorded screen capture at <code>docs/assets/demo.mp4</code> to display the video walkthrough here.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
-    </section>
-
-    <!-- Interactive Simulator -->
-    <div class="sim-section-header">
-      <div class="sim-section-title-row">
-        <span class="sim-section-title">Try it in your browser</span>
-      </div>
-      <p class="sim-intro">
-        This editor runs Inline's full 83k-word dictionary and 243k-bigram ranker locally. Type normally and press <code>Space</code> to fix typos, <code>Tab</code> to accept ghost text, or <code>Backspace</code> right after a correction to undo it.
-      </p>
     </div>
-    <section class="sim-wrap" id="demo">
-      <div class="sim-header">
-        <span class="sim-title">Playground <span class="sim-stats" id="simStats"></span></span>
-        <div class="sim-modes">
-          <button class="sim-mode-btn active" id="modeMulti" data-mode="multi">Multi-Word</button>
-          <button class="sim-mode-btn" id="modeOne" data-mode="one">One Word</button>
+  </section>
+
+  <div class="hairline-divider"></div>
+
+  <!-- 3. Interactive Product Stage (Live C++20 In-Browser Simulator) -->
+  <section class="stage-section" id="demo">
+    <div class="cv-column">
+      <div class="stage-section-header">
+        <h2 class="section-h2">Try the engine in your browser.</h2>
+        <p class="section-lead">
+          This live editor runs Inline's full 83,017-word SymSpell dictionary and 243,342-bigram ranker locally. Press <code>Space</code> to fix typos, <code>Tab</code> to accept ghost text, or <code>Backspace</code> right after a correction to undo it.
+        </p>
+      </div>
+
+      <div class="stage-frame">
+        <div class="stage-top-rail">
+          <div class="stage-rail-left">
+            <div class="window-dots" aria-hidden="true">
+              <span class="window-dot"></span>
+              <span class="window-dot"></span>
+              <span class="window-dot"></span>
+            </div>
+            <span class="stage-path">Live Playground</span>
+            <span class="sim-stats" id="simStats"></span>
+          </div>
+
+          <div class="stage-rail-right">
+            <div class="sim-modes" role="group" aria-label="Prediction mode">
+              <button class="sim-mode-btn active" id="modeMulti" data-mode="multi">Multi-Word</button>
+              <button class="sim-mode-btn" id="modeOne" data-mode="one">One Word</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sim-body" id="typingContainer">
+          <div class="ghost-layer" id="ghostLayer" aria-hidden="true"><span class="ghost-mirror-typed" id="ghostMirror"></span><span class="ghost-prediction" id="ghostText"></span><span class="ghost-mirror-after" id="ghostMirrorAfter"></span></div>
+          <textarea class="real-typing-input" id="demoInput" rows="4" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Type here to test — try 'teh', 'recieve', 'need helo' vs 'say helo', 'whenI', or 'Looking forward'..."></textarea>
+        </div>
+
+        <div class="sim-footer">
+          <div class="sim-hints">
+            <span><span class="kbd">Space</span> autocorrect</span>
+            <span><span class="kbd">Tab</span> accept ghost</span>
+            <span><span class="kbd">Backspace</span> single-key undo</span>
+            <span><span class="kbd">Enter</span> raw newline</span>
+            <span class="event-status-pill" id="eventStatus"></span>
+          </div>
+          <div class="sim-samples">
+            <button class="sample-chip" data-text="i dont recieve teh emails and definately need your input ">Typos</button>
+            <button class="sample-chip" data-text="i need helo when i say helo away frm teh application frm ">Context</button>
+            <button class="sample-chip" data-text="whenI check ofcourse timerighte twowords ">Run-together</button>
+            <button class="sample-chip" data-text="ngl idk why teh git reop pr failed on cli ">Slang &amp; Dev</button>
+            <button class="sample-chip" data-text="Looking forward">Ghost text</button>
+            <button class="sample-chip" id="simClearBtn" type="button">Clear</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="hairline-divider"></div>
+
+  <!-- 4. 6-Column Asymmetric Bento Feature Grid -->
+  <section class="bento-section" id="features">
+    <div class="cv-column">
+      <div class="bento-header">
+        <h2 class="section-h2">
+          Engineered to stay out of your way.
+          <span class="muted">Fast, deterministic, and local.</span>
+        </h2>
+        <p class="section-lead">
+          Traditional spellcheckers fight developer jargon, lag behind fast typing, or send your text to the cloud. Inline runs a deterministic C++20 pipeline locally on your Mac.
+        </p>
+      </div>
+
+      <div class="bento-grid">
+        <!-- Row 1: Span 4 + Span 2 -->
+        <article class="bento-card bento-span-4">
+          <div class="bento-card-top">
+            <h3>Context-aware SymSpell &amp; 243K bigrams.</h3>
+            <p>
+              Precomputed symmetric delete hashes resolve Damerau-Levenshtein distance &le; 2 typos in under 40 microseconds, while logarithmic bigram scoring disambiguates homophones like <code>need help</code> vs <code>say hello</code>.
+            </p>
+          </div>
+          <div class="bento-visual-stage">
+            <div class="mini-diff-row">
+              <span><span class="typo-strike">i need helo</span> &rarr; <span class="typo-fixed">I need help</span></span>
+              <span class="typo-tag">bigram: need + help (4.5M)</span>
+            </div>
+            <div class="mini-diff-row">
+              <span><span class="typo-strike">say helo</span> &rarr; <span class="typo-fixed">say hello</span></span>
+              <span class="typo-tag">bigram: say + hello (1.8M)</span>
+            </div>
+            <div class="mini-diff-row">
+              <span><span class="typo-strike">application frm</span> &rarr; <span class="typo-fixed">application form</span></span>
+              <span class="typo-tag">bigram: application + form</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="bento-card bento-span-2">
+          <div class="bento-card-top">
+            <h3>Single-key undo.</h3>
+            <p>
+              Press <code>Backspace</code> right after any correction to restore your exact raw keystrokes and suppress re-correction.
+            </p>
+          </div>
+          <div class="bento-visual-stage">
+            <div class="mini-diff-row">
+              <span>Typed: <code>definately </code></span>
+              <span class="typo-tag">Fixed</span>
+            </div>
+            <div class="mini-diff-row">
+              <span>Press <code>Delete</code></span>
+              <span class="typo-fixed">&crarr; definately</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Row 2: Span 2 x 3 -->
+        <article class="bento-card bento-span-2">
+          <div class="bento-card-top">
+            <h3>Run-together splitting.</h3>
+            <p>
+              Missed the spacebar? Dynamic programming segments concatenated tokens and rewards CamelCase transitions.
+            </p>
+          </div>
+          <div class="bento-visual-stage">
+            <div class="mini-diff-row">
+              <span><span class="typo-strike">whenI</span> &rarr; <span class="typo-fixed">when I</span></span>
+              <span class="typo-tag">+6.0 camel</span>
+            </div>
+            <div class="mini-diff-row">
+              <span><span class="typo-strike">ofcourse</span> &rarr; <span class="typo-fixed">of course</span></span>
+              <span class="typo-tag">DP split</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="bento-card bento-span-2">
+          <div class="bento-card-top">
+            <h3>Slang &amp; dev whitelist.</h3>
+            <p>
+              Protects 180+ developer terms and internet acronyms out of the box, plus instant <code>&#x2318;&#x2325;&#x21E7;D</code> to learn highlighted words.
+            </p>
+          </div>
+          <div class="bento-visual-stage">
+            <div class="mini-diff-row">
+              <span><code>repo</code> <code>cli</code> <code>sdk</code> <code>pr</code></span>
+              <span class="typo-tag">Protected</span>
+            </div>
+            <div class="mini-diff-row">
+              <span><code>ngl</code> <code>idk</code> <code>tbh</code> <code>lgtm</code></span>
+              <span class="typo-tag">Protected</span>
+            </div>
+          </div>
+        </article>
+
+        <article class="bento-card bento-span-2">
+          <div class="bento-card-top">
+            <h3>Zero-disk privacy.</h3>
+            <p>
+              Zero network sockets. Automatically enters a dormant bypass inside <code>AXSecureTextField</code> password and PIN prompts.
+            </p>
+          </div>
+          <div class="bento-visual-stage">
+            <div class="mini-diff-row">
+              <span><code>AXSecureTextField</code></span>
+              <span class="typo-tag">Dormant</span>
+            </div>
+            <div class="mini-diff-row">
+              <span>RAM buffer TTL</span>
+              <span class="typo-tag">30s purge</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Muse Alternating Full-Bleed Neutral Band: System Pipeline & Metrics -->
+  <section class="muse-row-section band-secondary" id="pipeline">
+    <div class="cv-column">
+      <div class="muse-feature-row">
+        <div class="muse-copy-col">
+          <h2>Synchronous, lock-free keystroke interception.</h2>
+          <p>
+            Every hardware keystroke passes through a dedicated real-time thread via macOS <code>CGEventTap</code>. Synthetic replacements are tagged with a 64-bit signature in <code>kCGEventSourceUserData</code> and dropped in under 0.001 ms to eliminate loopback without locks.
+          </p>
+          <p>
+            Delimiter rules are strictly deterministic: <code>Space</code> evaluates typos, <code>Tab</code> accepts visible ghost text (or passes straight through), and <code>Enter</code> never autocorrects.
+          </p>
+        </div>
+
+        <div class="muse-squircle-stage">
+          <pre class="diagram" style="margin: 0; border: none; box-shadow: none; padding: 2px; font-size: 11px; line-height: 1.48; overflow-x: hidden;">Hardware Keystroke
+  │
+  ▼
+[ CGEventTap ] ── (isSynthetic?) ──► [ Loopback Drop ]
+  │
+  ▼
+[ Password Classifier ] ── (AXSecure?) ──► [ Bypass ]
+  │
+  ├──► Space / Delimiter Pressed
+  │      │
+  │      ▼
+  │    [ SymSpell Tier 1 + 243K Bigrams ]
+  │      │
+  │      ▼
+  │    [ Single-Key Undo State Machine ]
+  │
+  └──► Typing Pause (&gt; 40ms)
+         │
+         ▼
+       [ Tier 0 Prefix Trie + SmolLM2-135M ]
+         │
+         ▼
+       [ NSPanel Ghost Overlay (&lt; 0.2ms) ]</pre>
         </div>
       </div>
 
-      <div class="sim-body" id="typingContainer">
-        <div class="ghost-layer" id="ghostLayer" aria-hidden="true"><span class="ghost-mirror-typed" id="ghostMirror"></span><span class="ghost-prediction" id="ghostText"></span><span class="ghost-mirror-after" id="ghostMirrorAfter"></span></div>
-        <textarea class="real-typing-input" id="demoInput" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Start typing here (e.g. teh, recieve, need helo vs say helo, whenI, Looking forward)..."></textarea>
-      </div>
-
-      <div class="sim-footer">
-        <div class="sim-hints">
-          <span><span class="kbd">Space</span> autocorrect</span>
-          <span><span class="kbd">Tab</span> accept</span>
-          <span><span class="kbd">Backspace</span> undo</span>
-          <span><span class="kbd">Enter</span> raw newline</span>
-          <span class="event-status-pill" id="eventStatus"></span>
-        </div>
-        <div class="sim-samples">
-          <button class="sample-chip" data-text="i dont recieve teh emails and definately need your Input ">Typos</button>
-          <button class="sample-chip" data-text="i need helo when i say helo away frm teh application frm ">Context</button>
-          <button class="sample-chip" data-text="whenI check ofcourse timerighte twowords ">Run-together</button>
-          <button class="sample-chip" data-text="ngl idk why teh git reop pr failed on cli ">Slang &amp; Dev</button>
-          <button class="sample-chip" data-text="Looking forward">Ghost text</button>
-          <button class="sample-chip" id="simClearBtn" type="button">Clear</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- System Architecture Pipeline Overview -->
-    <section id="pipeline">
-      <h2>Architecture & Pipeline Overview</h2>
-      <p>
-        Every keystroke is evaluated through a synchronous, lock-free C++20 pipeline. Interception runs on a dedicated high-priority event thread (<span class="num">&le; 2 &mu;s</span>) to guarantee zero perceptible typing lag.
-      </p>
-
-      <pre class="diagram">Hardware Keystroke
-       │
-       ▼
-[ CGEventTap (kCGSessionEventTap) ] ── (isSyntheticEvent?) ──► [ Loopback Drop ]
-       │
-       ▼ (Pass Key / Append Buffer)
-[ Password & PIN Classifier ] ── (AXSecureTextField?) ──► [ Dormant Bypass ]
-       │
-       ▼
-┌─────────────────────────────┬─────────────────────────────┐
-│ Space / Delimiter Pressed   │ Typing Pause (&gt; 40ms)       │
-▼                             ▼                             ▼
-[ SymSpell Tier 1 Lookup ]    [ Tier 0 n-gram Trie ]        [ Tier 1 SmolLM2-135M ]
-(Damerau-Levenshtein &le; 2)      (Synchronous &lt; 1ms)           (2 CPU Threads, KV Cache)
-       │                                                    │
-       ▼                                                    ▼
-[ Undo State Machine ]                              [ NSPanel Overlay Window ]
-(Single-Key Revert)                                 (Sub-0.2ms advanceLayout)</pre>
-
-      <div class="metric-row">
-        <div class="metric-card">
+      <div class="metric-strip">
+        <div class="metric-box">
           <div class="metric-val">&le; 2 &mu;s</div>
-          <div class="metric-lbl">Hook latency</div>
+          <div class="metric-lbl">EventTap hook latency</div>
         </div>
-        <div class="metric-card">
+        <div class="metric-box">
           <div class="metric-val">&lt; 40 &mu;s</div>
-          <div class="metric-lbl">Dictionary lookup</div>
+          <div class="metric-lbl">SymSpell dictionary lookup</div>
         </div>
-        <div class="metric-card">
+        <div class="metric-box">
           <div class="metric-val">&lt; 120 MB</div>
-          <div class="metric-lbl">Active RSS memory</div>
+          <div class="metric-lbl">Active RSS memory cap</div>
         </div>
-        <div class="metric-card">
+        <div class="metric-box">
           <div class="metric-val">0.0%</div>
-          <div class="metric-lbl">Idle CPU drain</div>
+          <div class="metric-lbl">Idle background CPU drain</div>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- Deep Dive Features Walkthrough -->
-    <section id="how-it-works">
-      <h2>How it works under the hood</h2>
+  <!-- 6. Muse Blog Editorial Deep-Dive ("How We Designed Inline") -->
+  <section class="editorial-section" id="how-it-works">
+    <div class="editorial-column">
+      <div class="editorial-header">
+        <h2 class="section-h2">How we designed Inline for macOS.</h2>
+        <p class="section-lead">
+          A six-part engineering walkthrough of Inline's event interception, 4-tier accessibility caret localization ladder, and out-of-process neural IPC.
+        </p>
+      </div>
 
-      <!-- Feature 1: Event Interception -->
-      <h3>1. Event Interception & Loopback Elimination</h3>
-      <p>
-        Inline hooks into the operating system at the session level using macOS <code>CGEventTap</code> (<code>kCGSessionEventTap</code>, inserted at <code>kCGTailAppendEventTap</code>) listening exclusively for <code>kCGEventKeyDown</code>. This ensures mouse clicks across macOS are never routed through our tap, preserving native window responsiveness.
-      </p>
-      <p>
-        When Inline injects replacement keystrokes to fix a typo or accept ghost text, those synthesized events would normally re-trigger our own hook, causing an infinite loop. To eliminate this without locks or sleep delays, every synthesized event is tagged with a custom 64-bit integer signature in <code>kCGEventSourceUserData</code>. The tap checks this field in under 0.001 ms and immediately drops synthetic loopback events.
-      </p>
-
-      <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/hook/mac_keyboard_hook.mm</span></div>
-      <pre class="code-snippet"><span class="cm">// Low-latency CGEventTap callback running on real-time QOS thread</span>
+      <!-- Chapter 1 -->
+      <article class="chapter-card">
+        <h3>1. Event Interception &amp; Loopback Elimination</h3>
+        <p>
+          Inline hooks into the operating system at the session level using macOS <code>CGEventTap</code> (<code>kCGSessionEventTap</code>, inserted at <code>kCGTailAppendEventTap</code>) listening exclusively for <code>kCGEventKeyDown</code>. Mouse clicks across macOS are never routed through our tap, preserving native window responsiveness.
+        </p>
+        <p>
+          When Inline injects replacement keystrokes to fix a typo or accept ghost text, those synthesized events are tagged with a custom 64-bit integer signature in <code>kCGEventSourceUserData</code>. The tap checks this field first and immediately passes synthetic events through untouched.
+        </p>
+        <div class="code-title">platform/mac/hook/mac_keyboard_hook.mm</div>
+        <pre class="code-snippet"><span class="cm">// Low-latency CGEventTap callback running on real-time QOS thread</span>
 CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapProxy proxy,
                                            CGEventType type,
                                            CGEventRef event,
@@ -1166,35 +1743,26 @@ CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapP
 
     <span class="kw">return</span> swallow ? <span class="kw">nullptr</span> : event;
 }</pre>
+      </article>
 
-      <!-- Feature 2: Caret Localization Ladder -->
-      <h3>2. Caret Localization Across Native and Web Apps</h3>
-      <p>
-        To render ghost text flush against the insertion point, Inline queries the focused UI element's Accessibility attributes via <code>kAXSelectedTextRangeAttribute</code> and maps the range to screen coordinates using <code>kAXBoundsForRangeParameterizedAttribute</code>.
-      </p>
-      <p>
-        Web browsers like Google Chrome, Vivaldi, and Brave present an asynchronous selection lag: during rapid bursts of typing, Chromium's internal accessibility thread lags behind DOM changes, returning dummy zero-sized bounds (such as <code>(0.0, 1329.0, 0.0, 0.0)</code>) or outdated coordinates. To prevent ghost text from jumping behind the cursor or rendering in microscopic fonts on web search bars, Inline runs a 4-tier localization ladder.
-      </p>
+      <!-- Chapter 2 -->
+      <article class="chapter-card">
+        <h3>2. Caret Localization Across Native and Web Apps</h3>
+        <p>
+          To render ghost text flush against the insertion point, Inline queries the focused UI element's Accessibility attributes via <code>kAXSelectedTextRangeAttribute</code> and maps the range to screen coordinates using <code>kAXBoundsForRangeParameterizedAttribute</code>.
+        </p>
+        <p>
+          Because Chromium browsers update accessibility bounds asynchronously on a background thread during fast typing, Inline runs a 4-tier localization ladder that rejects dummy zero-sized rects and probes backward when selection indices lag behind the DOM.
+        </p>
+        <pre class="diagram">Focused UI Element (PID, kAXRoleAttribute)
+       │
+       ├──► Tier 1: AXSelectedTextRange + AXBoundsForRange (Cocoa, Notes, TextEdit)
+       ├──► Tier 2: Chromium effectiveLoc Ladder (Chrome, Brave, Vivaldi, Electron)
+       ├──► Tier 3: WebKit AXSelectedTextMarkerRange (Safari contenteditable)
+       └──► Tier 4: Vertical Baseline Centering &amp; Forward Monotonicity</pre>
 
-      <pre class="diagram">Caret Localization Ladder:
-
-Focused UI Element (PID, kAXRoleAttribute)
-       │
-       ├──► Tier 1: AXSelectedTextRange + AXBoundsForRange
-       │           (Standard Cocoa apps, TextEdit, Notes, Safari)
-       │
-       ├──► Tier 2: Chromium effectiveLoc Ladder
-       │           (Google Chrome, Vivaldi, YouTube, Amazon search)
-       │           Probes [textLength - 1, 1] when selection range is outdated
-       │
-       ├──► Tier 3: WebKit AXSelectedTextMarkerRange
-       │           (Safari contenteditable &amp; rich web editors)
-       │
-       └──► Tier 4: Vertical Baseline Centering &amp; Forward Monotonicity
-                   (Aligns center Y on single-line inputs; prevents cursor overlap)</pre>
-
-      <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/caret/mac_caret_tracker.mm</span></div>
-      <pre class="code-snippet"><span class="cm">// Multi-tier bounds resolution with Chromium anomaly rejection</span>
+        <div class="code-title">platform/mac/caret/mac_caret_tracker.mm</div>
+        <pre class="code-snippet"><span class="cm">// Multi-tier bounds resolution with Chromium anomaly rejection</span>
 <span class="kw">static bool</span> <span class="fn">getAXRectForRange</span>(AXUIElementRef elem, CFIndex loc, CFIndex len, CGRect&amp; outRect) {
     CFRange r = CFRangeMake(loc, len);
     AXValueRef rangeVal = AXValueCreate(kAXValueTypeCFRange, &amp;r);
@@ -1212,25 +1780,19 @@ Focused UI Element (PID, kAXRoleAttribute)
     <span class="kw">if</span> (outRect.origin.x &lt;= <span class="num">1.0</span> &amp;&amp; outRect.size.width &lt;= <span class="num">1.0</span>) <span class="kw">return false</span>;
     <span class="kw">if</span> (outRect.size.width == <span class="num">0.0</span> &amp;&amp; outRect.size.height == <span class="num">0.0</span>) <span class="kw">return false</span>;
 
-    <span class="cm">// Enforce standard single-line baseline height</span>
-    <span class="kw">if</span> (len == <span class="num">0</span> &amp;&amp; outRect.size.height &lt; <span class="num">4.0</span>) {
-        outRect.size.height = <span class="num">18.0</span>;
-    }
+    <span class="kw">if</span> (len == <span class="num">0</span> &amp;&amp; outRect.size.height &lt; <span class="num">4.0</span>) outRect.size.height = <span class="num">18.0</span>;
     <span class="kw">return</span> outRect.size.height &gt;= <span class="num">4.0</span> &amp;&amp; outRect.size.height &lt;= <span class="num">240.0</span>;
 }</pre>
+      </article>
 
-      <!-- Feature 3: SymSpell Typo Correction -->
-      <h3>3. SymSpell Typo Correction &amp; Bigram Ranking</h3>
-      <p>
-        Typo correction triggers on word delimiters (Space or punctuation). Inline uses the SymSpell Symmetric Delete algorithm: by precomputing deletions for words in the dictionary, candidate lookups only require deleting characters from the input word rather than calculating all transpositions and insertions at runtime.
-      </p>
-      <p>
-        The dictionary contains 82,765 unigrams and 243,342 bigrams. When multiple candidates exist within Damerau-Levenshtein distance &le; 2, bigram frequencies conditioned on the previous word are evaluated using logarithmic probability scoring to resolve homophones (e.g. "their" vs "there").
-      </p>
-
-      <div class="code-title"><span class="code-title-dot"></span><span>core/tier1/corrector.cpp</span></div>
-      <pre class="code-snippet"><span class="cm">// Word evaluation with Damerau-Levenshtein &le; 2 and bigram context scoring</span>
-CorrectionResult <span class="fn">correctWord</span>(<span class="kw">const</span> std::wstring&amp; typed,
+      <!-- Chapter 3 -->
+      <article class="chapter-card">
+        <h3>3. SymSpell Typo Correction &amp; Contextual Disambiguation</h3>
+        <p>
+          By precomputing symmetric character deletions for 82,765 unigrams, candidate lookup only deletes characters from the typed token. When multiple candidates exist within Damerau-Levenshtein distance &le; 2, 243,342 contextual bigrams score candidates conditioned on the preceding word.
+        </p>
+        <div class="code-title">core/tier1/corrector.cpp</div>
+        <pre class="code-snippet">CorrectionResult <span class="fn">correctWord</span>(<span class="kw">const</span> std::wstring&amp; typed,
                              <span class="kw">const</span> SymSpellDict&amp; dict,
                              <span class="kw">const</span> AppConfig&amp; cfg,
                              <span class="kw">bool</span> isSentenceStart,
@@ -1242,23 +1804,19 @@ CorrectionResult <span class="fn">correctWord</span>(<span class="kw">const</spa
     <span class="kw">auto</span> candidates = dict.<span class="fn">lookup</span>(typed, cfg.maxDictionaryEditDistance);
     <span class="kw">if</span> (candidates.empty()) <span class="kw">return</span> {<span class="kw">false</span>, typed};
 
-    <span class="cm">// Rank candidate matches using log-frequency bigram context</span>
     <span class="kw">auto</span> best = <span class="fn">rankByBigramContext</span>(candidates, prevWord, dict);
     <span class="kw">return</span> {<span class="kw">true</span>, best.term};
 }</pre>
+      </article>
 
-      <!-- Feature 4: Run-Together Word Splitting -->
-      <h3>4. Run-Together Word Splitting</h3>
-      <p>
-        Fast typing often results in accidentally skipped spaces. When a typed token is not found in the dictionary, Inline tests segmentation points using dynamic programming.
-      </p>
-      <p>
-        For each candidate split (e.g. <code>whenI</code> &rarr; <code>when</code> + <code>I</code>), the engine verifies that both parts exist in the unigram dictionary, computes their combined frequency score, and adds an explicit bonus if the boundary matches a user's CamelCase transition.
-      </p>
-
-      <div class="code-title"><span class="code-title-dot"></span><span>core/tier1/corrector.cpp</span></div>
-      <pre class="code-snippet"><span class="cm">// Dynamic programming segmentation for concatenated words</span>
-<span class="kw">if</span> (cfg.splitRunTogetherWords &amp;&amp; isAllAlpha &amp;&amp; lowerTyped.size() &gt;= <span class="num">3</span>) {
+      <!-- Chapter 4 -->
+      <article class="chapter-card">
+        <h3>4. Dynamic Programming Word Segmentation</h3>
+        <p>
+          When a fast-typed token is missing a space (e.g. <code>whenI</code> or <code>ofcourse</code>), Inline evaluates every split point against unigram and bigram log-frequencies, awarding an explicit bonus when the split aligns with a CamelCase boundary.
+        </p>
+        <div class="code-title">core/tier1/corrector.cpp</div>
+        <pre class="code-snippet"><span class="kw">if</span> (cfg.splitRunTogetherWords &amp;&amp; isAllAlpha &amp;&amp; lowerTyped.size() &gt;= <span class="num">3</span>) {
     <span class="kw">for</span> (<span class="kw">size_t</span> split = <span class="num">1</span>; split &lt; lowerTyped.size(); ++split) {
         std::wstring w1 = lowerTyped.substr(<span class="num">0</span>, split);
         std::wstring w2 = lowerTyped.substr(split);
@@ -1270,7 +1828,7 @@ CorrectionResult <span class="fn">correctWord</span>(<span class="kw">const</spa
             <span class="kw">double</span> splitScore = std::log10(c1) + std::log10(c2);
             <span class="kw">int64_t</span> biFreq = dict.<span class="fn">getBigramFrequency</span>(w1, w2);
             <span class="kw">if</span> (biFreq &gt; <span class="num">0</span>) splitScore += std::log10(biFreq) * <span class="num">1.5</span>;
-            <span class="kw">if</span> (isCamelAtSplit) splitScore += <span class="num">6.0</span>; <span class="cm">// Explicit capitalization bonus</span>
+            <span class="kw">if</span> (isCamelAtSplit) splitScore += <span class="num">6.0</span>;
 
             <span class="kw">if</span> (splitScore &gt; bestSplitScore) {
                 bestSplitScore = splitScore;
@@ -1279,31 +1837,16 @@ CorrectionResult <span class="fn">correctWord</span>(<span class="kw">const</spa
         }
     }
 }</pre>
+      </article>
 
-      <!-- Feature 5: Deterministic Single-Key Undo -->
-      <h3>5. Deterministic Single-Key Undo</h3>
-      <p>
-        Autocorrect should never fight the user. Whenever Inline replaces a word, the change is recorded in an internal state machine.
-      </p>
-      <p>
-        If Backspace (<code>kVK_Delete</code>) is pressed immediately following a correction, the engine emits the exact number of backspaces needed and retypes the user's raw keystrokes. Crucially, the reverted word is automatically marked as rejected for that context, preventing recursive autocorrect loops.
-      </p>
-
-      <pre class="diagram">Undo State Machine Transitions:
-
-        Typo Autocorrected / Ghost Accepted
-   ┌──────────────────────────────────────────┐
-   │                                          ▼
-[ IDLE ] ◄────────────── [ ELIGIBLE FOR UNDO ]
-   ▲      Other Key /     │
-   │      Space           │ Backspace (kVK_Delete)
-   │                      ▼
-   └───────────── [ REVERT RAW KEYSTROKES ]
-                  (Suppresses re-correction for word)</pre>
-
-      <div class="code-title"><span class="code-title-dot"></span><span>core/undo/undo_state_machine.cpp</span></div>
-      <pre class="code-snippet"><span class="cm">// Atomic single-key undo triggered on Backspace</span>
-UndoActionResult <span class="fn">UndoStateMachine::onBackspace</span>() {
+      <!-- Chapter 5 -->
+      <article class="chapter-card">
+        <h3>5. Deterministic Reversion on Backspace</h3>
+        <p>
+          Every replacement transitions the undo state machine to <code>EligibleForUndo</code>. Pressing <code>Backspace</code> immediately emits the exact backspaces required, restores your raw keystrokes, and suppresses that token from re-correcting in the current context.
+        </p>
+        <div class="code-title">core/undo/undo_state_machine.cpp</div>
+        <pre class="code-snippet">UndoActionResult <span class="fn">UndoStateMachine::onBackspace</span>() {
     <span class="kw">if</span> (state_ == State::EligibleForUndo) {
         state_ = State::Idle;
         suppressedWord_ = lastOriginal_; <span class="cm">// Prevent re-correcting in same context</span>
@@ -1316,358 +1859,48 @@ UndoActionResult <span class="fn">UndoStateMachine::onBackspace</span>() {
     state_ = State::Idle;
     <span class="kw">return</span> { .type = UndoAction::NormalDelete };
 }</pre>
+      </article>
 
-            <!-- Feature 6: Dual-Tier Predictive Ghost Text & One Word Mode -->
-      <h3>6. Dual-Tier Predictive Ghost Text &amp; One Word Mode</h3>
-      <p>
-        Ghost text predictions combine sub-millisecond n-gram trie lookups with an out-of-process 4-bit neural model (<code>SmolLM2-135M</code>) running via <code>llama.cpp</code> over 2 CPU threads. Predictions are debounced by 40 ms after the last keypress so they never flicker during rapid typing.
-      </p>
-      <p>
-        In <strong>One Word Mode</strong>, Inline computes completions only for the active token being typed at the cursor (for example, typing <code>tha</code> suggests <code>nk</code>). Pressing <code>Tab</code> accepts the word, automatically triggers layout advancement, and immediately cues the next word of the sentence continuation for seamless, infinite Tab-chaining without window flicker.
-      </p>
-
-      <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/ghost/ghost_overlay.mm</span></div>
-      <pre class="code-snippet"><span class="cm">// Sub-0.2ms horizontal shift as user types matching continuation letters</span>
-<span class="kw">void</span> <span class="fn">GhostOverlay::advanceLayout</span>(<span class="kw">double</span> deltaX, <span class="kw">const</span> std::wstring&amp; remainingText) {
-    <span class="kw">if</span> (deltaX &lt;= <span class="num">0.0</span> || remainingText.empty()) <span class="kw">return</span>;
-    std::wstring textCopy = remainingText;
-
-    dispatch_async(dispatch_get_main_queue(), ^{
-        @autoreleasepool {
-            GhostLayoutResult updated = [gGhostView layoutData];
-            <span class="kw">if</span> (!updated.lines.empty()) {
-                updated.lines[<span class="num">0</span>].text = textCopy;
-                updated.lines[<span class="num">0</span>].x += deltaX;
-                updated.boundingBox.x += deltaX;
-                updated.boundingBox.width = std::max(<span class="num">4.0</span>, updated.boundingBox.width - deltaX);
-
-                [gGhostView setLayoutData:updated];
-                [gGhostPanel setFrame:newFrame display:YES];
-            }
-        }
-    });
-}</pre>
-
-      <!-- Feature 7: Out-of-Process Neural Helper & IPC -->
-      <h3>7. Out-of-Process Neural Service &amp; IPC Architecture</h3>
-      <p>
-        To guarantee that on-device language modeling never interrupts real-time keyboard interception, neural inference runs in an independent helper binary (<code>InlinePredictor</code>). Communication occurs across a private local Unix domain socket using length-prefixed binary message framing.
-      </p>
-      <p>
-        Requests carry an atomic monotonic generation counter (<code>generation_</code>). If the user types a new character while background inference is computing, the generation counter increments and the incoming response is instantly discarded, preventing stale text from ever flashing on screen.
-      </p>
-
-      <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/predict/predictor_client.mm</span></div>
-      <pre class="code-snippet"><span class="cm">// Binary IPC request dispatch with atomic generation counter</span>
-<span class="kw">bool</span> <span class="fn">PredictorClient::sendRequest</span>(<span class="kw">const</span> std::string&amp; context,
+      <!-- Chapter 6 -->
+      <article class="chapter-card">
+        <h3>6. Dual-Tier Ghost Text &amp; Thermal Power Regulation</h3>
+        <p>
+          Ghost text combines sub-millisecond Tier 0 prefix trie completions with an out-of-process 4-bit neural model (<code>SmolLM2-135M</code> via <code>llama.cpp</code>) communicating over a private Unix domain socket with monotonic generation counters (<code>0x494E4C50</code>). When macOS enters Low Power Mode or elevated thermal state, <code>PowerMonitor</code> automatically suspends neural inference to guarantee zero battery drain.
+        </p>
+        <div class="code-title">platform/mac/predict/predictor_client.mm</div>
+        <pre class="code-snippet"><span class="kw">bool</span> <span class="fn">PredictorClient::sendRequest</span>(<span class="kw">const</span> std::string&amp; context,
                                   <span class="kw">const</span> std::string&amp; partial,
                                   <span class="kw">uint8_t</span> maxWords) {
     <span class="kw">if</span> (socketFd_ &lt; <span class="num">0</span>) <span class="kw">return false</span>;
 
     <span class="kw">uint64_t</span> gen = ++generation_;
-    ClientReqHeader hdr;
-    hdr.magic = <span class="num">0x494E4C50</span>; <span class="cm">// "INLP"</span>
-    hdr.op = <span class="num">1</span>;
-    hdr.maxWords = maxWords;
-    hdr.generation = gen;
-    hdr.contextLen = (<span class="kw">uint32_t</span>)context.size();
-    hdr.partialLen = (<span class="kw">uint32_t</span>)partial.size();
+    ClientReqHeader hdr{ .magic = <span class="num">0x494E4C50</span>, .op = <span class="num">1</span>, .maxWords = maxWords,
+                         .generation = gen, .contextLen = (<span class="kw">uint32_t</span>)context.size(),
+                         .partialLen = (<span class="kw">uint32_t</span>)partial.size() };
 
-    <span class="cm">// Write framed header followed by payload bytes</span>
-    <span class="kw">if</span> (!<span class="fn">writeAll</span>(socketFd_, &amp;hdr, <span class="kw">sizeof</span>(hdr))) <span class="kw">return false</span>;
-    <span class="kw">if</span> (!<span class="fn">writeAll</span>(socketFd_, context.data(), context.size())) <span class="kw">return false</span>;
-    <span class="kw">if</span> (!<span class="fn">writeAll</span>(socketFd_, partial.data(), partial.size())) <span class="kw">return false</span>;
-    <span class="kw">return true</span>;
+    <span class="kw">return</span> <span class="fn">writeAll</span>(socketFd_, &amp;hdr, <span class="kw">sizeof</span>(hdr)) &amp;&amp;
+           <span class="fn">writeAll</span>(socketFd_, context.data(), context.size()) &amp;&amp;
+           <span class="fn">writeAll</span>(socketFd_, partial.data(), partial.size());
 }</pre>
+      </article>
+    </div>
+  </section>
 
-      <p>
-        <code>PowerMonitor</code> actively checks macOS thermal state via <code>NSProcessInfoThermalState</code> and battery status via <code>IOPowerSources</code>. When the system enters Low Power Mode or thermal state <code>Serious</code> / <code>Critical</code>, the neural helper suspends itself automatically, allowing Tier 0 N-grams to handle completions with zero battery drain.
+  <!-- 7. Technical Reference Tables (Benchmarks, Delimiters, Shortcuts, Compatibility) -->
+  <section class="tables-section band-secondary" id="benchmarks">
+    <div class="cv-column">
+      <h2 class="section-h2">Deterministic behavior, measured in microseconds.</h2>
+      <p class="section-lead">
+        Every subsystem is profiled against strict real-time thresholds and follows standard macOS cursor semantics.
       </p>
 
-      <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/power/power_monitor.mm</span></div>
-      <pre class="code-snippet"><span class="cm">// Dynamic thermal regulation and Low Power Mode detection</span>
-EngineMode <span class="fn">PowerMonitor::currentEngineMode</span>() {
-    <span class="kw">bool</span> onBattery = <span class="fn">isOnBatteryPower</span>();
-    ThermalState thermal = <span class="fn">currentThermalState</span>();
-    <span class="kw">bool</span> lowPower = <span class="fn">isLowPowerModeEnabled</span>();
-
-    <span class="cm">// Fallback to Tier 0 trie when battery or cooling is constrained</span>
-    <span class="kw">return</span> <span class="fn">decideEngineMode</span>(onBattery, thermal, lowPower);
-}</pre>
-
-      <!-- Feature 8: Security & Privacy Invariants -->
-      <h3>8. Security, Privacy &amp; Zero-Disk Invariants</h3>
-      <p>
-        Inline creates zero network sockets, sends zero telemetry pings, and writes zero keystrokes to disk. Before processing input, Inline queries <code>kAXSubroleAttribute</code>: if an element is an <code>AXSecureTextField</code> (such as a password or credit card input), the engine enters a dormant state where all keystrokes pass unmodified. Keystroke buffers in RAM are purged after 30 seconds of typing inactivity.
-      </p>
-
-      <div class="code-title"><span class="code-title-dot"></span><span>platform/mac/caret/secure_field_classifier.cpp</span></div>
-      <pre class="code-snippet"><span class="cm">// Automatic dormant bypass in password and PIN inputs</span>
-<span class="kw">bool</span> <span class="fn">isSecureFieldActive</span>(AXUIElementRef focusedElem) {
-    CFTypeRef subrole = <span class="kw">nullptr</span>;
-    <span class="kw">if</span> (AXUIElementCopyAttributeValue(focusedElem, kAXSubroleAttribute, &amp;subrole) == kAXErrorSuccess) {
-        <span class="kw">bool</span> isSecure = CFEqual(subrole, kAXSecureTextFieldSubrole);
-        CFRelease(subrole);
-        <span class="kw">if</span> (isSecure) <span class="kw">return true</span>; <span class="cm">// Completely bypass tracking</span>
-    }
-    <span class="kw">return false</span>;
-}</pre>
-    </section>
-
-    <!-- Key Delimiters & Typing Behavior -->
-    <section id="delimiters">
-      <h2>Key Delimiters &amp; Typing Behavior</h2>
-      <p>
-        Inline respects standard macOS cursor behavior. Keystrokes are handled deterministically according to strict delimiter rules:
-      </p>
-
-      <div class="data-table-wrap">
+      <!-- Table 1: Subsystem Benchmarks -->
+      <div class="data-table-wrap" style="margin-top: 28px;">
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width: 140px;">Key / Event</th>
-              <th style="width: 180px;">Behavior</th>
-              <th>Technical Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>Space</code></td>
-              <td>Word delimiter</td>
-              <td>Triggers SymSpell lookup on previous token, checks Damerau-Levenshtein distance &le; 2, applies bigram context ranking, and replaces typos.</td>
-            </tr>
-            <tr>
-              <td><code>Tab</code></td>
-              <td>Accept Ghost Text</td>
-              <td>If a ghost text suggestion is currently visible, swallows Tab and injects the continuation. If no suggestion is visible, passes Tab straight through without modifying text.</td>
-            </tr>
-            <tr>
-              <td><code>Enter / Return</code></td>
-              <td>Pass-through commit</td>
-              <td><strong>Never autocorrects.</strong> Commits whatever raw text was typed, immediately clears the active word buffer, resets sentence state, and forwards the Return key to the app.</td>
-            </tr>
-            <tr>
-              <td><code>Backspace</code></td>
-              <td>Single-Key Undo</td>
-              <td>If pressed immediately following an autocorrection or Tab accept, restores the exact raw characters typed. If pressed while typing, pops the last buffered character.</td>
-            </tr>
-            <tr>
-              <td><code>. ! ?</code></td>
-              <td>Sentence boundary</td>
-              <td>Sets the sentence start flag. The initial letter of the following word is automatically capitalized, alongside standalone <code>i</code> &rarr; <code>I</code>.</td>
-            </tr>
-            <tr>
-              <td>Case Preservation</td>
-              <td>Casing pattern mirror</td>
-              <td>Replicates typed case: lowercase (<code>teh</code> &rarr; <code>the</code>), Title Case (<code>Teh</code> &rarr; <code>The</code>), Uppercase (<code>TEH</code> &rarr; <code>THE</code>). CamelCase words remain untouched.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Global Keyboard Shortcuts -->
-    <section id="shortcuts">
-      <h2>Global Keyboard Shortcuts</h2>
-      <p>
-        System-wide shortcuts allow quick toggles without opening settings:
-      </p>
-
-      <div class="data-table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th style="width: 220px;">Shortcut</th>
-              <th>Action</th>
-              <th style="width: 120px;">Scope</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                <div class="kbd-combo">
-                  <kbd class="kbd-key"><abbr title="Command">&#x2318;</abbr></kbd>
-                  <kbd class="kbd-key"><abbr title="Option">&#x2325;</abbr></kbd>
-                  <kbd class="kbd-key"><abbr title="Shift">&#x21E7;</abbr></kbd>
-                  <kbd class="kbd-key">K</kbd>
-                </div>
-              </td>
-              <td>Toggle Autocorrect Engine On / Off</td>
-              <td><span class="status-tag-active"><span class="status-dot-green"></span>System-Wide</span></td>
-            </tr>
-            <tr>
-              <td>
-                <div class="kbd-combo">
-                  <kbd class="kbd-key"><abbr title="Command">&#x2318;</abbr></kbd>
-                  <kbd class="kbd-key"><abbr title="Option">&#x2325;</abbr></kbd>
-                  <kbd class="kbd-key"><abbr title="Shift">&#x21E7;</abbr></kbd>
-                  <kbd class="kbd-key">G</kbd>
-                </div>
-              </td>
-              <td>Toggle Ghost Text Predictions On / Off</td>
-              <td><span class="status-tag-active"><span class="status-dot-green"></span>System-Wide</span></td>
-            </tr>
-            <tr>
-              <td>
-                <div class="kbd-combo">
-                  <kbd class="kbd-key">Tab</kbd>
-                </div>
-              </td>
-              <td>Accept visible ghost text continuation</td>
-              <td><span class="status-tag">Active Input</span></td>
-            </tr>
-            <tr>
-              <td>
-                <div class="kbd-combo">
-                  <kbd class="kbd-key">Delete</kbd>
-                </div>
-              </td>
-              <td>Single-key undo: revert last autocorrection or accepted suggestion</td>
-              <td><span class="status-tag">Active Input</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Slang & Jargon Whitelist -->
-    <section id="slang-jargon">
-      <h2>Slang &amp; Developer Jargon Whitelist</h2>
-      <p>
-        Engineers, designers, and daily writers frequently use acronyms, command-line arguments, and informal abbreviations that traditional spellcheckers destroy. Inline incorporates a 180+ term protected whitelist directly into the SymSpell dictionary:
-      </p>
-
-      <div class="data-table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th style="width: 180px;">Category</th>
-              <th>Protected Terms (Never Mangled)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Developer Terms</td>
-              <td><code>repo</code>, <code>dev</code>, <code>pr</code>, <code>cli</code>, <code>sdk</code>, <code>api</code>, <code>auth</code>, <code>async</code>, <code>stdout</code>, <code>stdin</code>, <code>stderr</code>, <code>config</code>, <code>util</code>, <code>impl</code>, <code>const</code>, <code>param</code></td>
-            </tr>
-            <tr>
-              <td>Internet Acronyms</td>
-              <td><code>gng</code>, <code>brb</code>, <code>ttyl</code>, <code>idk</code>, <code>ngl</code>, <code>tbh</code>, <code>fwiw</code>, <code>imo</code>, <code>imho</code>, <code>afaik</code>, <code>omw</code>, <code>smh</code>, <code>rn</code>, <code>fr</code>, <code>wip</code>, <code>lgtm</code></td>
-            </tr>
-            <tr>
-              <td>Bigram Context</td>
-              <td>243,342 real-world bigram pairs score technical combinations (e.g. <code>git commit</code>, <code>npm run</code>, <code>pull request</code>) ensuring natural disambiguation without false positives.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Application Compatibility Matrix -->
-    <section id="compatibility">
-      <h2>Application Compatibility Matrix</h2>
-      <p>
-        Inline is tested and verified daily across standard macOS applications:
-      </p>
-
-      <div class="data-table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th style="width: 180px;">Category</th>
-              <th>Supported Applications</th>
-              <th style="width: 160px;">Caret Mechanism</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                <div class="cat-icon-wrap">
-                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                    <line x1="8" y1="21" x2="16" y2="21"/>
-                    <line x1="12" y1="17" x2="12" y2="21"/>
-                  </svg>
-                  <span>Apple Native</span>
-                </div>
-              </td>
-              <td>Notes, Pages, Safari, Mail, TextEdit, Finder, Reminders</td>
-              <td><span class="status-tag">AXSelectedTextRange</span></td>
-            </tr>
-            <tr>
-              <td>
-                <div class="cat-icon-wrap">
-                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <circle cx="12" cy="12" r="10"/>
-                    <circle cx="12" cy="12" r="4"/>
-                    <line x1="21.17" y1="8" x2="12" y2="8"/>
-                    <line x1="3.95" y1="6.06" x2="8.54" y2="14"/>
-                    <line x1="10.88" y1="21.94" x2="15.46" y2="14"/>
-                  </svg>
-                  <span>Web Browsers</span>
-                </div>
-              </td>
-              <td>Google Chrome, Vivaldi, Brave, Microsoft Edge</td>
-              <td><span class="status-tag">Chromium effectiveLoc</span></td>
-            </tr>
-            <tr>
-              <td>
-                <div class="cat-icon-wrap">
-                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <polyline points="16 18 22 12 16 6"/>
-                    <polyline points="8 6 2 12 8 18"/>
-                  </svg>
-                  <span>Developer Tools</span>
-                </div>
-              </td>
-              <td>Visual Studio Code, Antigravity, Terminal, iTerm2</td>
-              <td><span class="status-tag">Native EventTap</span></td>
-            </tr>
-            <tr>
-              <td>
-                <div class="cat-icon-wrap">
-                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                  </svg>
-                  <span>Communication</span>
-                </div>
-              </td>
-              <td>Slack, Discord, Telegram, WhatsApp, Messages</td>
-              <td><span class="status-tag">Electron AX Bounds</span></td>
-            </tr>
-            <tr>
-              <td>
-                <div class="cat-icon-wrap">
-                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                    <polyline points="14 2 14 8 20 8"/>
-                    <line x1="16" y1="13" x2="8" y2="13"/>
-                    <line x1="16" y1="17" x2="8" y2="17"/>
-                  </svg>
-                  <span>Productivity</span>
-                </div>
-              </td>
-              <td>Notion, Obsidian, Linear, Google Docs, Gmail</td>
-              <td><span class="status-tag">Blink Selection Sync</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Subsystem Benchmarks -->
-    <section id="benchmarks">
-      <h2>Subsystem Performance &amp; Latency</h2>
-      <p>
-        Every component is profiled against strict real-time thresholds:
-      </p>
-
-      <div class="data-table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th style="width: 220px;">Subsystem</th>
-              <th style="width: 130px;">Measured Latency</th>
+              <th style="width: 240px;">Subsystem</th>
+              <th style="width: 150px;">Measured Latency</th>
               <th>Constraint &amp; Implementation Details</th>
             </tr>
           </thead>
@@ -1703,155 +1936,299 @@ EngineMode <span class="fn">PowerMonitor::currentEngineMode</span>() {
               <td>Quantized <code>SmolLM2-135M</code> executed locally via <code>llama.cpp</code> on 2 efficiency cores.</td>
             </tr>
             <tr>
-              <td>Memory Footprint</td>
-              <td><code>&lt; 120 MB</code></td>
-              <td>Active RSS footprint across both UI and helper process (&lt; 5 MB for autocorrect engine alone).</td>
-            </tr>
-            <tr>
-              <td>Idle CPU Drain</td>
-              <td><code>0.0%</code></td>
-              <td>Pure event-driven architecture with zero background polling loops.</td>
+              <td>Memory &amp; Idle CPU</td>
+              <td><code>&lt; 120 MB / 0.0%</code></td>
+              <td>Active RSS footprint across both UI and helper process; pure event-driven architecture.</td>
             </tr>
           </tbody>
         </table>
       </div>
-    </section>
 
-    <!-- Configuration & System Settings -->
-    <section id="settings">
-      <h2>Configuration &amp; System Settings</h2>
-      <p>
-        Inline follows Apple's modern System Settings visual language with rounded card containers, monochrome vector badges, and responsive layouts:
-      </p>
+      <!-- 2-Column Tables: Delimiters + Global Shortcuts -->
+      <div class="table-grid-2col" id="shortcuts">
+        <div class="data-table-wrap" style="margin: 0;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 130px;">Key / Event</th>
+                <th>Deterministic Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>Space</code></td>
+                <td>Evaluates token with SymSpell (distance &le; 2) + bigram context and replaces typos.</td>
+              </tr>
+              <tr>
+                <td><code>Tab</code></td>
+                <td>Swallows Tab and injects ghost text if visible; otherwise passes Tab straight through without autocorrecting.</td>
+              </tr>
+              <tr>
+                <td><code>Enter / Return</code></td>
+                <td><strong>Never autocorrects.</strong> Commits raw characters, clears buffer, sets sentence start, and forwards Return.</td>
+              </tr>
+              <tr>
+                <td><code>Backspace</code></td>
+                <td>Single-key undo immediately following a replacement; otherwise deletes last character.</td>
+              </tr>
+              <tr>
+                <td><code>. ! ?</code></td>
+                <td>Sets sentence start flag so the following word is capitalized automatically.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <div class="data-table-wrap">
+        <div class="data-table-wrap" style="margin: 0;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 185px;">Global Shortcut</th>
+                <th>System Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="kbd-combo">
+                    <kbd class="kbd-key"><abbr title="Command">&#x2318;</abbr></kbd>
+                    <kbd class="kbd-key"><abbr title="Option">&#x2325;</abbr></kbd>
+                    <kbd class="kbd-key"><abbr title="Shift">&#x21E7;</abbr></kbd>
+                    <kbd class="kbd-key">K</kbd>
+                  </div>
+                </td>
+                <td>Toggle Autocorrect Engine On / Off system-wide.</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="kbd-combo">
+                    <kbd class="kbd-key"><abbr title="Command">&#x2318;</abbr></kbd>
+                    <kbd class="kbd-key"><abbr title="Option">&#x2325;</abbr></kbd>
+                    <kbd class="kbd-key"><abbr title="Shift">&#x21E7;</abbr></kbd>
+                    <kbd class="kbd-key">G</kbd>
+                  </div>
+                </td>
+                <td>Toggle Ghost Text Predictions (Beta) On / Off.</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="kbd-combo">
+                    <kbd class="kbd-key"><abbr title="Command">&#x2318;</abbr></kbd>
+                    <kbd class="kbd-key"><abbr title="Option">&#x2325;</abbr></kbd>
+                    <kbd class="kbd-key"><abbr title="Shift">&#x21E7;</abbr></kbd>
+                    <kbd class="kbd-key">D</kbd>
+                  </div>
+                </td>
+                <td>Add highlighted word in any app to Known Words (customizable in Settings &gt; Typing Engine).</td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="kbd-combo">
+                    <kbd class="kbd-key">Tab</kbd> / <kbd class="kbd-key">Delete</kbd>
+                  </div>
+                </td>
+                <td>Accept visible ghost text continuation / Single-key undo last replacement.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Application Compatibility Matrix -->
+      <div class="data-table-wrap" id="compatibility" style="margin-top: 24px; margin-bottom: 0;">
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width: 180px;">Setting</th>
-              <th style="width: 140px;">Default</th>
-              <th>Description</th>
+              <th style="width: 190px;">Category</th>
+              <th>Supported Applications</th>
+              <th style="width: 180px;">Caret Mechanism</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>Autocorrect Engine</td>
-              <td><span class="status-tag">Enabled</span></td>
-              <td>System-wide typo detection and replacement on Spacebar.</td>
+              <td>
+                <div class="cat-icon-wrap">
+                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                  <span>Apple Native</span>
+                </div>
+              </td>
+              <td>Notes, Pages, Safari, Mail, TextEdit, Finder, Reminders</td>
+              <td><span class="status-tag">AXSelectedTextRange</span></td>
             </tr>
             <tr>
-              <td>Ghost Text Predictions</td>
-              <td><span class="status-tag">Disabled (Beta)</span></td>
-              <td>Inline cursor suggestions. Experimental beta under testing.</td>
+              <td>
+                <div class="cat-icon-wrap">
+                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="21.17" y1="8" x2="12" y2="8"/><line x1="3.95" y1="6.06" x2="8.54" y2="14"/><line x1="10.88" y1="21.94" x2="15.46" y2="14"/></svg>
+                  <span>Web Browsers</span>
+                </div>
+              </td>
+              <td>Google Chrome, Vivaldi, Brave, Microsoft Edge</td>
+              <td><span class="status-tag">Chromium effectiveLoc</span></td>
             </tr>
             <tr>
-              <td>Single-Key Undo</td>
-              <td><span class="status-tag">Enabled</span></td>
-              <td>Immediate one-touch reversion to raw typed keystrokes on Backspace.</td>
+              <td>
+                <div class="cat-icon-wrap">
+                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                  <span>Developer Tools</span>
+                </div>
+              </td>
+              <td>Visual Studio Code, Antigravity, Terminal, iTerm2</td>
+              <td><span class="status-tag">Native EventTap</span></td>
             </tr>
             <tr>
-              <td>Suggestion Length</td>
-              <td><span class="status-tag">Balanced (2-3 words)</span></td>
-              <td>Configurable between One word only (current word), Short, Balanced, or Long.</td>
-            </tr>
-            <tr>
-              <td>Run-Together Splitting</td>
-              <td><span class="status-tag">Enabled</span></td>
-              <td>Automatically segments concatenated tokens (e.g. <code>twowords</code> &rarr; <code>two words</code>).</td>
-            </tr>
-            <tr>
-              <td>Sentence Capitalization</td>
-              <td><span class="status-tag">Enabled</span></td>
-              <td>Capitalizes initial character of sentences after punctuation.</td>
-            </tr>
-            <tr>
-              <td>Adaptive Menu Bar Contrast</td>
-              <td><span class="status-tag">Permanent</span></td>
-              <td>Renders pure white (<code>#FFFFFF</code>) line on dark menu bars, dark charcoal (<code>#18181B</code>) on light menu bars, with an emerald (<code>#22C55E</code>) dot.</td>
-            </tr>
-            <tr>
-              <td>Custom Ignored Words</td>
-              <td><span class="status-tag">Configurable</span></td>
-              <td>User-defined dictionary of proprietary names, identifiers, or project terms.</td>
-            </tr>
-            <tr>
-              <td>Disabled Applications</td>
-              <td><span class="status-tag">Configurable</span></td>
-              <td>Bundle identifiers where Inline stays dormant (e.g. games or virtual machines).</td>
+              <td>
+                <div class="cat-icon-wrap">
+                  <svg class="cat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  <span>Communication &amp; Docs</span>
+                </div>
+              </td>
+              <td>Slack, Discord, Telegram, Messages, Notion, Obsidian, Linear, Google Docs</td>
+              <td><span class="status-tag">Electron AX Bounds</span></td>
             </tr>
           </tbody>
         </table>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- Building from Source & Testing -->
-    <section id="building">
-      <h2>Building from Source &amp; Unit Tests</h2>
-      <p>
-        Inline compiles natively on Apple Silicon and Intel Macs with CMake, Ninja, and Qt 6:
+  <!-- 8. "Get Inline" Install Section -->
+  <section class="install-section" id="install">
+    <div class="cv-column">
+      <h2 class="section-h2">Runs wherever you type on Mac.</h2>
+      <p class="section-lead">
+        Install via Homebrew, run the one-line terminal installer (clears Gatekeeper quarantine automatically), or grab the universal DMG.
       </p>
 
-      <div class="code-title"><span class="code-title-dot"></span><span>Terminal</span></div>
-      <pre class="code-snippet"><span class="cm"># 1. Clone the repository</span>
-git clone https://github.com/LaxExe/Inline-MacOS-Win32Build.git
-cd Inline-MacOS-Win32Build
-git checkout mac-branch
+      <div class="install-cards-grid">
+        <!-- Card 1: DMG -->
+        <div class="install-card">
+          <div>
+            <h3>Direct DMG Installer</h3>
+            <p>
+              Native menu bar app bundle (<code>Inline.app</code>) with adaptive contrast icon, guided permissions, and Qt 6 settings.
+            </p>
+          </div>
+          <div>
+            <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.7/Inline-v1.7-macOS.dmg" class="btn-hero-primary" style="width: 100%; justify-content: center; height: 42px; font-size: 13.5px;">
+              <span>Download Inline-v1.7-macOS.dmg</span>
+            </a>
+          </div>
+        </div>
 
-<span class="cm"># 2. Configure release build with Ninja</span>
-cmake -B build_release -DCMAKE_BUILD_TYPE=Release -G Ninja
+        <!-- Card 2: Homebrew & One-Line Script -->
+        <div class="install-card">
+          <div>
+            <h3>Homebrew &amp; Terminal</h3>
+            <p>
+              Installs directly to <code>/Applications</code>, strips macOS quarantine attributes, and launches Inline in one step.
+            </p>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="cmd-box">
+              <div class="cmd-box-text">
+                <span class="cli-prompt">$</span>
+                <span id="cmdBrew2">brew install LaxExe/tap/inline</span>
+              </div>
+              <button class="btn-copy" data-target="cmdBrew2">Copy</button>
+            </div>
+            <div class="cmd-box">
+              <div class="cmd-box-text">
+                <span class="cli-prompt">$</span>
+                <span id="cmdCurl">curl -fsSL https://raw.githubusercontent.com/LaxExe/Inline-MacOS-Win32Build/mac-branch/install.sh | bash</span>
+              </div>
+              <button class="btn-copy" data-target="cmdCurl">Copy</button>
+            </div>
+          </div>
+        </div>
 
-<span class="cm"># 3. Compile app bundle and neural helper</span>
-cmake --build build_release --target Inline InlinePredictor
-
-<span class="cm"># 4. Ad-hoc codesign</span>
-codesign --force --deep --sign - -i com.inline.mac build_release/gui/Inline.app
-
-<span class="cm"># 5. Run test harness</span>
-ctest --test-dir build_release --output-on-failure</pre>
-
-      <p>
-        The automated test suite verifies 100% of core engine functionality across 5 dedicated test binaries:
-      </p>
-      <ul style="color: var(--ink-secondary); padding-left: 20px; line-height: 1.8; margin-bottom: 24px; font-size: 13.5px;">
-        <li><code>test_tier1</code>: SymSpell dictionary lookup, Damerau-Levenshtein distance &le; 2, and slang preservation.</li>
-        <li><code>test_ghost_text</code>: N-gram trie prefix generation, layout metrics, and token healing.</li>
-        <li><code>test_settings_binding</code>: Two-way binding between Qt controls and JSON configuration.</li>
-        <li><code>test_word_boundary</code>: Boundary parsing, delimiter detection, and whitespace normalization.</li>
-        <li><code>test_undo_state_machine</code>: Transition verification, single-key revert, and re-correction suppression.</li>
-      </ul>
-    </section>
-
-
-    <!-- Windows Beta Notice -->
-    <section class="windows-note">
-      <p>
-        <strong>Windows support (beta):</strong> A native Windows port using <code>WH_KEYBOARD_LL</code> and <code>SendInput</code> is currently in beta and is actively being built on the <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/tree/windows-branch" target="_blank" rel="noopener">windows-branch on GitHub</a>.
-      </p>
-    </section>
-
-  </main>
-
-  <!-- Minimal Footer -->
-  <footer>
-    <div class="footer-inner">
-      <div class="footer-brand">
-        <svg viewBox="0 0 32 32" width="16" height="16" aria-hidden="true" style="border-radius:3px;">
-          <rect width="32" height="32" rx="7.2" fill="#141417"/>
-          <rect x="11.8" y="8.3" width="2.6" height="15.4" rx="0.5" fill="#FAFAFA"/>
-          <rect x="16.4" y="14.1" width="3.8" height="3.8" rx="0.8" fill="#22C55E"/>
-        </svg>
-        <span>Inline for macOS &bull; MIT License</span>
+        <!-- Card 3: Build from Source -->
+        <div class="install-card">
+          <div>
+            <h3>Build from Source</h3>
+            <p>
+              Compile the app bundle, neural predictor helper, and run all 5 GoogleTest unit test suites locally.
+            </p>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="cmd-box">
+              <div class="cmd-box-text">
+                <span class="cli-prompt">$</span>
+                <span id="cmdSource">./install_mac.sh</span>
+              </div>
+              <button class="btn-copy" data-target="cmdSource">Copy</button>
+            </div>
+            <div class="cmd-box">
+              <div class="cmd-box-text">
+                <span class="cli-prompt">$</span>
+                <span id="cmdTest">ctest --test-dir build_release --output-on-failure</span>
+              </div>
+              <button class="btn-copy" data-target="cmdTest">Copy</button>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="footer-links">
-        <a href="#">Back to top</a>
-        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases">Releases</a>
-        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build">GitHub</a>
+    </div>
+  </section>
+
+  <!-- 9. Clean Minimal 3-Column Footer -->
+  <footer class="site-footer">
+    <div class="cv-column">
+      <div class="footer-grid">
+        <div>
+          <a href="#" class="brand-logo" style="margin-bottom: 10px;">
+            <svg class="logo-mark-svg" viewBox="0 0 32 32" width="20" height="20" aria-hidden="true">
+              <rect width="32" height="32" rx="7.2" fill="#141417"/>
+              <rect x="11.8" y="8.3" width="2.6" height="15.4" rx="0.5" fill="#FAFAFA"/>
+              <rect x="16.4" y="14.1" width="3.8" height="3.8" rx="0.8" fill="#22C55E"/>
+            </svg>
+            <span>Inline</span>
+          </a>
+          <p style="color: var(--ink-muted); max-width: 340px; font-size: 13.5px; line-height: 1.6;">
+            Native C++20 autocorrect and predictive ghost text for macOS. Windows port (beta) available on the <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/tree/windows-branch" style="text-decoration: underline;" target="_blank" rel="noopener">windows-branch</a>.
+          </p>
+        </div>
+
+        <div>
+          <div class="footer-col-title">Product</div>
+          <div class="footer-link-list">
+            <a href="#video-demo">Video Walkthrough</a>
+            <a href="#demo">Live Playground</a>
+            <a href="#features">Features</a>
+            <a href="#how-it-works">Engineering Deep-Dive</a>
+            <a href="#benchmarks">Benchmarks</a>
+          </div>
+        </div>
+
+        <div>
+          <div class="footer-col-title">Resources</div>
+          <div class="footer-link-list">
+            <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" target="_blank" rel="noopener">GitHub Repository</a>
+            <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases" target="_blank" rel="noopener">macOS Releases (v1.7)</a>
+            <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/tree/windows-branch" target="_blank" rel="noopener">Windows Branch (Beta)</a>
+            <a href="#shortcuts">Keyboard Shortcuts</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span>&copy; 2026 Inline &middot; MIT License</span>
+        <span>macOS Native C++20</span>
       </div>
     </div>
   </footer>
 
   <script>
-    // Theme Switcher
+    // 1. Auto-detect when user places their recorded video at docs/assets/demo.mp4
+    (function () {
+      const videoEl = document.getElementById('demoVideoPlayer');
+      const stageInner = document.getElementById('videoStageInner');
+      if (!videoEl || !stageInner) return;
+      videoEl.addEventListener('loadedmetadata', () => {
+        stageInner.classList.add('has-video');
+      });
+    })();
+
+    // 2. Theme Switcher (Light / Dark Mode)
     const themeBtn = document.getElementById('themeToggleBtn');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
 
@@ -1870,7 +2247,7 @@ ctest --test-dir build_release --output-on-failure</pre>
       });
     }
 
-    // Copy Buttons
+    // 3. Copy Buttons
     document.querySelectorAll('.btn-copy').forEach(btn => {
       btn.addEventListener('click', () => {
         const targetId = btn.dataset.target;
@@ -1882,15 +2259,15 @@ ctest --test-dir build_release --output-on-failure</pre>
           btn.textContent = 'Copied';
           setTimeout(() => {
             btn.textContent = origText;
-          }, 1500);
+          }, 1600);
         });
       });
     });
 
-    // Persistent Global Download Counter (Abacus API + GitHub Releases API + localStorage fallback) & Email Stat Prompt
+    // 4. Persistent Global Download Counter (Abacus API + GitHub Releases API + localStorage fallback) & Email Stat Prompt
     (function () {
       const BASE_DOWNLOADS = 35;
-      const GH_PRE_OFFSET = 9; // 26 existing GitHub release downloads + 9 prior direct installs = 35 baseline
+      const GH_PRE_OFFSET = 9;
       const ABACUS_BASE = 'https://abacus.jasoncameron.dev';
       const ABACUS_NS = 'laxexe-inline-macos';
       const ABACUS_KEY = 'downloads-v1';
@@ -1918,7 +2295,6 @@ ctest --test-dir build_release --output-on-failure</pre>
 
       renderCount();
 
-      // Sync persistent global click counter across all visitors
       fetch(ABACUS_BASE + '/get/' + ABACUS_NS + '/' + ABACUS_KEY, { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
@@ -1929,7 +2305,6 @@ ctest --test-dir build_release --output-on-failure</pre>
         })
         .catch(() => {});
 
-      // Also track total GitHub Releases .dmg downloads (covers direct GitHub, brew, and curl installs)
       fetch('https://api.github.com/repos/LaxExe/Inline-MacOS-Win32Build/releases', { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
         .then((releases) => {
@@ -1993,7 +2368,7 @@ ctest --test-dir build_release --output-on-failure</pre>
       }
     })();
 
-    // ===== Live Simulator: faithful in-browser port of Inline C++20 Engine (corrector.cpp + ngram_predictor.cpp) =====
+    // ===== 5. Live Simulator: faithful in-browser port of Inline C++20 Engine (corrector.cpp + ngram_predictor.cpp) =====
     (function () {
       const demoInput = document.getElementById('demoInput');
       const ghostLayer = document.getElementById('ghostLayer');
@@ -2104,7 +2479,6 @@ ctest --test-dir build_release --output-on-failure</pre>
         engineReady = true;
       }
 
-      // Synchronous bootstrap dictionary so the simulator works at t = 0 ms even before fetch() completes
       const BOOTSTRAP_UNIGRAMS = [
         'the 23135851162', 'of 13151942776', 'and 12997637966', 'to 12136980858', 'a 9081174698',
         'in 8469404971', 'for 5933321709', 'is 4705743816', 'on 3750423199', 'that 3400031103',
@@ -2159,7 +2533,6 @@ ctest --test-dir build_release --output-on-failure</pre>
         'forward to 5200000', 'thank you 9800000', 'please let 3400000', 'let me 6100000'
       ].join('\n');
 
-      // ---------- Exact C++ Corrector Rules (core/tier1/corrector.cpp) ----------
       const QWERTY_NEIGHBORS = {
         a: 'qwsz', b: 'vghn', c: 'xdfv', d: 'ersfxc', e: 'wsdr', f: 'rtgvcd',
         g: 'tyhbvf', h: 'yujnbg', i: 'ujko', j: 'uikmnh', k: 'ijlm', l: 'okp',
@@ -2245,72 +2618,23 @@ ctest --test-dir build_release --output-on-failure</pre>
       }
 
       const COMMON_EXPANSIONS = {
-        i: 'I',
-        im: "I'm",
-        ive: "I've",
-        id: "I'd",
-        ill: "I'll",
-        dont: "don't",
-        cant: "can't",
-        wont: "won't",
-        didnt: "didn't",
-        doesnt: "doesn't",
-        isnt: "isn't",
-        arent: "aren't",
-        wasnt: "wasn't",
-        werent: "weren't",
-        hasnt: "hasn't",
-        havent: "haven't",
-        hadnt: "hadn't",
-        couldnt: "couldn't",
-        shouldnt: "shouldn't",
-        wouldnt: "wouldn't",
-        theyre: "they're",
-        youre: "you're",
-        weve: "we've",
-        theyve: "they've",
-        youve: "you've",
-        whats: "what's",
-        thats: "that's",
-        lets: "let's",
-        theres: "there's",
-        heres: "here's",
-        hows: "how's",
-        whos: "who's",
-        wheres: "where's",
-        couldve: "could've",
-        shouldve: "should've",
-        wouldve: "would've",
-        mustnt: "mustn't",
-        mightnt: "mightn't",
-        neednt: "needn't",
-        itll: "it'll",
-        yall: "y'all",
-        youll: "you'll",
-        theyll: "they'll",
-        doenst: "doesn't",
-        knwo: 'know',
-        smothly: 'smoothly',
-        applicaiton: 'application',
-        nessasry: 'necessary',
-        permision: 'permission',
-        troble: 'trouble',
-        imediatly: 'immediately',
-        completly: 'completely',
-        autp: 'auto',
-        autpcrreccts: 'autocorrects',
-        teh: 'the',
-        het: 'the',
-        th: 'the',
-        ths: 'this',
-        intdo: 'into',
-        duto: 'auto',
-        neht: 'next',
-        asw: 'as',
-        wors: 'words',
-        alot: 'a lot',
-        fo: 'of',
-        og: 'of'
+        i: 'I', im: "I'm", ive: "I've", id: "I'd", ill: "I'll",
+        dont: "don't", cant: "can't", wont: "won't", didnt: "didn't", doesnt: "doesn't",
+        isnt: "isn't", arent: "aren't", wasnt: "wasn't", werent: "weren't",
+        hasnt: "hasn't", havent: "haven't", hadnt: "hadn't",
+        couldnt: "couldn't", shouldnt: "shouldn't", wouldnt: "wouldn't",
+        theyre: "they're", youre: "you're", weve: "we've", theyve: "they've", youve: "you've",
+        whats: "what's", thats: "that's", lets: "let's", theres: "there's", heres: "here's",
+        hows: "how's", whos: "who's", wheres: "where's",
+        couldve: "could've", shouldve: "should've", wouldve: "would've",
+        mustnt: "mustn't", mightnt: "mightn't", neednt: "needn't",
+        itll: "it'll", yall: "y'all", youll: "you'll", theyll: "they'll",
+        doenst: "doesn't", knwo: 'know', smothly: 'smoothly', applicaiton: 'application',
+        nessasry: 'necessary', permision: 'permission', troble: 'trouble',
+        imediatly: 'immediately', completly: 'completely', autp: 'auto',
+        autpcrreccts: 'autocorrects', teh: 'the', het: 'the', th: 'the', ths: 'this',
+        intdo: 'into', duto: 'auto', neht: 'next', asw: 'as', wors: 'words',
+        alot: 'a lot', fo: 'of', og: 'of'
       };
 
       function dlBounded(s1, s2, maxDist) {
@@ -2384,7 +2708,6 @@ ctest --test-dir build_release --output-on-failure</pre>
 
         const cleanPrev = (prevWord || '').replace(/[^a-zA-Z0-9']/g, '').toLowerCase();
 
-        // 1. Check contractions and explicit auto-cleanups
         if (Object.prototype.hasOwnProperty.call(COMMON_EXPANSIONS, lowerTyped)) {
           if (lowerTyped === 'og' && isAllUpper(typed)) return result;
           let exp = COMMON_EXPANSIONS[lowerTyped];
@@ -2399,7 +2722,6 @@ ctest --test-dir build_release --output-on-failure</pre>
           return result;
         }
 
-        // 2. Check if already valid dictionary word
         if (uni.has(lowerTyped)) {
           if (sentenceCorrectionEnabled && isSentenceStart && /^[a-z]/.test(typed)) {
             result.didCorrect = true;
@@ -2472,7 +2794,6 @@ ctest --test-dir build_release --output-on-failure</pre>
           }
         }
 
-        // 3. Run-together words & compound typos
         let camelCaseSplit = 0;
         let hasCamelCase = false;
         for (let i = 1; i < typed.length; i++) {
@@ -2610,202 +2931,81 @@ ctest --test-dir build_release --output-on-failure</pre>
         return result;
       }
 
-      // ---------- Exact C++ NgramPredictor (core/predict/ngram_predictor.cpp) ----------
       const MULTI_WORD_PHRASES = new Map([
-        ['thank', 'you so much'],
-        ['thanks', 'for letting me know'],
-        ['looking', 'forward to'],
-        ['forward', 'to hearing from you'],
-        ['please', 'let me know'],
-        ['let', 'me know if'],
-        ['hope', 'you are doing well'],
-        ['would', 'like to'],
-        ['could', 'you please'],
-        ['should', 'be able to'],
-        ['going', 'to be'],
-        ['want', 'to make sure'],
-        ['wanted', 'to follow up'],
-        ['need', 'to be'],
-        ['able', 'to get'],
-        ['working', 'on the'],
-        ['think', 'that we'],
-        ['know', 'if you need'],
-        ['feel', 'free to reach out'],
-        ['talk', 'to you soon'],
-        ['sounds', 'good to me'],
-        ['makes', 'sense to me'],
-        ['happy', 'to help'],
-        ['excited', 'to share'],
-        ['sorry', 'for the delay'],
-        ['apologies', 'for the delay'],
-        ['attached', 'is the'],
-        ['following', 'up on'],
-        ['schedule', 'a quick call'],
-        ['meeting', 'with the team'],
-        ['questions', 'please let me know'],
-        ['because', 'of the'],
-        ['however', 'we can'],
-        ['whether', 'or not'],
-        ['welcome', 'to the'],
-        ['according', 'to the'],
-        ['instead', 'of the'],
-        ['important', 'to make sure'],
-        ['available', 'for a quick'],
-        ['definitely', 'let you know'],
-        ['appreciate', 'your help'],
-        ['thank you', 'so much'],
-        ['thank you so', 'much for your help'],
-        ['you so', 'much for your help'],
-        ['so much', 'for your help'],
-        ['much for', 'your help'],
-        ['thank you for', 'your time and help'],
-        ['you for', 'your time'],
-        ['thanks for', 'letting me know'],
-        ['for letting', 'me know'],
-        ['letting me', 'know'],
-        ['looking forward', 'to hearing from you'],
-        ['looking forward to', 'hearing from you'],
-        ['forward to', 'hearing from you'],
-        ['to hearing', 'from you'],
-        ['hearing from', 'you'],
-        ['let me', 'know if you'],
-        ['me know', 'if you need anything'],
-        ['know if', 'you need anything'],
-        ['let me know', 'if you need anything'],
-        ['please let', 'me know if'],
-        ['please let me', 'know if you'],
-        ['i am', 'going to be'],
-        ['am going', 'to be'],
-        ['going to', 'be'],
-        ['i will', 'send over the'],
-        ['i have', 'been working on'],
-        ['have been', 'working on the'],
-        ['been working', 'on the'],
-        ['i would', 'like to'],
-        ['would like', 'to schedule a call'],
-        ['like to', 'schedule a call'],
-        ['i want', 'to make sure'],
-        ['want to', 'make sure'],
-        ['to make', 'sure that'],
-        ['make sure', 'that we'],
-        ['i wanted', 'to follow up'],
-        ['i wanted to', 'follow up on'],
-        ['wanted to', 'follow up on'],
-        ['follow up', 'on the'],
-        ['i think', 'we should'],
-        ['think we', 'should be able to'],
-        ['i need', 'to get'],
-        ['i can', 'help with that'],
-        ['can help', 'with that'],
-        ['we are', 'going to'],
-        ['are going', 'to be'],
-        ['we can', 'schedule a'],
-        ['we should', 'be able to'],
-        ['should be', 'able to'],
-        ['be able', 'to get'],
-        ['we have', 'been working on'],
-        ['we will', 'keep you posted'],
-        ['you can', 'find the'],
-        ['you are', 'doing well'],
-        ['you have', 'any questions'],
-        ['if you', 'have any questions'],
-        ['if you have', 'any questions'],
-        ['have any', 'questions please let me know'],
-        ['any questions', 'please let me know'],
-        ['if you need', 'anything else'],
-        ['you need', 'anything else'],
-        ['as soon', 'as possible'],
-        ['soon as', 'possible'],
-        ['as soon as', 'possible'],
-        ['have a', 'great day'],
-        ['hope you', 'are doing well'],
-        ['hope this', 'finds you well'],
-        ['this finds', 'you well'],
-        ['i hope', 'this finds you well'],
-        ['would love', 'to chat'],
-        ['sounds good', 'to me'],
-        ['makes sense', 'to me'],
-        ['in the', 'meantime'],
-        ['at the', 'same time'],
-        ['on the', 'other hand'],
-        ['by the', 'way'],
-        ['for the', 'first time'],
-        ['in order', 'to make'],
-        ['feel free', 'to reach out'],
-        ['feel free to', 'reach out'],
-        ['free to', 'reach out'],
-        ['do you', 'have time'],
-        ['can you', 'please send'],
-        ['could you', 'please share'],
-        ['let us', 'know what you think'],
-        ['this is', 'going to be'],
-        ['it is', 'important to'],
-        ['there is', 'a lot of'],
-        ['not sure', 'if we'],
-        ['just wanted', 'to check in'],
-        ['check in', 'on the'],
-        ['git', 'commit -m'],
-        ['git commit', '-m "update"'],
-        ['git push', 'origin main'],
-        ['pull', 'request'],
-        ['pull request', 'for review'],
-        ['create', 'a new branch'],
-        ['review', 'the pull request'],
-        ['merge', 'the changes into main'],
-        ['build', 'and test the release'],
-        ['deploy', 'to production'],
-        ['project', 'requirements and roadmap'],
-        ['update', 'the documentation and tests'],
-        ['feature', 'implementation and testing'],
-        ['issue', 'has been resolved'],
-        ['bug', 'fix for the release'],
-        ['release', 'the new version on GitHub'],
-        ['benchmark', 'and performance analysis'],
-        ['latency', 'and memory constraints'],
-        ['seamless', 'experience for users'],
-        ['consistent', 'with the system settings'],
-        ['implementation', 'of the feature'],
-        ['performance', 'and reliability improvements'],
-        ['optimization', 'for faster execution'],
-        ['unit', 'tests are passing cleanly'],
-        ['unit tests', 'are passing cleanly'],
-        ['tests are', 'passing cleanly'],
-        ['are passing', 'cleanly'],
-        ['all tests', 'passed successfully'],
-        ['check', 'the logs for details'],
-        ['handle', 'the edge cases properly'],
-        ['in terms', 'of features and performance'],
-        ['in terms of', 'features and quality'],
-        ['according to', 'the project requirements'],
-        ['system-wide', 'autocorrect and ghost text'],
-        ['ghost', 'text predictions'],
-        ['ghost text', 'predictions'],
-        ['light', 'and dark appearance'],
-        ['dark', 'mode support'],
-        ['looks', 'good to me'],
-        ['looks good', 'to me'],
-        ['looks great', 'thanks for working on this'],
-        ['sounds like', 'a great plan'],
-        ['sounds like a', 'great plan'],
-        ['no worries', 'at all'],
-        ['no problem', 'happy to help'],
-        ['will do', 'thanks for letting me know'],
-        ['take your', 'time on this'],
-        ['reach out', 'if you have questions'],
-        ['keep in', 'touch'],
-        ['keep you', 'posted on progress'],
-        ['will keep you', 'updated on progress'],
-        ['let me know what', 'you think'],
-        ['let me know when', 'you are free'],
-        ['see you', 'tomorrow'],
-        ['hope this helps', 'let me know'],
-        ['have a good', 'one'],
-        ['have a great', 'weekend'],
-        ['i will look', 'into this right away'],
-        ['i will make', 'sure to update you'],
-        ['i will take', 'care of this'],
-        ['with the', 'team'],
-        ['meeting with', 'the team']
+        ['thank', 'you so much'], ['thanks', 'for letting me know'], ['looking', 'forward to'],
+        ['forward', 'to hearing from you'], ['please', 'let me know'], ['let', 'me know if'],
+        ['hope', 'you are doing well'], ['would', 'like to'], ['could', 'you please'],
+        ['should', 'be able to'], ['going', 'to be'], ['want', 'to make sure'],
+        ['wanted', 'to follow up'], ['need', 'to be'], ['able', 'to get'],
+        ['working', 'on the'], ['think', 'that we'], ['know', 'if you need'],
+        ['feel', 'free to reach out'], ['talk', 'to you soon'], ['sounds', 'good to me'],
+        ['makes', 'sense to me'], ['happy', 'to help'], ['excited', 'to share'],
+        ['sorry', 'for the delay'], ['apologies', 'for the delay'], ['attached', 'is the'],
+        ['following', 'up on'], ['schedule', 'a quick call'], ['meeting', 'with the team'],
+        ['questions', 'please let me know'], ['because', 'of the'], ['however', 'we can'],
+        ['whether', 'or not'], ['welcome', 'to the'], ['according', 'to the'],
+        ['instead', 'of the'], ['important', 'to make sure'], ['available', 'for a quick'],
+        ['definitely', 'let you know'], ['appreciate', 'your help'], ['thank you', 'so much'],
+        ['thank you so', 'much for your help'], ['you so', 'much for your help'],
+        ['so much', 'for your help'], ['much for', 'your help'], ['thank you for', 'your time and help'],
+        ['you for', 'your time'], ['thanks for', 'letting me know'], ['for letting', 'me know'],
+        ['letting me', 'know'], ['looking forward', 'to hearing from you'],
+        ['looking forward to', 'hearing from you'], ['forward to', 'hearing from you'],
+        ['to hearing', 'from you'], ['hearing from', 'you'], ['let me', 'know if you'],
+        ['me know', 'if you need anything'], ['know if', 'you need anything'],
+        ['let me know', 'if you need anything'], ['please let', 'me know if'],
+        ['please let me', 'know if you'], ['i am', 'going to be'], ['am going', 'to be'],
+        ['going to', 'be'], ['i will', 'send over the'], ['i have', 'been working on'],
+        ['have been', 'working on the'], ['been working', 'on the'], ['i would', 'like to'],
+        ['would like', 'to schedule a call'], ['like to', 'schedule a call'], ['i want', 'to make sure'],
+        ['want to', 'make sure'], ['to make', 'sure that'], ['make sure', 'that we'],
+        ['i wanted', 'to follow up'], ['i wanted to', 'follow up on'], ['wanted to', 'follow up on'],
+        ['follow up', 'on the'], ['i think', 'we should'], ['think we', 'should be able to'],
+        ['i need', 'to get'], ['i can', 'help with that'], ['can help', 'with that'],
+        ['we are', 'going to'], ['are going', 'to be'], ['we can', 'schedule a'],
+        ['we should', 'be able to'], ['should be', 'able to'], ['be able', 'to get'],
+        ['we have', 'been working on'], ['we will', 'keep you posted'], ['you can', 'find the'],
+        ['you are', 'doing well'], ['you have', 'any questions'], ['if you', 'have any questions'],
+        ['if you have', 'any questions'], ['have any', 'questions please let me know'],
+        ['any questions', 'please let me know'], ['if you need', 'anything else'],
+        ['you need', 'anything else'], ['as soon', 'as possible'], ['soon as', 'possible'],
+        ['as soon as', 'possible'], ['have a', 'great day'], ['hope you', 'are doing well'],
+        ['hope this', 'finds you well'], ['this finds', 'you well'], ['i hope', 'this finds you well'],
+        ['would love', 'to chat'], ['sounds good', 'to me'], ['makes sense', 'to me'],
+        ['in the', 'meantime'], ['at the', 'same time'], ['on the', 'other hand'],
+        ['by the', 'way'], ['for the', 'first time'], ['in order', 'to make'],
+        ['feel free', 'to reach out'], ['feel free to', 'reach out'], ['free to', 'reach out'],
+        ['do you', 'have time'], ['can you', 'please send'], ['could you', 'please share'],
+        ['let us', 'know what you think'], ['this is', 'going to be'], ['it is', 'important to'],
+        ['there is', 'a lot of'], ['not sure', 'if we'], ['just wanted', 'to check in'],
+        ['check in', 'on the'], ['git', 'commit -m'], ['git commit', '-m "update"'],
+        ['git push', 'origin main'], ['pull', 'request'], ['pull request', 'for review'],
+        ['create', 'a new branch'], ['review', 'the pull request'], ['merge', 'the changes into main'],
+        ['build', 'and test the release'], ['deploy', 'to production'],
+        ['project', 'requirements and roadmap'], ['update', 'the documentation and tests'],
+        ['feature', 'implementation and testing'], ['issue', 'has been resolved'],
+        ['bug', 'fix for the release'], ['release', 'the new version on GitHub'],
+        ['benchmark', 'and performance analysis'], ['latency', 'and memory constraints'],
+        ['seamless', 'experience for users'], ['consistent', 'with the system settings'],
+        ['implementation', 'of the feature'], ['performance', 'and reliability improvements'],
+        ['optimization', 'for faster execution'], ['unit', 'tests are passing cleanly'],
+        ['unit tests', 'are passing cleanly'], ['tests are', 'passing cleanly'],
+        ['are passing', 'cleanly'], ['all tests', 'passed successfully'],
+        ['check', 'the logs for details'], ['handle', 'the edge cases properly'],
+        ['in terms', 'of features and performance'], ['in terms of', 'features and quality'],
+        ['according to', 'the project requirements'], ['system-wide', 'autocorrect and ghost text'],
+        ['ghost', 'text predictions'], ['ghost text', 'predictions'],
+        ['light', 'and dark appearance'], ['dark', 'mode support'], ['looks', 'good to me'],
+        ['looks good', 'to me'], ['looks great', 'thanks for working on this'],
+        ['sounds like', 'a great plan'], ['sounds like a', 'great plan'], ['no worries', 'at all'],
+        ['no problem', 'happy to help'], ['will do', 'thanks for letting me know'],
+        ['take your', 'time on this'], ['reach out', 'if you have questions'],
+        ['keep in', 'touch'], ['keep you', 'posted on progress'],
+        ['will keep you', 'updated on progress'], ['let me know what', 'you think'],
+        ['let me know when', 'you are free'], ['see you', 'tomorrow'],
+        ['hope this helps', 'let me know'], ['have a good', 'one'], ['have a great', 'weekend'],
+        ['i will look', 'into this right away'], ['i will make', 'sure to update you'],
+        ['i will take', 'care of this'], ['with the', 'team'], ['meeting with', 'the team']
       ]);
 
       function getNextWords(prevWord, maxResults = 4) {
@@ -2943,7 +3143,6 @@ ctest --test-dir build_release --output-on-failure</pre>
         const prevThreeWords = contextWords.length >= 3 ? contextWords[contextWords.length - 3].toLowerCase() + ' ' + prevTwoWords : '';
         const isSentenceStart = contextWords.length === 0 && !partialWord;
 
-        // Case 1: Completing a partial word (or predicting after a completed word with no space yet)
         if (partialWord) {
           if (partialWord.length < 2 && !prevWord && !afterAcceptChain) return '';
           const lowerPart = partialWord.toLowerCase();
@@ -2963,7 +3162,6 @@ ctest --test-dir build_release --output-on-failure</pre>
             return '';
           }
 
-          // 1a. Check if (prevThreeWords / prevTwoWords / prevWord) + partialWord matches a curated multi-word phrase (Type-Through)
           for (const ctxKey of [prevThreeWords, prevTwoWords, prevWord]) {
             if (!ctxKey) continue;
             const phraseCont = MULTI_WORD_PHRASES.get(ctxKey);
@@ -2984,10 +3182,8 @@ ctest --test-dir build_release --output-on-failure</pre>
             }
           }
 
-          // 1b. Look up prefix completions
           const cands = completePrefix(partialWord, prevWord, 5);
 
-          // 1c. Dominance check: has the user ALREADY finished typing a complete word?
           if (lowerPart.length >= 2) {
             let exactScore = uni.get(lowerPart) || 0;
             if (prevWord) {
@@ -3028,7 +3224,6 @@ ctest --test-dir build_release --output-on-failure</pre>
           return chained;
         }
 
-        // Case 2: Next-word prediction after a space (partialWord is empty)
         if (!prevWord) return '';
         for (const key of [prevThreeWords, prevTwoWords, prevWord]) {
           if (!key) continue;
@@ -3051,27 +3246,24 @@ ctest --test-dir build_release --output-on-failure</pre>
         return built;
       }
 
-      // ---------- Data loading ----------
       function setStats(t) { if (simStats) simStats.textContent = t; }
 
-      // Seed synchronous bootstrap immediately so t = 0 ms keystrokes work
       parseDictionaries(BOOTSTRAP_UNIGRAMS, BOOTSTRAP_BIGRAMS);
 
       function loadEngine() {
         const t0 = performance.now();
-        setStats('loading full 83k dictionary...');
+        setStats('loading 83k dictionary...');
         const get = (p) => fetch(p).then((r) => { if (!r.ok) throw new Error(p); return r.text(); });
         return Promise.all([get('data/unigrams.txt'), get('data/bigrams.txt')]).then(([u, b]) => {
           parseDictionaries(u, b);
           const ms = Math.round(performance.now() - t0);
-          setStats(uni.size.toLocaleString() + ' words • ' + bi.size.toLocaleString() + ' bigrams (' + ms + ' ms)');
+          setStats(uni.size.toLocaleString() + ' words · ' + bi.size.toLocaleString() + ' bigrams (' + ms + ' ms)');
           updatePredictions();
         }).catch(() => {
           setStats('active (embedded dictionary)');
         });
       }
 
-      // ---------- UI & Event Plumbing ----------
       function prevWordOf(head) {
         if (/[.!?]\s*$/.test(head) || /\n\s*$/.test(head)) return '';
         const m = head.match(/([A-Za-z0-9']+)\s*$/);
@@ -3136,7 +3328,7 @@ ctest --test-dir build_release --output-on-failure</pre>
         setCursor(newCursor);
         lastAction = { type: 'correct', raw: raw, corrected: res.corrected, delim: delim, start: wordStart, end: newCursor };
         justAccepted = false;
-        showStatus(raw + ' -> ' + res.corrected + '  (' + ms.toFixed(2) + ' ms)');
+        showStatus(raw + ' -> ' + res.corrected + ' (' + ms.toFixed(2) + ' ms)');
         updatePredictions();
         return true;
       }
@@ -3253,7 +3445,6 @@ ctest --test-dir build_release --output-on-failure</pre>
           return;
         }
         if (e.key === 'Enter') {
-          // Rule 5: Enter NEVER autocorrects — commits raw text and starts new sentence
           lastAction = null;
           justAccepted = false;
           return;
