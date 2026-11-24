@@ -1254,10 +1254,23 @@
     }
 
     footer.site-footer {
-      padding: 48px 0 40px;
+      padding: 56px 0 40px;
       border-top: 1px solid var(--line);
       color: var(--ink-muted);
       font-size: 13px;
+    }
+
+    .ascii-wordmark {
+      font-family: var(--font-mono);
+      font-size: clamp(7px, 1.15vw, 13px);
+      line-height: 1.15;
+      color: var(--ink-faint);
+      opacity: 0.45;
+      text-align: center;
+      white-space: pre;
+      overflow: hidden;
+      margin-bottom: 48px;
+      user-select: none;
     }
 
     .footer-grid {
@@ -2170,9 +2183,16 @@ CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapP
     </div>
   </section>
 
-  <!-- 9. Clean Minimal 3-Column Footer -->
+  <!-- 9. Clean Minimal 3-Column Footer with ASCII Wordmark -->
   <footer class="site-footer">
     <div class="cv-column">
+      <div class="ascii-wordmark" aria-hidden="true"> ██╗███╗   ██╗██╗     ██╗███╗   ██╗███████╗
+ ██║████╗  ██║██║     ██║████╗  ██║██╔════╝
+ ██║██╔██╗ ██║██║     ██║██╔██╗ ██║█████╗  
+ ██║██║╚██╗██║██║     ██║██║╚██╗██║██╔══╝  
+ ██║██║ ╚████║███████╗██║██║ ╚████║███████╗
+ ╚═╝╚═╝  ╚═══╝╚══════╝╚═╝╚═╝  ╚═══╝╚══════╝</div>
+
       <div class="footer-grid">
         <div>
           <a href="#" class="brand-logo" style="margin-bottom: 10px;">
