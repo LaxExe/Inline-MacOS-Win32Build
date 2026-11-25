@@ -2,6 +2,7 @@
 #include "core/predict/suggestion_filter.h"
 #include <cwctype>
 #include <unordered_map>
+#include <unordered_set>
 #include <chrono>
 
 int maxWordsForLength(AppConfig::PredictionLength length) {
@@ -76,27 +77,55 @@ static const std::unordered_map<std::wstring, std::wstring>& multiWordPhrases() 
 
         // 2-word & 3-word continuations
         {L"thank you", L"so much"},
-        {L"thank you for", L"your time"},
+        {L"thank you so", L"much for your help"},
+        {L"you so", L"much for your help"},
+        {L"so much", L"for your help"},
+        {L"much for", L"your help"},
+        {L"thank you for", L"your time and help"},
+        {L"you for", L"your time"},
         {L"thanks for", L"letting me know"},
+        {L"for letting", L"me know"},
+        {L"letting me", L"know"},
         {L"looking forward", L"to hearing from you"},
         {L"looking forward to", L"hearing from you"},
+        {L"forward to", L"hearing from you"},
+        {L"to hearing", L"from you"},
+        {L"hearing from", L"you"},
         {L"let me", L"know if you"},
+        {L"me know", L"if you need anything"},
+        {L"know if", L"you need anything"},
         {L"let me know", L"if you need anything"},
         {L"please let", L"me know if"},
         {L"please let me", L"know if you"},
-        {L"i am", L"going to"},
+        {L"i am", L"going to be"},
+        {L"am going", L"to be"},
+        {L"going to", L"be"},
         {L"i will", L"send over the"},
         {L"i have", L"been working on"},
+        {L"have been", L"working on the"},
+        {L"been working", L"on the"},
         {L"i would", L"like to"},
+        {L"would like", L"to schedule a call"},
+        {L"like to", L"schedule a call"},
         {L"i want", L"to make sure"},
+        {L"want to", L"make sure"},
+        {L"to make", L"sure that"},
+        {L"make sure", L"that we"},
         {L"i wanted", L"to follow up"},
         {L"i wanted to", L"follow up on"},
+        {L"wanted to", L"follow up on"},
+        {L"follow up", L"on the"},
         {L"i think", L"we should"},
+        {L"think we", L"should be able to"},
         {L"i need", L"to get"},
         {L"i can", L"help with that"},
+        {L"can help", L"with that"},
         {L"we are", L"going to"},
+        {L"are going", L"to be"},
         {L"we can", L"schedule a"},
         {L"we should", L"be able to"},
+        {L"should be", L"able to"},
+        {L"be able", L"to get"},
         {L"we have", L"been working on"},
         {L"we will", L"keep you posted"},
         {L"you can", L"find the"},
@@ -104,15 +133,19 @@ static const std::unordered_map<std::wstring, std::wstring>& multiWordPhrases() 
         {L"you have", L"any questions"},
         {L"if you", L"have any questions"},
         {L"if you have", L"any questions"},
+        {L"have any", L"questions please let me know"},
+        {L"any questions", L"please let me know"},
         {L"if you need", L"anything else"},
+        {L"you need", L"anything else"},
         {L"as soon", L"as possible"},
+        {L"soon as", L"possible"},
         {L"as soon as", L"possible"},
         {L"have a", L"great day"},
         {L"hope you", L"are doing well"},
         {L"hope this", L"finds you well"},
+        {L"this finds", L"you well"},
         {L"i hope", L"this finds you well"},
         {L"would love", L"to chat"},
-        {L"would like", L"to schedule"},
         {L"sounds good", L"to me"},
         {L"makes sense", L"to me"},
         {L"in the", L"meantime"},
@@ -134,9 +167,9 @@ static const std::unordered_map<std::wstring, std::wstring>& multiWordPhrases() 
         {L"there is", L"a lot of"},
         {L"not sure", L"if we"},
         {L"just wanted", L"to check in"},
-        {L"wanted to", L"check in on"},
         {L"check in", L"on the"},
-        {L"follow up", L"on the"},
+        {L"with the", L"team"},
+        {L"meeting with", L"the team"},
 
         // Developer & Project continuations
         {L"git", L"commit -m"},
@@ -164,6 +197,8 @@ static const std::unordered_map<std::wstring, std::wstring>& multiWordPhrases() 
         {L"optimization", L"for faster execution"},
         {L"unit", L"tests are passing cleanly"},
         {L"unit tests", L"are passing cleanly"},
+        {L"tests are", L"passing cleanly"},
+        {L"are passing", L"cleanly"},
         {L"all tests", L"passed successfully"},
         {L"check", L"the logs for details"},
         {L"handle", L"the edge cases properly"},
@@ -171,7 +206,7 @@ static const std::unordered_map<std::wstring, std::wstring>& multiWordPhrases() 
         {L"in terms of", L"features and quality"},
         {L"according to", L"the project requirements"},
         {L"system-wide", L"autocorrect and ghost text"},
-        {L"ghost", L"text suggestions"},
+        {L"ghost", L"text predictions"},
         {L"ghost text", L"predictions"},
         {L"light", L"and dark appearance"},
         {L"dark", L"mode support"},
@@ -231,13 +266,16 @@ static std::wstring buildNextWordChain(
     std::wstring chained;
     std::wstring w = curWord;
     int added = wordsAlready;
+    std::unordered_set<std::wstring> seen;
+    seen.insert(curWord);
     while (added < maxWords) {
         auto nexts = dict.getNextWords(w, 4);
         if (nexts.empty() || nexts[0].probability < 0.045) break;
         const std::wstring& nw = nexts[0].nextWord;
-        if (nw == w) break;
+        if (nw == w || seen.count(nw) > 0) break;
+        seen.insert(nw);
         if (!chained.empty()) chained += L" ";
-        chained += nw;
+        chained += (nw == L"i") ? L"I" : nw;
         added++;
 
         // Check if (w + " " + nw) has a curated phrase continuation
@@ -258,7 +296,8 @@ PredictionResult NgramPredictor::predict(
     const std::vector<std::wstring>& contextWords,
     const std::wstring& partialWord,
     AppConfig::PredictionLength lengthMode,
-    bool isSentenceStart
+    bool isSentenceStart,
+    bool afterAcceptChain
 ) const {
     auto t0 = std::chrono::steady_clock::now();
     PredictionResult res;
@@ -278,11 +317,43 @@ PredictionResult NgramPredictor::predict(
 
     // Case 1: Completing a partial word (1+ chars when context exists, 2+ chars at start)
     if (!partialWord.empty()) {
-        if (partialWord.size() < 2 && prevWord.empty()) return res;
+        if (partialWord.size() < 2 && prevWord.empty() && !afterAcceptChain) return res;
         std::wstring lowerPart = toLowerW(partialWord);
 
-        // 1a. Check if (prevTwoWords / prevWord) + partialWord matches a curated multi-word phrase
-        for (const auto& ctxKey : {prevTwoWords, prevWord}) {
+        // Immediately after a Tab accept, only chain high-confidence curated phrases (matches website simulator)
+        if (afterAcceptChain) {
+            std::wstring fullThree = prevTwoWords.empty() ? L"" : (prevTwoWords + L" " + lowerPart);
+            std::wstring fullTwo = prevWord.empty() ? L"" : (prevWord + L" " + lowerPart);
+            std::wstring chainCont;
+            if (!fullThree.empty()) {
+                auto it = phrases.find(fullThree);
+                if (it != phrases.end()) chainCont = clampSuggestionWords(it->second, maxWords);
+            }
+            if (chainCont.empty() && !fullTwo.empty()) {
+                auto it = phrases.find(fullTwo);
+                if (it != phrases.end()) chainCont = clampSuggestionWords(it->second, maxWords);
+            }
+            if (chainCont.empty() && contextWords.size() <= 4) {
+                auto it = phrases.find(lowerPart);
+                if (it != phrases.end()) chainCont = clampSuggestionWords(it->second, maxWords);
+            }
+            if (!chainCont.empty()) {
+                std::wstring withSpace = L" " + chainCont;
+                if (isSuggestionSafe(withSpace)) {
+                    res.text = withSpace;
+                    res.confidence = 0.88;
+                    res.wordCount = 1;
+                    for (wchar_t c : chainCont) if (c == L' ') res.wordCount++;
+                    res.latencyUs = std::chrono::duration_cast<std::chrono::microseconds>(
+                        std::chrono::steady_clock::now() - t0).count();
+                    return res;
+                }
+            }
+            return res;
+        }
+
+        // 1a. Check if (prevThreeWords / prevTwoWords / prevWord) + partialWord matches a curated multi-word phrase
+        for (const auto& ctxKey : {prevThreeWords, prevTwoWords, prevWord}) {
             if (ctxKey.empty()) continue;
             auto pit = phrases.find(ctxKey);
             if (pit != phrases.end()) {
@@ -292,7 +363,16 @@ PredictionResult NgramPredictor::predict(
                     if (isAllUpperW(partialWord)) {
                         for (wchar_t& c : rem) c = static_cast<wchar_t>(std::towupper(c));
                     }
-                    rem = clampSuggestionWords(rem, maxWords);
+                    if (maxWords == 1) {
+                        if (!rem.empty() && rem.front() == L' ') {
+                            rem = clampSuggestionWords(rem, 1);
+                        } else {
+                            size_t spIdx = rem.find(L' ');
+                            if (spIdx != std::wstring::npos) rem = rem.substr(0, spIdx);
+                        }
+                    } else {
+                        rem = clampSuggestionWords(rem, maxWords);
+                    }
                     if (isSuggestionSafe(rem)) {
                         res.text = rem;
                         res.confidence = 0.88;
@@ -309,20 +389,32 @@ PredictionResult NgramPredictor::predict(
         // 1b. Look up prefix completions
         auto cands = dict_.completePrefix(partialWord, prevWord, 5);
 
-        // 1c. Check if the user has ALREADY finished typing a complete word (e.g. "thank", "going", "want")
+        // 1c. Check if the user has ALREADY finished typing a complete word (e.g. "thank", "going", "want", "if")
         // whose frequency (or phrase match) dominates any longer single-word extension.
-        if (lowerPart.size() >= 3 && maxWords > 1) {
+        if (lowerPart.size() >= 2) {
             int64_t exactScore = dict_.getFrequency(lowerPart);
             if (!prevWord.empty()) {
                 exactScore += dict_.getBigramFrequency(prevWord, lowerPart) * 600;
             }
-            bool hasCuratedPhrase = (phrases.find(lowerPart) != phrases.end()) ||
-                                    (!prevWord.empty() && phrases.find(prevWord + L" " + lowerPart) != phrases.end());
+            std::wstring fullThree = prevTwoWords.empty() ? L"" : (prevTwoWords + L" " + lowerPart);
+            bool hasCuratedPhrase =
+                (phrases.find(lowerPart) != phrases.end()) ||
+                (!prevWord.empty() && phrases.find(prevWord + L" " + lowerPart) != phrases.end()) ||
+                (!fullThree.empty() && phrases.find(fullThree) != phrases.end());
             int64_t bestLongerScore = cands.empty() ? 0 : cands[0].count;
 
-            if ((hasCuratedPhrase && exactScore > 0 && exactScore >= bestLongerScore / 2) ||
+            if ((hasCuratedPhrase && exactScore > 0 && (lowerPart.size() >= 4 || exactScore >= bestLongerScore / 2)) ||
                 (exactScore > 0 && exactScore > bestLongerScore * 3)) {
-                std::wstring nextChain = buildNextWordChain(dict_, prevWord, lowerPart, 0, maxWords);
+                std::wstring nextChain;
+                if (!fullThree.empty()) {
+                    auto it = phrases.find(fullThree);
+                    if (it != phrases.end()) {
+                        nextChain = clampSuggestionWords(it->second, maxWords);
+                    }
+                }
+                if (nextChain.empty()) {
+                    nextChain = buildNextWordChain(dict_, prevWord, lowerPart, 0, maxWords);
+                }
                 if (!nextChain.empty()) {
                     std::wstring withSpace = L" " + nextChain;
                     if (isSuggestionSafe(withSpace)) {

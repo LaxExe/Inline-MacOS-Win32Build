@@ -746,7 +746,7 @@ void MainTrayApp::rebindAddWordHotkey() {
 #endif
 }
 
-void MainTrayApp::scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText, int settleMs, double minExpectedX) {
+void MainTrayApp::scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText, int settleMs, double minExpectedX, bool afterAcceptChain) {
     if (!cachedConfig_.masterEnabled || !cachedConfig_.ghostTextEnabled) {
         return;
     }
@@ -767,6 +767,7 @@ void MainTrayApp::scheduleGhostPrediction(bool typeThroughOnly, const std::wstri
     req.settleMs = settleMs;
     req.config = cachedConfig_;
     req.currentWordFromGhost = currentWordFromGhost_;
+    req.afterAcceptChain = afterAcceptChain;
     req.minExpectedCaretX = minExpectedX;
     req.lastCaretY = lastRenderedCaretY_.load(std::memory_order_relaxed);
 
@@ -778,12 +779,10 @@ void MainTrayApp::scheduleGhostPrediction(bool typeThroughOnly, const std::wstri
     ghostWorkerCv_.notify_one();
 }
 
-std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::wstring& partialWord, bool afterSpace, double minExpectedX, double lastCaretY) {
+std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(uint64_t expectedGeneration, const std::wstring& partialWord, bool afterSpace, double minExpectedX, double lastCaretY) {
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
-    // 1. Wait 3ms so the physical or synthetic keystroke finishes dispatching to the target app
-    std::this_thread::sleep_for(std::chrono::milliseconds(3));
-
-    // 2. Query AXCaretTracker and ensure textTail has caught up to the latest keystroke
+    // Query AXCaretTracker immediately (zero initial sleep) and verify textTail / caret monotonicity,
+    // aborting immediately if a newer keystroke bumped the generation.
     wchar_t expectedLast = L'\0';
     if (!partialWord.empty()) {
         expectedLast = static_cast<wchar_t>(std::towlower(partialWord.back()));
@@ -791,14 +790,18 @@ std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::
         expectedLast = L' ';
     }
 
-    bool synced = false;
     std::optional<CaretGeometry> geom;
     for (int attempt = 0; attempt < 4; ++attempt) {
+        if (expectedGeneration != ghostSession_.currentGeneration()) {
+            return std::nullopt;
+        }
         geom = caretTracker_.getCaretGeometry();
+        if (expectedGeneration != ghostSession_.currentGeneration()) {
+            return std::nullopt;
+        }
         if (!geom) {
-            // Give waking Chromium/Electron accessibility trees a brief moment to finish building
             if (attempt < 3) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(3));
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
                 continue;
             }
             return std::nullopt;
@@ -808,37 +811,34 @@ std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::
         // a caret position significantly to the left of minExpectedX, it has NOT processed the keystroke yet!
         bool isSameLine = geom->isSingleLine || (lastCaretY > 0.0 && std::abs(geom->caret.y - lastCaretY) < 12.0);
         if (isSameLine && minExpectedX > 0.0 && geom->caret.x + 1.2 < minExpectedX - 2.0) {
-            int sleepMs = 3 + attempt * 2;
+            int sleepMs = 2 + attempt;
             std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
             continue;
         }
 
         if (expectedLast == L'\0') {
-            synced = true;
             break;
         }
 
         if (geom->textTail.empty()) {
             if (!isSameLine || minExpectedX <= 0.0 || geom->caret.x + 1.2 >= minExpectedX - 2.0) {
-                synced = true;
                 break;
             }
-            int sleepMs = 3 + attempt * 2;
+            int sleepMs = 2 + attempt;
             std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
             continue;
         }
 
         wchar_t actualLast = static_cast<wchar_t>(std::towlower(geom->textTail.back()));
         if (actualLast == expectedLast) {
-            synced = true;
             break; // Host app has processed the latest keystroke and updated its cursor!
         }
 
-        int sleepMs = 3 + attempt * 2; // 3ms, 5ms, 7ms, 9ms
+        int sleepMs = 2 + attempt; // 2ms, 3ms, 4ms, 5ms
         std::this_thread::sleep_for(std::chrono::milliseconds(sleepMs));
     }
 
-    if (!geom) return std::nullopt;
+    if (!geom || expectedGeneration != ghostSession_.currentGeneration()) return std::nullopt;
 
     // Clamp caret.x so it NEVER moves backwards behind minExpectedX during typing on the same line!
     bool isSameLine = geom->isSingleLine || (lastCaretY > 0.0 && std::abs(geom->caret.y - lastCaretY) < 12.0);
@@ -848,6 +848,7 @@ std::optional<CaretGeometry> MainTrayApp::queryCaretGeometryWithSync(const std::
 
     return geom;
 #else
+    (void)expectedGeneration;
     (void)partialWord;
     (void)afterSpace;
     (void)minExpectedX;
@@ -874,9 +875,16 @@ void MainTrayApp::ghostWorkerLoop() {
         }
 
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+        // Interruptible settle wait: wakes immediately if a newer keystroke arrives
         if (req.settleMs > 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(req.settleMs));
-            if (req.generation != ghostSession_.currentGeneration()) {
+            std::unique_lock<std::mutex> lock(ghostWorkerMutex_);
+            ghostWorkerCv_.wait_for(lock, std::chrono::milliseconds(req.settleMs), [this, &req]() {
+                return !ghostWorkerRunning_.load(std::memory_order_relaxed) ||
+                       hasPendingGhostReq_ ||
+                       req.generation != ghostSession_.currentGeneration();
+            });
+            if (!ghostWorkerRunning_.load(std::memory_order_relaxed)) break;
+            if (hasPendingGhostReq_ || req.generation != ghostSession_.currentGeneration()) {
                 continue;
             }
         }
@@ -892,8 +900,36 @@ void MainTrayApp::ghostWorkerLoop() {
         const bool isMidWord = !req.partialWord.empty() && !req.currentWordFromGhost;
         const bool afterSpace = (req.partialWord.empty() || req.currentWordFromGhost) && !req.contextWords.empty();
 
-        // Query caret geometry immediately (with 3ms keystroke settle + textTail sync so cursor is never stale)
-        auto geom = queryCaretGeometryWithSync(req.partialWord, afterSpace, req.minExpectedCaretX, req.lastCaretY);
+        // Layer 0: Compute instant N-Gram prediction FIRST (< 0.1 ms, zero AX IPC) so keystrokes
+        // without a prediction or LLM opportunity skip Accessibility round-trips completely!
+        PredictionResult instantPred;
+        bool needInstant = !req.typeThroughOnly || req.typeThroughRemaining.empty() ||
+                           req.typeThroughRemaining.find(L' ') == std::wstring::npos;
+        if (needInstant && ngramPredictor_ && req.generation == ghostSession_.currentGeneration()) {
+            instantPred = ngramPredictor_->predict(
+                req.contextWords,
+                req.partialWord,
+                req.config.predictionLength,
+                req.isSentenceStart,
+                req.afterAcceptChain
+            );
+        }
+
+        const bool canRunLlm = !req.afterAcceptChain &&
+                               req.config.smartPredictionsEnabled &&
+                               PowerMonitor::currentEngineMode() == EngineMode::Full &&
+                               !predictorClient_.isCircuitTripped() &&
+                               (!req.contextWords.empty() || req.partialWord.size() >= 2);
+
+        if (!req.typeThroughOnly && instantPred.text.empty() && !canRunLlm) {
+            if (!ghostSession_.isVisible()) {
+                ghostOverlay_.hide();
+            }
+            continue;
+        }
+
+        // Query caret geometry with generation-aware sync (aborts immediately on newer keystroke)
+        auto geom = queryCaretGeometryWithSync(req.generation, req.partialWord, afterSpace, req.minExpectedCaretX, req.lastCaretY);
         if (req.generation != ghostSession_.currentGeneration()) continue;
         if (!geom || !geom->atEditableEnd) {
             dismissGhost();
@@ -951,37 +987,29 @@ void MainTrayApp::ghostWorkerLoop() {
             }
         }
 
-        // Layer 0: Instant N-Gram & Phrase Predictor (< 0.1 ms, ZERO debounce — active on every keystroke!)
-        if (ngramPredictor_ && req.generation == ghostSession_.currentGeneration()) {
-            PredictionResult instantPred = ngramPredictor_->predict(
-                req.contextWords,
-                req.partialWord,
-                req.config.predictionLength,
-                req.isSentenceStart
+        // Render pre-computed Layer 0 instant prediction immediately
+        if (!instantPred.text.empty() && req.generation == ghostSession_.currentGeneration()) {
+            bool midWordRender = isMidWord && instantPred.text.front() != L' ';
+            GhostLayoutResult layout = computeGhostLayout(
+                instantPred.text,
+                *geom,
+                midWordRender,
+                GhostOverlay::measureTextWidth,
+                req.config.ghostStyle
             );
-            if (!instantPred.text.empty()) {
-                bool midWordRender = isMidWord && instantPred.text.front() != L' ';
-                GhostLayoutResult layout = computeGhostLayout(
-                    instantPred.text,
-                    *geom,
-                    midWordRender,
-                    GhostOverlay::measureTextWidth,
-                    req.config.ghostStyle
-                );
-                if (layout.valid) {
-                    instantPred.text = layout.fittedText;
-                    std::wstring textToRender;
-                    if (ghostSession_.applyCandidatePrediction(req.generation, contextKey, instantPred, textToRender)) {
-                        ghostOverlay_.showLayout(layout, req.generation);
-                        renderedSomething = true;
-                        lastRenderedCaretX_.store(layout.boundingBox.x, std::memory_order_relaxed);
-                        lastRenderedCaretY_.store(layout.boundingBox.y, std::memory_order_relaxed);
-                        if (settingsDialog_ && settingsDialog_->isVisible()) {
-                            QString msg = QString("[GHOST_PREDICT] source=Instant words=%1 latency=%2us")
-                                .arg(instantPred.wordCount)
-                                .arg(instantPred.latencyUs);
-                            QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
-                        }
+            if (layout.valid) {
+                instantPred.text = layout.fittedText;
+                std::wstring textToRender;
+                if (ghostSession_.applyCandidatePrediction(req.generation, contextKey, instantPred, textToRender)) {
+                    ghostOverlay_.showLayout(layout, req.generation);
+                    renderedSomething = true;
+                    lastRenderedCaretX_.store(layout.boundingBox.x, std::memory_order_relaxed);
+                    lastRenderedCaretY_.store(layout.boundingBox.y, std::memory_order_relaxed);
+                    if (settingsDialog_ && settingsDialog_->isVisible()) {
+                        QString msg = QString("[GHOST_PREDICT] source=Instant words=%1 latency=%2us")
+                            .arg(instantPred.wordCount)
+                            .arg(instantPred.latencyUs);
+                        QMetaObject::invokeMethod(settingsDialog_.get(), "appendLog", Qt::QueuedConnection, Q_ARG(QString, msg));
                     }
                 }
             }
@@ -992,9 +1020,7 @@ void MainTrayApp::ghostWorkerLoop() {
         }
 
         // Hand off to non-blocking Layer 1 LLM worker thread for deep contextual multi-word continuation
-        if (req.config.smartPredictionsEnabled &&
-            PowerMonitor::currentEngineMode() == EngineMode::Full &&
-            !predictorClient_.isCircuitTripped() &&
+        if (canRunLlm &&
             req.generation == ghostSession_.currentGeneration() &&
             (!contextKey.empty() || req.partialWord.size() >= 2)) {
             GhostWorkerRequest llmReq = req;
@@ -1034,10 +1060,17 @@ void MainTrayApp::llmWorkerLoop() {
         }
 
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
-        // Brief 22ms coalesce so rapid keystrokes don't queue unnecessary LLM calls while Layer 0 handles every key
-        std::this_thread::sleep_for(std::chrono::milliseconds(22));
-        if (!ghostWorkerRunning_.load(std::memory_order_relaxed)) break;
-        if (req.generation != ghostSession_.currentGeneration()) continue;
+        // Brief interruptible 14ms coalesce so rapid keystrokes wake immediately without blocking
+        {
+            std::unique_lock<std::mutex> lock(llmWorkerMutex_);
+            llmWorkerCv_.wait_for(lock, std::chrono::milliseconds(14), [this, &req]() {
+                return !ghostWorkerRunning_.load(std::memory_order_relaxed) ||
+                       hasPendingLlmReq_ ||
+                       req.generation != ghostSession_.currentGeneration();
+            });
+            if (!ghostWorkerRunning_.load(std::memory_order_relaxed)) break;
+            if (hasPendingLlmReq_ || req.generation != ghostSession_.currentGeneration()) continue;
+        }
 
         int maxW = maxWordsForLength(req.config.predictionLength);
         PredictionResult llmPred = predictorClient_.predict(
@@ -1050,23 +1083,16 @@ void MainTrayApp::llmWorkerLoop() {
             continue;
         }
 
-        // Re-verify latest caret geometry in case the host view scrolled or moved
-        auto freshGeom = queryCaretGeometryWithSync(req.partialWord, req.partialWord.empty() && !req.contextWords.empty(), 0.0, req.lastCaretY);
-        if (!freshGeom || !freshGeom->atEditableEnd || req.generation != ghostSession_.currentGeneration()) {
+        // Reuse req.geom captured for this exact generation (zero redundant AX IPC round-trip)
+        CaretGeometry freshGeom = req.geom;
+        if (!freshGeom.atEditableEnd || req.generation != ghostSession_.currentGeneration()) {
             continue;
-        }
-
-        if (freshGeom->textTail.empty()) {
-            freshGeom->afterWordChar = !req.partialWord.empty() || req.currentWordFromGhost;
-        } else {
-            wchar_t lastCh = freshGeom->textTail.back();
-            freshGeom->afterWordChar = (lastCh != L' ' && lastCh != L'\t' && lastCh != L'\n' && lastCh != L'\r');
         }
 
         const bool isMidWord = !req.partialWord.empty() && (llmPred.text.empty() || llmPred.text.front() != L' ');
         GhostLayoutResult layout = computeGhostLayout(
             llmPred.text,
-            *freshGeom,
+            freshGeom,
             isMidWord,
             GhostOverlay::measureTextWidth,
             req.config.ghostStyle
@@ -1077,7 +1103,7 @@ void MainTrayApp::llmWorkerLoop() {
             if (ghostSession_.applyCandidatePrediction(req.generation, req.contextKey, llmPred, textToRender)) {
                 GhostLayoutResult finalLayout = (textToRender == layout.fittedText)
                     ? layout
-                    : computeGhostLayout(textToRender, *freshGeom, isMidWord, GhostOverlay::measureTextWidth, req.config.ghostStyle);
+                    : computeGhostLayout(textToRender, freshGeom, isMidWord, GhostOverlay::measureTextWidth, req.config.ghostStyle);
                 if (finalLayout.valid) {
                     ghostOverlay_.showLayout(finalLayout, req.generation);
                     lastRenderedCaretX_.store(finalLayout.boundingBox.x, std::memory_order_relaxed);
@@ -1257,9 +1283,11 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
                 dismissGhost();
                 lastRenderedCaretX_.store(0.0, std::memory_order_relaxed);
                 lastRenderedCaretY_.store(0.0, std::memory_order_relaxed);
-                // Do not immediately predict new words on full Tab accept!
-                // Allow the injected text to settle cleanly in the host application.
-                // When the user resumes typing or hits space, ghost predictions resume naturally.
+                // Chain next curated phrase continuation immediately after Tab accept (matches website simulator)
+                if (!isSentenceStart_ && (!currentWord_.chars.empty() || !contextWindow_.words.empty())) {
+                    int settle = std::clamp(static_cast<int>(acceptedChunk.size()) * 2 + 10, 12, 24);
+                    scheduleGhostPrediction(false, L"", settle, 0.0, /*afterAcceptChain=*/true);
+                }
             } else {
 #if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
                 double chunkW = GhostOverlay::measureTextWidth(acceptedChunk, cachedFontName_, cachedFontSize_);
@@ -1272,7 +1300,7 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
 #else
                 double newMinX = 0.0;
 #endif
-                int settle = std::clamp(static_cast<int>(acceptedChunk.size()) * 4 + 18, 25, 60);
+                int settle = std::clamp(static_cast<int>(acceptedChunk.size()) * 2 + 10, 12, 28);
                 scheduleGhostPrediction(true, remainingVisible, settle, newMinX);
             }
 
@@ -1368,8 +1396,8 @@ void MainTrayApp::handleCharacter(wchar_t ch) {
     int settleMs = 0;
     if (lastAcNs > 0) {
         int64_t elapsedMs = (nowNs - lastAcNs) / 1000000LL;
-        if (elapsedMs < 45) {
-            settleMs = static_cast<int>(45 - elapsedMs);
+        if (elapsedMs < 18) {
+            settleMs = static_cast<int>(18 - elapsedMs);
         }
     }
 
@@ -1609,7 +1637,7 @@ bool MainTrayApp::handleWordBoundary(wchar_t delimiter, bool isActiveTap) {
             lastRenderedCaretX_.store(0.0, std::memory_order_relaxed);
             lastRenderedCaretY_.store(0.0, std::memory_order_relaxed);
 #endif
-            int settle = correction.didCorrect ? std::clamp(static_cast<int>(correction.corrected.size()) * 4 + 20, 25, 45) : 0;
+            int settle = correction.didCorrect ? std::clamp(static_cast<int>(correction.corrected.size()) * 2 + 10, 12, 22) : 0;
             scheduleGhostPrediction(false, L"", settle, 0.0);
         }
     } else {

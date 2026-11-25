@@ -257,6 +257,14 @@ TEST(NgramPredictor, CompletesActiveWordAndChainsNextWordsInstantly) {
     auto pSingle = predictor.predict({}, L"tha", AppConfig::PredictionLength::SingleWord, true);
     EXPECT_EQ(pSingle.text, L"nk");
     EXPECT_EQ(pSingle.wordCount, 1);
+
+    // 6. After-accept Tab chaining: "thank you" + "so" -> " much for your" (Balanced = 3 words)
+    auto pChain = predictor.predict({L"thank", L"you"}, L"so", AppConfig::PredictionLength::Balanced, false, /*afterAcceptChain=*/true);
+    EXPECT_EQ(pChain.text, L" much for your");
+
+    // 7. Three-word context phrase matching with partial word ("looking forward to" + "h" -> "earing from you")
+    auto pThree = predictor.predict({L"looking", L"forward", L"to"}, L"h", AppConfig::PredictionLength::Balanced, false);
+    EXPECT_EQ(pThree.text, L"earing from you");
 }
 
 TEST(GhostLayout, PlacesMidWordSuggestionStrictlyToRightOfCaret) {

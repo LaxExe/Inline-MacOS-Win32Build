@@ -182,6 +182,7 @@ void GhostOverlay::showLayout(const GhostLayoutResult& layout, uint64_t generati
                 [gGhostPanel setFrame:NSMakeRect(x, y, w, h) display:YES];
                 [gGhostView setFrame:NSMakeRect(0, 0, w, h)];
                 [gGhostView setNeedsDisplay:YES];
+                [gGhostView displayIfNeeded];
                 [gGhostPanel orderFrontRegardless];
                 [NSAnimationContext endGrouping];
             } catch (const std::exception& e) {

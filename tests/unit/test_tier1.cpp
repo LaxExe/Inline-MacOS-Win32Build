@@ -186,6 +186,36 @@ TEST_F(Tier1Test, StopsAutocorrectingIbmWhenInIgnoreWords) {
     EXPECT_EQ(resLower.corrected, L"ibm");
 }
 
+TEST_F(Tier1Test, PreservesOrdinalsAndNumericUnits) {
+    const std::vector<std::wstring> ordinals = {
+        L"1st", L"2nd", L"3rd", L"4th", L"5th", L"6th", L"7th", L"8th", L"9th",
+        L"10th", L"11th", L"12th", L"13th", L"20th", L"21st", L"22nd", L"23rd",
+        L"24th", L"100th", L"101st", L"102nd", L"103rd", L"1ST", L"2ND", L"3RD", L"4TH"
+    };
+    for (const auto& ord : ordinals) {
+        auto res = correctWord(ord, dict, cfg, /*isSentenceStart=*/false);
+        EXPECT_FALSE(res.didCorrect) << "Ordinal should not be autocorrected";
+        EXPECT_EQ(res.corrected, ord);
+
+        auto resStart = correctWord(ord, dict, cfg, /*isSentenceStart=*/true);
+        EXPECT_FALSE(resStart.didCorrect) << "Ordinal at sentence start should not be autocorrected";
+        EXPECT_EQ(resStart.corrected, ord);
+    }
+
+    // Pure numbers and common numeric units/times must also remain untouched
+    const std::vector<std::wstring> numericTokens = {
+        L"100", L"2026", L"5pm", L"10am", L"24h", L"10px", L"100ms", L"16gb", L"3d", L"4k"
+    };
+    for (const auto& tok : numericTokens) {
+        auto res = correctWord(tok, dict, cfg);
+        EXPECT_FALSE(res.didCorrect);
+        EXPECT_EQ(res.corrected, tok);
+    }
+
+    // Stray digit at end of alphabetic word must STILL correct (e.g. "this9" -> "this")
+    EXPECT_EQ(correctWord(L"this9", dict, cfg).corrected, L"this");
+}
+
 
 
 

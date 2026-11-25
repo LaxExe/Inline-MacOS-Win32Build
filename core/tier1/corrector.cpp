@@ -2,6 +2,7 @@
 #include <cwctype>
 #include <algorithm>
 #include <cmath>
+#include <unordered_set>
 
 static std::wstring toLower(const std::wstring& s) {
     std::wstring res = s;
@@ -169,6 +170,35 @@ static const std::unordered_map<std::wstring, std::wstring> kCommonExpansions = 
     {L"og", L"of"}         // common QWERTY adjacent-key slip (g next to f)
 };
 
+static bool isProtectedNumericToken(const std::wstring& lowerTyped) {
+    if (lowerTyped.empty() || !std::iswdigit(lowerTyped[0])) return false;
+
+    size_t digitEnd = 0;
+    while (digitEnd < lowerTyped.size() && std::iswdigit(lowerTyped[digitEnd])) {
+        ++digitEnd;
+    }
+
+    // Pure numbers (e.g. "100", "2026")
+    if (digitEnd == lowerTyped.size()) return true;
+
+    std::wstring suffix = lowerTyped.substr(digitEnd);
+
+    // English ordinals: 1st, 2nd, 3rd, 4th, 11th, 21st, 22nd, 23rd, 100th, etc.
+    if (suffix == L"st" || suffix == L"nd" || suffix == L"rd" || suffix == L"th") {
+        return true;
+    }
+
+    // Common numeric units, times, and shorthand (e.g. 5pm, 10am, 24h, 30m, 10px, 3d, 4k, 100ms, 16gb)
+    static const std::unordered_set<std::wstring> kNumericSuffixes = {
+        L"am", L"pm", L"h", L"hr", L"hrs", L"m", L"min", L"mins", L"s", L"sec", L"secs",
+        L"ms", L"us", L"ns", L"px", L"pt", L"em", L"rem", L"vh", L"vw",
+        L"b", L"kb", L"mb", L"gb", L"tb", L"hz", L"khz", L"mhz", L"ghz",
+        L"x", L"d", L"k", L"mm", L"cm", L"km", L"in", L"ft", L"yd", L"mi",
+        L"mg", L"g", L"kg", L"oz", L"lb", L"lbs", L"ml", L"l", L"mph", L"kph", L"fps"
+    };
+    return kNumericSuffixes.count(suffix) > 0;
+}
+
 CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict, const AppConfig& cfg, bool isSentenceStart, const std::wstring& prevWord) {
     CorrectionResult result;
     result.didCorrect = false;
@@ -177,6 +207,7 @@ CorrectionResult correctWord(const std::wstring& typed, const SymSpellDict& dict
     if (typed.empty() || typed.size() > 24) return result;
 
     std::wstring lowerTyped = toLower(typed);
+    if (isProtectedNumericToken(lowerTyped)) return result;
     for (const auto& ign : cfg.ignoreWords) {
         if (ign.size() == lowerTyped.size()) {
             bool match = true;

@@ -103,6 +103,7 @@ private:
         bool isSentenceStart = false;
         bool typeThroughOnly = false;
         bool currentWordFromGhost = false;
+        bool afterAcceptChain = false;
         int settleMs = 0;
         double minExpectedCaretX = 0.0;
         double lastCaretY = 0.0;
@@ -137,10 +138,10 @@ private:
     void setupTray();
     void rebindAddWordHotkey();
     void dismissGhost();
-    void scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText = L"", int settleMs = 0, double minExpectedX = 0.0);
+    void scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText = L"", int settleMs = 0, double minExpectedX = 0.0, bool afterAcceptChain = false);
     void ghostWorkerLoop();
     void llmWorkerLoop();
-    std::optional<CaretGeometry> queryCaretGeometryWithSync(const std::wstring& partialWord, bool afterSpace, double minExpectedX = 0.0, double lastCaretY = 0.0);
+    std::optional<CaretGeometry> queryCaretGeometryWithSync(uint64_t expectedGeneration, const std::wstring& partialWord, bool afterSpace, double minExpectedX = 0.0, double lastCaretY = 0.0);
     bool onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap = false);
     bool handleWordBoundary(wchar_t delimiter, bool isActiveTap);
     void handleCharacter(wchar_t ch);

@@ -44,6 +44,11 @@ jobs:
             
             Lightweight, instantaneous on-device autocorrect engine with macOS System Settings styling.
 
+            #### What's New in v1.8:
+            - **Snappier Ghost Text & Website Parity**: Runs instant N-gram prediction before Accessibility caret queries, eliminates uninterruptible worker sleeps and stale-keystroke head-of-line blocking, reuses captured caret geometry for LLM completions, and renders overlay frames synchronously via `displayIfNeeded`.
+            - **Seamless Tab Chaining & Expanded Phrases**: Full parity with the Live Playground's curated multi-word phrases, 3-word context matching, loop-free bigram chaining, and immediate curated phrase chaining after Tab accept.
+            - **Ordinal & Numeric Token Protection**: Preserves English ordinals (`1st`, `2nd`, `3rd`, `4th`, `11th`, `21st`, `100th`, etc.), pure numbers, and common numeric units (`5pm`, `10px`, `100ms`, `16gb`, `4k`) without miscorrecting them.
+
             #### What's New in v1.5:
             - **Ghost Writer Off by Default (Including Upgrades)**: Ghost Text predictions are now turned off by default (`ghostTextEnabled = false`) for both fresh installations and users upgrading from v1.2/v1.3/v1.4. Users must explicitly enable Ghost Text in **System Settings > Ghost Text (Beta)**, via the menu bar item, or with `Cmd + Option + Shift + G`.
             - **Tray & Hotkey Toggle Persistence**: Toggling Autocorrect, Sentence Capitalization, or Ghost Text from the menu bar or global shortcuts now persists immediately to `config.json`.

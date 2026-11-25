@@ -23,7 +23,8 @@ public:
         const std::vector<std::wstring>& contextWords,
         const std::wstring& partialWord,
         AppConfig::PredictionLength lengthMode = AppConfig::PredictionLength::Balanced,
-        bool isSentenceStart = false
+        bool isSentenceStart = false,
+        bool afterAcceptChain = false
     ) const;
 
 private:
