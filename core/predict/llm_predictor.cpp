@@ -107,9 +107,9 @@ bool LlmPredictor::loadModel(const std::string& ggufPath, int numThreads) {
     vocab_ = llama_model_get_vocab(model_);
 
     llama_context_params cparams = llama_context_default_params();
-    cparams.n_ctx = 128;
-    cparams.n_batch = 64;
-    cparams.n_ubatch = 64;
+    cparams.n_ctx = 512;
+    cparams.n_batch = 256;
+    cparams.n_ubatch = 128;
     cparams.n_threads = numThreads_;
     cparams.n_threads_batch = numThreads_;
     cparams.offload_kqv = false;
@@ -187,8 +187,8 @@ PredictionResult LlmPredictor::predict(
     if (nTokens <= 0) return result;
     tokens.resize(nTokens);
 
-    // Keep at most last 80 context tokens so KV cache has headroom for generation
-    constexpr size_t kMaxPromptTokens = 80;
+    // Keep at most last 384 context tokens (~250-300 words) so KV cache has headroom for generation
+    constexpr size_t kMaxPromptTokens = 384;
     if (tokens.size() > kMaxPromptTokens) {
         tokens.erase(tokens.begin(), tokens.end() - kMaxPromptTokens);
     }

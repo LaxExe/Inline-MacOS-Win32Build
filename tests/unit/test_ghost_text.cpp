@@ -210,6 +210,22 @@ TEST(GhostSession, TypeThroughConsumesMatchingPrefixAndReconcilesLLM) {
     EXPECT_EQ(session.currentVisibleText(), L"nk you so much");
 }
 
+TEST(GhostSession, ContextAwareLlmUpgradesLowConfidenceGenericBigram) {
+    GhostSession session;
+    uint64_t gen = session.currentGeneration();
+
+    // Generic low-confidence N-gram fallback after a paragraph of context
+    PredictionResult genericBigram{L"the", 0.45, 1, false, 0};
+    std::wstring rendered;
+    ASSERT_TRUE(session.applyCandidatePrediction(gen, L"building a python script to parse csv invoices and ", genericBigram, rendered));
+    EXPECT_EQ(session.currentVisibleText(), L"the");
+
+    // Context-aware multi-word LLM prediction arrives and upgrades the low-confidence bigram
+    PredictionResult contextLlm{L"generate a summary", 0.62, 3, true, 0};
+    EXPECT_TRUE(session.applyCandidatePrediction(gen, L"building a python script to parse csv invoices and ", contextLlm, rendered));
+    EXPECT_EQ(session.currentVisibleText(), L"generate a summary");
+}
+
 TEST(SuggestionFilter, BlocksProfanityUnlessAlreadyInUserContextAndBlocksPII) {
     EXPECT_TRUE(isSuggestionSafe(L" the meeting tomorrow", L"looking forward to "));
     EXPECT_FALSE(isSuggestionSafe(L" fuck that", L"I want to "));

@@ -330,6 +330,14 @@ void MainTrayApp::toggleGhostText() {
     saveConfigToFile(cfgCopy);
     if (!nowEnabled) {
         dismissGhost();
+    } else {
+#if defined(__APPLE__) && !defined(BUILD_WINDOWS_PLATFORM)
+        if (cfgCopy.smartPredictionsEnabled && !predictorClient_.isHelperRunning()) {
+            std::thread([this]() {
+                (void)predictorClient_.predict(0, L"Hello ", L"", 1);
+            }).detach();
+        }
+#endif
     }
     updateTrayIcon();
     if (settingsDialog_ && settingsDialog_->isVisible()) {
@@ -746,6 +754,24 @@ void MainTrayApp::rebindAddWordHotkey() {
 #endif
 }
 
+void MainTrayApp::appendDocumentHistory(const std::wstring& text) {
+    if (text.empty()) return;
+    documentHistory_ += text;
+    constexpr size_t kMaxHistoryChars = 1500;
+    if (documentHistory_.size() > kMaxHistoryChars) {
+        documentHistory_.erase(0, documentHistory_.size() - kMaxHistoryChars);
+    }
+}
+
+void MainTrayApp::popDocumentHistory(size_t count) {
+    if (count == 0 || documentHistory_.empty()) return;
+    if (count >= documentHistory_.size()) {
+        documentHistory_.clear();
+    } else {
+        documentHistory_.erase(documentHistory_.size() - count);
+    }
+}
+
 void MainTrayApp::scheduleGhostPrediction(bool typeThroughOnly, const std::wstring& typeThroughText, int settleMs, double minExpectedX, bool afterAcceptChain) {
     if (!cachedConfig_.masterEnabled || !cachedConfig_.ghostTextEnabled) {
         return;
@@ -761,6 +787,7 @@ void MainTrayApp::scheduleGhostPrediction(bool typeThroughOnly, const std::wstri
     req.generation = ghostSession_.currentGeneration();
     req.contextWords.assign(contextWindow_.words.begin(), contextWindow_.words.end());
     req.partialWord = currentWord_.chars;
+    req.documentHistory = documentHistory_;
     req.typeThroughRemaining = typeThroughText;
     req.isSentenceStart = isSentenceStart_;
     req.typeThroughOnly = typeThroughOnly;
@@ -919,7 +946,7 @@ void MainTrayApp::ghostWorkerLoop() {
                                req.config.smartPredictionsEnabled &&
                                PowerMonitor::currentEngineMode() == EngineMode::Full &&
                                !predictorClient_.isCircuitTripped() &&
-                               (!req.contextWords.empty() || req.partialWord.size() >= 2);
+                               (!req.contextWords.empty() || !req.documentHistory.empty() || req.partialWord.size() >= 2);
 
         if (!req.typeThroughOnly && instantPred.text.empty() && !canRunLlm) {
             if (!ghostSession_.isVisible()) {
@@ -946,16 +973,46 @@ void MainTrayApp::ghostWorkerLoop() {
         cachedFontName_ = geom->fontName;
         cachedFontSize_ = geom->fontSize;
 
-        // Build context string for rejection key and LLM prompt
-        std::wstring contextKey;
-        for (const auto& w : req.contextWords) {
-            contextKey += w + L" ";
-        }
-        if (!geom->textTail.empty() && contextKey.empty()) {
-            contextKey = geom->textTail;
-            if (!req.partialWord.empty() && contextKey.size() >= req.partialWord.size()) {
-                contextKey.erase(contextKey.size() - req.partialWord.size());
+        // Build rich document context for the AI model: prefer live Accessibility documentContext
+        // (everything written in the active field before the caret, up to 1500 chars), falling back
+        // to rolling typed documentHistory_ (for apps that don't expose AXValue), then contextWords.
+        auto stripTrailingPartial = [&](std::wstring src) -> std::wstring {
+            if (!req.partialWord.empty() && src.size() >= req.partialWord.size()) {
+                bool match = true;
+                const size_t off = src.size() - req.partialWord.size();
+                for (size_t i = 0; i < req.partialWord.size(); ++i) {
+                    if (std::towlower(src[off + i]) != std::towlower(req.partialWord[i])) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (match) {
+                    src.erase(off);
+                }
             }
+            return src;
+        };
+
+        std::wstring docBeforePartial = stripTrailingPartial(geom->documentContext);
+        std::wstring histBeforePartial = stripTrailingPartial(req.documentHistory);
+
+        std::wstring contextKey;
+        if (!docBeforePartial.empty() && docBeforePartial.size() >= histBeforePartial.size()) {
+            contextKey = std::move(docBeforePartial);
+        } else if (!histBeforePartial.empty()) {
+            contextKey = std::move(histBeforePartial);
+        } else {
+            for (const auto& w : req.contextWords) {
+                contextKey += w + L" ";
+            }
+            if (!geom->textTail.empty() && contextKey.empty()) {
+                contextKey = stripTrailingPartial(geom->textTail);
+            }
+        }
+        // Keep context safely within helper IPC cap (4096 UTF-8 bytes)
+        constexpr size_t kMaxLlmContextChars = 1500;
+        if (contextKey.size() > kMaxLlmContextChars) {
+            contextKey.erase(0, contextKey.size() - kMaxLlmContextChars);
         }
 
         // Type-through fast path: if user typed a matching character and there is still multi-word text remaining,
@@ -1188,6 +1245,7 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
         currentWordFromGhost_ = false;
         contextWindow_.words.clear();
         sentenceBuffer_.words.clear();
+        documentHistory_.clear();
         undoSM_.reset();
     }
 
@@ -1257,7 +1315,8 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
             };
             injector_.executeImmediate(acceptOp);
 
-            // Update currentWord_ and contextWindow_ with accepted text
+            // Update currentWord_, contextWindow_, and documentHistory_ with accepted text
+            appendDocumentHistory(acceptedChunk);
             std::wstring combined = currentWord_.chars + acceptedChunk;
             currentWord_.chars.clear();
             std::wstring token;
@@ -1356,6 +1415,7 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
     // Never autocorrect or accept ghost text on Enter / Return: commit raw text as-is and pass Enter through directly
     if (ev.keyCode == kVK_Return || ev.keyCode == 0x4C /* kVK_ANSI_KeypadEnter */ || ch == L'\n' || ch == L'\r') {
         dismissGhost();
+        appendDocumentHistory(L"\n");
         currentWord_.chars.clear();
         currentWordFromGhost_ = false;
         undoSM_.onOtherKey();
@@ -1387,6 +1447,7 @@ bool MainTrayApp::onRawKeyEvent(const RawKeyEvent& ev, bool isActiveTap) {
 
 void MainTrayApp::handleCharacter(wchar_t ch) {
     currentWord_.chars.push_back(ch);
+    appendDocumentHistory(std::wstring(1, ch));
     undoSM_.onOtherKey();
     currentWordToken_++;
     injector_.setValidToken(InjectionOp::TIER1, currentWordToken_);
@@ -1457,6 +1518,7 @@ bool MainTrayApp::handleBackspace(bool isActiveTap) {
 
         currentWord_.chars = undoAction.revertedText;
         currentWordFromGhost_ = false;
+        popDocumentHistory(undoAction.correctedText.size());
 
         std::wstring contextKey;
         for (const auto& w : contextWindow_.words) contextKey += w + L" ";
@@ -1491,6 +1553,8 @@ bool MainTrayApp::handleBackspace(bool isActiveTap) {
 
         currentWord_.chars = undoAction.revertedText;
         currentWordFromGhost_ = false;
+        popDocumentHistory(undoAction.correctedText.size() + 1);
+        appendDocumentHistory(undoAction.revertedText);
 
         if (!contextWindow_.words.empty() && contextWindow_.words.back() == undoAction.correctedText) {
             contextWindow_.words.pop_back();
@@ -1515,6 +1579,7 @@ bool MainTrayApp::handleBackspace(bool isActiveTap) {
     if (!currentWord_.chars.empty()) {
         currentWord_.chars.pop_back();
     }
+    popDocumentHistory(1);
     if (currentWord_.chars.empty()) {
         currentWordFromGhost_ = false;
     } else {
@@ -1531,6 +1596,7 @@ bool MainTrayApp::handleBackspace(bool isActiveTap) {
 bool MainTrayApp::handleWordBoundary(wchar_t delimiter, bool isActiveTap) {
     if (currentWord_.chars.empty()) {
         dismissGhost();
+        appendDocumentHistory(std::wstring(1, delimiter));
         undoSM_.onOtherKey();
         if (delimiter == L'.' || delimiter == L'!' || delimiter == L'?' || delimiter == L'\n') {
             isSentenceStart_ = true;
@@ -1594,8 +1660,13 @@ bool MainTrayApp::handleWordBoundary(wchar_t delimiter, bool isActiveTap) {
             }
 
             wordForContext = correction.corrected;
+            popDocumentHistory(word.size());
+            appendDocumentHistory(correction.corrected + std::wstring(1, delimiter));
+        } else {
+            appendDocumentHistory(std::wstring(1, delimiter));
         }
     } else {
+        appendDocumentHistory(std::wstring(1, delimiter));
         undoSM_.onOtherKey();
         if (settingsDialog_ && settingsDialog_->isVisible()) {
             QString msg = QString("Word confirmed: \"%1\" (No typo detected)").arg(QString::fromStdWString(word));

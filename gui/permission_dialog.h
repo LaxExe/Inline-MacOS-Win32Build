@@ -8,6 +8,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLineEdit>
+#include <QPoint>
 #include <vector>
 #include <string>
 
@@ -82,13 +83,19 @@ public slots:
     void onOpenAccessibilityClicked();
     void onNextSlideClicked();
     void onPrevSlideClicked();
+    void onGhostOptInToggled();
     void toggleTheme();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
 
 private:
     bool isDarkMode_ = true;
+    bool isDragging_ = false;
+    QPoint dragOffset_;
 
     // Header controls
     StepProgressWidget* progressWidget_ = nullptr;
@@ -109,11 +116,13 @@ private:
     QLineEdit* addWordInput_ = nullptr;
     QLabel* addWordStatusLabel_ = nullptr;
 
-    // Slide 3 controls (Permissions)
+    // Slide 3 controls (Permissions & Ghost Text Opt-in)
     QLabel* imStatusLabel_ = nullptr;
     QPushButton* imActionButton_ = nullptr;
     QLabel* axStatusLabel_ = nullptr;
     QPushButton* axActionButton_ = nullptr;
+    QLabel* ghostOptInBadge_ = nullptr;
+    QPushButton* ghostOptInBtn_ = nullptr;
     QLabel* permNoteLabel_ = nullptr;
 
     // Footer controls

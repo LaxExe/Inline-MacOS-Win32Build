@@ -14,6 +14,8 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QKeyEvent>
+#include <QMouseEvent>
+#include <QAbstractButton>
 #include <algorithm>
 #include <cmath>
 
@@ -288,7 +290,7 @@ QString PermissionDialog::currentShortcutString() const {
 
 PermissionDialog::PermissionDialog(QWidget* parent, int initialSlide) : QDialog(parent) {
     setWindowTitle(tr("Inline"));
-    setFixedSize(700, 520);
+    setFixedSize(700, 548);
     setWindowFlags((windowFlags() & ~Qt::WindowContextHelpButtonHint) | Qt::FramelessWindowHint);
     setAttribute(Qt::WA_TranslucentBackground);
 
@@ -703,32 +705,60 @@ QWidget* PermissionDialog::createPermissionsSlide() {
 
     layout->addWidget(permCard);
 
-    // Ghost Type (Beta) Information Card
+    // Ghost Text (Beta / In Development) Interactive Opt-In Card
     auto* ghostCard = new QFrame(slide);
     ghostCard->setObjectName("ghostInfoCard");
     auto* ghLayout = new QVBoxLayout(ghostCard);
-    ghLayout->setContentsMargins(16, 10, 16, 10);
-    ghLayout->setSpacing(4);
+    ghLayout->setContentsMargins(16, 12, 16, 12);
+    ghLayout->setSpacing(6);
 
     auto* ghHeaderLayout = new QHBoxLayout();
     ghHeaderLayout->setSpacing(8);
 
-    auto* ghTitle = new QLabel(tr("Ghost Type Predictions (Beta)"), ghostCard);
+    auto* ghTitle = new QLabel(tr("Try Ghost Text Predictions?"), ghostCard);
     ghTitle->setObjectName("ghostCardTitle");
     ghHeaderLayout->addWidget(ghTitle);
 
-    auto* betaBadge = new QLabel(tr("OFF BY DEFAULT"), ghostCard);
-    betaBadge->setObjectName("betaBadge");
-    ghHeaderLayout->addWidget(betaBadge);
+    ghostOptInBadge_ = new QLabel(tr("IN DEVELOPMENT"), ghostCard);
+    ghostOptInBadge_->setObjectName("betaBadge");
+    ghHeaderLayout->addWidget(ghostOptInBadge_);
     ghHeaderLayout->addStretch();
+
+    bool ghostCurrentlyOn = false;
+    {
+        std::lock_guard<std::mutex> lock(configMutex);
+        ghostCurrentlyOn = sharedConfig.ghostTextEnabled;
+    }
+
+    ghostOptInBtn_ = new QPushButton(ghostCard);
+    ghostOptInBtn_->setObjectName("ghostOptInBtn");
+    ghostOptInBtn_->setCheckable(true);
+    ghostOptInBtn_->setChecked(ghostCurrentlyOn);
+    ghostOptInBtn_->setCursor(Qt::PointingHandCursor);
+    connect(ghostOptInBtn_, &QPushButton::clicked, this, &PermissionDialog::onGhostOptInToggled);
+    ghHeaderLayout->addWidget(ghostOptInBtn_);
     ghLayout->addLayout(ghHeaderLayout);
 
-    auto* ghSub = new QLabel(tr("Experimental next-word completions beside your cursor. It is currently in Beta and kept OFF by default. You can test and enable it anytime in Settings > Ghost Text."), ghostCard);
+    auto* ghSub = new QLabel(
+        tr("Context-aware AI completions that read what you have written to predict what comes next. "
+           "Warning: this feature is still in active development, may behave inconsistently in some apps, "
+           "and is off by default. You can toggle it anytime in Settings or the menu bar."),
+        ghostCard
+    );
     ghSub->setObjectName("ghostCardSubtitle");
     ghSub->setWordWrap(true);
     ghLayout->addWidget(ghSub);
 
     layout->addWidget(ghostCard);
+
+    // Sync initial button & badge label state
+    if (ghostCurrentlyOn) {
+        ghostOptInBtn_->setText(tr("Enabled (Beta)"));
+        ghostOptInBadge_->setText(tr("IN DEVELOPMENT · ON"));
+    } else {
+        ghostOptInBtn_->setText(tr("Enable Beta"));
+        ghostOptInBadge_->setText(tr("IN DEVELOPMENT · OFF"));
+    }
 
     // Privacy & Ready Information Card
     auto* privCard = new QFrame(slide);
@@ -775,6 +805,69 @@ bool PermissionDialog::eventFilter(QObject* watched, QEvent* event) {
         }
     }
     return QDialog::eventFilter(watched, event);
+}
+
+// ============================================================================
+// Frameless Window Drag Support (Drag anywhere outside buttons & text fields)
+// ============================================================================
+void PermissionDialog::mousePressEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton) {
+        QWidget* target = childAt(event->pos());
+        bool isInteractive = false;
+        for (QWidget* w = target; w && w != this; w = w->parentWidget()) {
+            if (qobject_cast<QAbstractButton*>(w) || qobject_cast<QLineEdit*>(w)) {
+                isInteractive = true;
+                break;
+            }
+        }
+        if (!isInteractive) {
+            isDragging_ = true;
+            dragOffset_ = event->globalPosition().toPoint() - frameGeometry().topLeft();
+            setCursor(Qt::ClosedHandCursor);
+            event->accept();
+            return;
+        }
+    }
+    QDialog::mousePressEvent(event);
+}
+
+void PermissionDialog::mouseMoveEvent(QMouseEvent* event) {
+    if (isDragging_ && (event->buttons() & Qt::LeftButton)) {
+        move(event->globalPosition().toPoint() - dragOffset_);
+        event->accept();
+        return;
+    }
+    QDialog::mouseMoveEvent(event);
+}
+
+void PermissionDialog::mouseReleaseEvent(QMouseEvent* event) {
+    if (isDragging_ && event->button() == Qt::LeftButton) {
+        isDragging_ = false;
+        unsetCursor();
+        event->accept();
+        return;
+    }
+    QDialog::mouseReleaseEvent(event);
+}
+
+void PermissionDialog::onGhostOptInToggled() {
+    if (!ghostOptInBtn_) return;
+    bool enabled = ghostOptInBtn_->isChecked();
+    AppConfig cfgCopy;
+    {
+        std::lock_guard<std::mutex> lock(configMutex);
+        sharedConfig.ghostTextEnabled = enabled;
+        cfgCopy = sharedConfig;
+    }
+    saveConfigToFile(cfgCopy);
+
+    if (enabled) {
+        ghostOptInBtn_->setText(tr("Enabled (Beta)"));
+        if (ghostOptInBadge_) ghostOptInBadge_->setText(tr("IN DEVELOPMENT · ON"));
+    } else {
+        ghostOptInBtn_->setText(tr("Enable Beta"));
+        if (ghostOptInBadge_) ghostOptInBadge_->setText(tr("IN DEVELOPMENT · OFF"));
+    }
 }
 
 // ============================================================================
@@ -1046,6 +1139,23 @@ void PermissionDialog::applyTheme() {
         "  font-size: 10px;"
         "  font-weight: 600;"
         "  padding: 2px 6px;"
+        "}"
+        "#ghostOptInBtn {"
+        "  background-color: %8;"
+        "  border: 1px solid %9;"
+        "  border-radius: 6px;"
+        "  padding: 4px 12px;"
+        "  font-size: 11px;"
+        "  font-weight: 600;"
+        "  color: %2;"
+        "}"
+        "#ghostOptInBtn:hover {"
+        "  border-color: %7;"
+        "}"
+        "#ghostOptInBtn:checked {"
+        "  background-color: %7;"
+        "  border: 1px solid %7;"
+        "  color: #FFFFFF;"
         "}"
         "#ghostCardSubtitle, #privCardSubtitle {"
         "  font-size: 11px;"

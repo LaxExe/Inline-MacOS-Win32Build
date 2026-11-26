@@ -99,6 +99,7 @@ private:
         std::wstring partialWord;
         std::wstring typeThroughRemaining;
         std::wstring contextKey;
+        std::wstring documentHistory;
         CaretGeometry geom;
         bool isSentenceStart = false;
         bool typeThroughOnly = false;
@@ -117,6 +118,10 @@ private:
     CurrentWordBuffer currentWord_;
     ContextWindow contextWindow_;
     SentenceBuffer sentenceBuffer_;
+    std::wstring documentHistory_;
+
+    void appendDocumentHistory(const std::wstring& text);
+    void popDocumentHistory(size_t count);
 
     int currentWordToken_ = 0;
     bool isSentenceStart_ = true;

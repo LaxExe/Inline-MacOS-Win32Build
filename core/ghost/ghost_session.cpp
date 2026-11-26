@@ -59,6 +59,8 @@ bool GhostSession::consumeAccept(
     outChunkToInject = extractAcceptChunk(visibleText_, acceptMode, rem);
     if (rem.empty()) {
         visibleText_.clear();
+        visibleConfidence_ = 0.0;
+        visibleFromLLM_ = false;
         visible_.store(false, std::memory_order_release);
     } else {
         visibleText_ = rem;
@@ -102,6 +104,8 @@ bool GhostSession::onCharacterTyped(wchar_t ch, std::wstring& outRemaining) {
     }
 
     visibleText_.clear();
+    visibleConfidence_ = 0.0;
+    visibleFromLLM_ = false;
     visible_.store(false, std::memory_order_release);
     generation_.fetch_add(1, std::memory_order_acq_rel);
     return false;
@@ -110,6 +114,8 @@ bool GhostSession::onCharacterTyped(wchar_t ch, std::wstring& outRemaining) {
 void GhostSession::hide() {
     std::lock_guard<std::mutex> lock(mutex_);
     visibleText_.clear();
+    visibleConfidence_ = 0.0;
+    visibleFromLLM_ = false;
     visible_.store(false, std::memory_order_release);
     generation_.fetch_add(1, std::memory_order_acq_rel);
 }
@@ -150,16 +156,32 @@ bool GhostSession::applyCandidatePrediction(
 
     if (!visible_.load(std::memory_order_relaxed) || visibleText_.empty()) {
         visibleText_ = pred.text;
+        visibleConfidence_ = pred.confidence;
+        visibleFromLLM_ = pred.fromLLM;
         visible_.store(true, std::memory_order_release);
         outTextToRender = visibleText_;
         return true;
     }
 
     // Something is already visible for this generation (e.g. instant N-gram layer).
-    // Only upgrade if the new prediction extends the currently visible text prefix (no jarring swap).
+    // 1. Always allow extending the currently visible text prefix (no visual jump).
     if (pred.text.size() > visibleText_.size() &&
         pred.text.compare(0, visibleText_.size(), visibleText_) == 0) {
         visibleText_ = pred.text;
+        visibleConfidence_ = std::max(visibleConfidence_, pred.confidence);
+        visibleFromLLM_ = visibleFromLLM_ || pred.fromLLM;
+        outTextToRender = visibleText_;
+        return true;
+    }
+
+    // 2. Allow a context-aware multi-word LLM prediction to upgrade a low-confidence generic bigram
+    //    (e.g. generic N-gram fallback with confidence < 0.65), while never overriding high-confidence
+    //    curated phrases or mid-word completions.
+    if (pred.fromLLM && !visibleFromLLM_ && visibleConfidence_ < 0.65 &&
+        pred.wordCount >= 2 && pred.confidence >= 0.35) {
+        visibleText_ = pred.text;
+        visibleConfidence_ = pred.confidence;
+        visibleFromLLM_ = true;
         outTextToRender = visibleText_;
         return true;
     }

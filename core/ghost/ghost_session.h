@@ -71,5 +71,7 @@ private:
     std::atomic<uint64_t> generation_{1};
     std::atomic<int64_t> lastAcceptTimeNs_{0};
     std::wstring visibleText_;
+    double visibleConfidence_ = 0.0;
+    bool visibleFromLLM_ = false;
     std::unordered_set<std::wstring> rejected_;
 };

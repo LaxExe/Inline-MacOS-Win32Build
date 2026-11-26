@@ -384,18 +384,26 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
         geom.atEditableEnd = true;
         geom.caretAtEOF = true;
 
-        // 6. Query recent text tail and font attributes
+        // 6. Query recent text tail, full document context for AI, and font attributes
+        constexpr size_t kMaxDocContextChars = 1500;
         if (!fullStr.empty()) {
             if (effectiveLoc <= static_cast<CFIndex>(fullStr.size())) {
                 size_t l = static_cast<size_t>(effectiveLoc);
                 size_t start = (l > 160) ? (l - 160) : 0;
                 geom.textTail = fullStr.substr(start, l - start);
+                size_t docStart = (l > kMaxDocContextChars) ? (l - kMaxDocContextChars) : 0;
+                geom.documentContext = fullStr.substr(docStart, l - docStart);
             } else {
                 size_t start = (fullStr.size() > 160) ? (fullStr.size() - 160) : 0;
                 geom.textTail = fullStr.substr(start);
+                size_t docStart = (fullStr.size() > kMaxDocContextChars) ? (fullStr.size() - kMaxDocContextChars) : 0;
+                geom.documentContext = fullStr.substr(docStart);
             }
             while (!geom.textTail.empty() && isZeroWidthOrFormatting(geom.textTail.back())) {
                 geom.textTail.pop_back();
+            }
+            while (!geom.documentContext.empty() && isZeroWidthOrFormatting(geom.documentContext.back())) {
+                geom.documentContext.pop_back();
             }
 
             // Check if non-whitespace text follows the caret
@@ -411,20 +419,28 @@ std::optional<CaretGeometry> MacCaretTracker::getCaretGeometry() {
         }
 
         if (geom.textTail.empty() && hasSelRange && effectiveLoc > 0) {
-            CFIndex tailStart = std::max<CFIndex>(0, effectiveLoc - 160);
-            CFIndex tailLen = effectiveLoc - tailStart;
-            if (tailLen > 0) {
-                CFRange tailR = CFRangeMake(tailStart, tailLen);
-                AXValueRef tailVal = AXValueCreate(kAXValueTypeCFRange, &tailR);
-                if (tailVal) {
+            CFIndex docStart = std::max<CFIndex>(0, effectiveLoc - static_cast<CFIndex>(kMaxDocContextChars));
+            CFIndex docLen = effectiveLoc - docStart;
+            if (docLen > 0) {
+                CFRange docR = CFRangeMake(docStart, docLen);
+                AXValueRef docVal = AXValueCreate(kAXValueTypeCFRange, &docR);
+                if (docVal) {
                     CFTypeRef strRef = nullptr;
-                    if (AXUIElementCopyParameterizedAttributeValue(elem, kAXStringForRangeParameterizedAttribute, tailVal, &strRef) == kAXErrorSuccess && strRef) {
+                    if (AXUIElementCopyParameterizedAttributeValue(elem, kAXStringForRangeParameterizedAttribute, docVal, &strRef) == kAXErrorSuccess && strRef) {
                         if (CFGetTypeID(strRef) == CFStringGetTypeID()) {
-                            geom.textTail = cfStringToWString(static_cast<CFStringRef>(strRef));
+                            geom.documentContext = cfStringToWString(static_cast<CFStringRef>(strRef));
+                            while (!geom.documentContext.empty() && isZeroWidthOrFormatting(geom.documentContext.back())) {
+                                geom.documentContext.pop_back();
+                            }
+                            if (geom.documentContext.size() > 160) {
+                                geom.textTail = geom.documentContext.substr(geom.documentContext.size() - 160);
+                            } else {
+                                geom.textTail = geom.documentContext;
+                            }
                         }
                         CFRelease(strRef);
                     }
-                    CFRelease(tailVal);
+                    CFRelease(docVal);
                 }
             }
         }

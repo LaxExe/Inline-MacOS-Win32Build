@@ -44,6 +44,11 @@ jobs:
             
             Lightweight, instantaneous on-device autocorrect engine with macOS System Settings styling.
 
+            #### What's New in v1.9:
+            - **Draggable Onboarding & Ghost Text Beta Opt-In**: The frameless onboarding walkthrough can now be dragged smoothly anywhere on screen and includes an interactive opt-in toggle for Ghost Text Predictions (off by default, with an in-development notice).
+            - **Full-Document Context-Aware AI**: Expanded `SmolLM2-135M` context to 512 tokens (up to 1,500 chars from the active editor via Accessibility + rolling typed history) so Ghost Text actively predicts based on everything you wrote.
+            - **Multi-App Product Demo Video**: Added a native macOS Screen Studio–style demo video to the landing page.
+
             #### What's New in v1.8:
             - **Snappier Ghost Text & Website Parity**: Runs instant N-gram prediction before Accessibility caret queries, eliminates uninterruptible worker sleeps and stale-keystroke head-of-line blocking, reuses captured caret geometry for LLM completions, and renders overlay frames synchronously via `displayIfNeeded`.
             - **Seamless Tab Chaining & Expanded Phrases**: Full parity with the Live Playground's curated multi-word phrases, 3-word context matching, loop-free bigram chaining, and immediate curated phrase chaining after Tab accept.
