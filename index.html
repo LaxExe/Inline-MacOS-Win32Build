@@ -1336,6 +1336,11 @@
     }
 
     /* ===== Scroll-Driven Motion & Interactive Polish ===== */
+    html,
+    body {
+      overflow-x: clip;
+    }
+
     .scroll-progress-bar {
       position: fixed;
       top: 0;
@@ -1380,23 +1385,50 @@
 
     .reveal-item {
       opacity: 0;
-      transform: translateY(28px) scale(0.985);
+      transform: translate3d(0, 30px, 0) scale(0.98);
       transition:
-        opacity 0.72s cubic-bezier(0.16, 1, 0.3, 1),
-        transform 0.78s cubic-bezier(0.16, 1, 0.3, 1),
-        filter 0.72s cubic-bezier(0.16, 1, 0.3, 1);
+        opacity 0.78s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.86s cubic-bezier(0.16, 1, 0.3, 1),
+        filter 0.76s cubic-bezier(0.16, 1, 0.3, 1);
       transition-delay: var(--reveal-delay, 0ms);
       will-change: opacity, transform;
     }
 
     .reveal-item.reveal-soft-blur {
-      filter: blur(4px);
+      filter: blur(5px);
+    }
+
+    .reveal-item.reveal-from-left {
+      transform: translate3d(-68px, 14px, 0) rotate(-0.6deg) scale(0.97);
+    }
+
+    .reveal-item.reveal-from-right {
+      transform: translate3d(68px, 14px, 0) rotate(0.6deg) scale(0.97);
+    }
+
+    .reveal-item.reveal-pop {
+      transform: translate3d(0, 42px, 0) scale(0.93);
+    }
+
+    .reveal-item.reveal-tilt-right {
+      transform: perspective(1100px) translate3d(72px, 12px, 0) rotateY(-8deg) scale(0.95);
+    }
+
+    .reveal-item.reveal-line {
+      opacity: 1;
+      transform: scaleX(0);
+      transform-origin: center;
+      transition: transform 0.95s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .reveal-item.is-visible {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      transform: translate3d(0, 0, 0) rotate(0deg) rotateY(0deg) scale(1);
       filter: blur(0);
+    }
+
+    .reveal-item.reveal-line.is-visible {
+      transform: scaleX(1);
     }
 
     .video-showcase-wrap {
@@ -1412,24 +1444,25 @@
     /* Interactive cursor-tracking spotlight sheen on cards */
     .bento-card,
     .install-card,
-    .metric-cell {
+    .metric-box {
       position: relative;
       overflow: hidden;
       transition:
-        transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 0.78s cubic-bezier(0.16, 1, 0.3, 1),
+        transform 0.42s cubic-bezier(0.16, 1, 0.3, 1),
         border-color 0.28s ease,
         box-shadow 0.32s ease;
     }
 
     .bento-card::before,
     .install-card::before,
-    .metric-cell::before {
+    .metric-box::before {
       content: "";
       position: absolute;
       inset: 0;
       background: radial-gradient(
         420px circle at var(--mx, 50%) var(--my, 50%),
-        rgba(34, 197, 94, 0.10),
+        rgba(34, 197, 94, 0.11),
         transparent 62%
       );
       opacity: 0;
@@ -1440,25 +1473,27 @@
 
     .bento-card:hover::before,
     .install-card:hover::before,
-    .metric-cell:hover::before {
+    .metric-box:hover::before {
       opacity: 1;
     }
 
-    .bento-card:hover,
-    .install-card:hover {
-      transform: translateY(-3px);
-      border-color: rgba(34, 197, 94, 0.38);
-      box-shadow: 0 14px 36px -14px rgba(0, 0, 0, 0.22);
+    .bento-card.is-visible:hover,
+    .install-card.is-visible:hover,
+    .metric-box.is-visible:hover {
+      transform: translate3d(0, -4px, 0) scale(1.006);
+      border-color: rgba(34, 197, 94, 0.40);
+      box-shadow: 0 16px 38px -14px rgba(0, 0, 0, 0.24);
     }
 
     .bento-card > *,
     .install-card > *,
-    .metric-cell > * {
+    .metric-box > * {
       position: relative;
       z-index: 1;
     }
 
-    .ascii-wordmark {
+    .ascii-wordmark,
+    .muse-squircle-stage {
       will-change: transform, opacity;
     }
 
@@ -1467,14 +1502,20 @@
         display: none;
       }
       .reveal-item,
-      .reveal-item.reveal-soft-blur {
+      .reveal-item.reveal-soft-blur,
+      .reveal-item.reveal-from-left,
+      .reveal-item.reveal-from-right,
+      .reveal-item.reveal-pop,
+      .reveal-item.reveal-tilt-right,
+      .reveal-item.reveal-line {
         opacity: 1 !important;
         transform: none !important;
         filter: none !important;
         transition: none !important;
       }
       .video-frame,
-      .ascii-wordmark {
+      .ascii-wordmark,
+      .muse-squircle-stage {
         transform: none !important;
       }
     }
@@ -3678,7 +3719,7 @@ CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapP
       loadEngine();
     })();
 
-    // ===== 6. Active Scroll Animations, 3D Video Perspective, Scroll-Spy & Card Spotlight =====
+    // ===== 6. Active Directional Scroll Animations, 3D Video Lift, Divider Draws, Scroll-Spy & Spotlight =====
     (function () {
       const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const progressBar = document.getElementById('scrollProgressBar');
@@ -3686,33 +3727,86 @@ CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapP
       const asciiMarks = Array.from(document.querySelectorAll('.ascii-wordmark'));
       const navLinks = Array.from(document.querySelectorAll('.nav-links .nav-link[href^="#"]'));
 
-      // 1. Tag elements for staggered scroll reveal
       if (!reducedMotion) {
-        const revealGroups = [
-          '.hero-title, .hero-lead, .hero-actions, .hero-cli-bar',
-          '.stage-section-header, .stage-editor-shell',
-          '.bento-section .section-header, .bento-section .bento-card',
-          '.muse-row-section .section-header, .muse-row-section .muse-item, .muse-row-section .muse-card',
-          '.editorial-section .section-header, .editorial-section .editorial-block, .editorial-section .pipeline-stage, .editorial-section .arch-step',
-          '.tables-section .section-header, .tables-section .metric-cell, .tables-section .table-card',
-          '.install-section .section-header, .install-section .install-card',
-          '.ascii-wordmark, .site-footer .footer-grid'
-        ];
+        const observed = new Set();
+        function registerReveal(el, variantClass, delayMs) {
+          if (!el || observed.has(el)) return;
+          observed.add(el);
+          el.classList.add('reveal-item');
+          if (variantClass) {
+            variantClass.split(' ').filter(Boolean).forEach((c) => el.classList.add(c));
+          }
+          el.style.setProperty('--reveal-delay', (delayMs || 0) + 'ms');
+        }
 
-        const seen = new Set();
-        revealGroups.forEach((selector) => {
-          const els = Array.from(document.querySelectorAll(selector));
-          els.forEach((el, idx) => {
-            if (seen.has(el)) return;
-            seen.add(el);
-            el.classList.add('reveal-item');
-            if (el.matches('.hero-title, .section-h2, .section-header, .ascii-wordmark')) {
-              el.classList.add('reveal-soft-blur');
-            }
-            const delay = Math.min(idx % 6, 5) * 75;
-            el.style.setProperty('--reveal-delay', delay + 'ms');
+        // Hero entrance stagger
+        document.querySelectorAll('.hero-title, .hero-lead, .hero-actions, .hero-cli-bar').forEach((el, i) => {
+          registerReveal(el, i === 0 ? 'reveal-soft-blur' : '', i * 80);
+        });
+
+        // Section headers & playground shell
+        document.querySelectorAll('.stage-section-header, .section-header, .editorial-header').forEach((el) => {
+          registerReveal(el, 'reveal-soft-blur', 0);
+        });
+        document.querySelectorAll('.stage-editor-shell').forEach((el) => {
+          registerReveal(el, 'reveal-pop', 80);
+        });
+
+        // Hairline dividers draw outward from center
+        document.querySelectorAll('.hairline-divider').forEach((el) => {
+          registerReveal(el, 'reveal-line', 0);
+        });
+
+        // Bento grid: directional fly-ins (Row 1: L, R | Row 2: L, Pop, R)
+        const bentoVariants = [
+          'reveal-from-left',
+          'reveal-from-right',
+          'reveal-from-left',
+          'reveal-pop',
+          'reveal-from-right'
+        ];
+        document.querySelectorAll('.bento-section .bento-card').forEach((el, i) => {
+          registerReveal(el, bentoVariants[i] || (i % 2 === 0 ? 'reveal-from-left' : 'reveal-from-right'), (i % 3) * 85);
+        });
+
+        // Pipeline split row: copy from LEFT, visual squircle from RIGHT with 3D tilt
+        registerReveal(document.querySelector('.muse-copy-col'), 'reveal-from-left', 0);
+        registerReveal(document.querySelector('.muse-squircle-stage'), 'reveal-tilt-right', 110);
+
+        // 4 Metric boxes pop in sequentially
+        document.querySelectorAll('.metric-strip .metric-box').forEach((el, i) => {
+          registerReveal(el, 'reveal-pop', i * 90);
+        });
+
+        // Editorial architecture blocks alternate cleanly LEFT and RIGHT
+        const editorialKids = Array.from(document.querySelectorAll('.editorial-column > *:not(.editorial-header)'));
+        editorialKids.forEach((el, i) => {
+          registerReveal(el, i % 2 === 0 ? 'reveal-from-left' : 'reveal-from-right', (i % 3) * 65);
+        });
+
+        // 2-column benchmark/shortcut tables fly in from LEFT and RIGHT
+        document.querySelectorAll('.table-grid-2col').forEach((grid) => {
+          Array.from(grid.children).forEach((child, i) => {
+            registerReveal(child, i % 2 === 0 ? 'reveal-from-left' : 'reveal-from-right', i * 110);
           });
         });
+
+        // Single benchmark table cards pop up
+        document.querySelectorAll('.tables-section .table-card, .tables-section .data-table-wrap').forEach((el, i) => {
+          registerReveal(el, i % 2 === 0 ? 'reveal-from-left' : 'reveal-from-right', 60);
+        });
+
+        // Install cards: Left -> Pop -> Right
+        const installVariants = ['reveal-from-left', 'reveal-pop', 'reveal-from-right'];
+        document.querySelectorAll('.install-cards-grid .install-card').forEach((el, i) => {
+          registerReveal(el, installVariants[i] || 'reveal-pop', i * 95);
+        });
+
+        // ASCII wordmarks & footer
+        document.querySelectorAll('.ascii-wordmark').forEach((el) => {
+          registerReveal(el, 'reveal-soft-blur', 0);
+        });
+        registerReveal(document.querySelector('.site-footer .footer-grid'), '', 60);
 
         const io = new IntersectionObserver((entries) => {
           entries.forEach((entry) => {
@@ -3721,21 +3815,20 @@ CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapP
               io.unobserve(entry.target);
             }
           });
-        }, { threshold: 0.10, rootMargin: '0px 0px -48px 0px' });
+        }, { threshold: 0.08, rootMargin: '0px 0px -42px 0px' });
 
-        seen.forEach((el) => io.observe(el));
+        observed.forEach((el) => io.observe(el));
 
-        // Immediately reveal hero items in viewport on initial load
+        // Immediately reveal hero items on load
         requestAnimationFrame(() => {
-          document.querySelectorAll('.hero-section .reveal-item').forEach((el, i) => {
-            el.style.setProperty('--reveal-delay', (i * 85) + 'ms');
+          document.querySelectorAll('.hero-section .reveal-item').forEach((el) => {
             el.classList.add('is-visible');
           });
         });
       }
 
-      // 2. Cursor-tracking spotlight on cards
-      document.querySelectorAll('.bento-card, .install-card, .metric-cell').forEach((card) => {
+      // Cursor-tracking spotlight on cards & metric boxes
+      document.querySelectorAll('.bento-card, .install-card, .metric-box').forEach((card) => {
         card.addEventListener('pointermove', (e) => {
           const rect = card.getBoundingClientRect();
           card.style.setProperty('--mx', (e.clientX - rect.left) + 'px');
@@ -3743,7 +3836,7 @@ CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapP
         });
       });
 
-      // 3. Scroll-spy targets
+      // Scroll-spy targets
       const spyTargets = navLinks
         .map((link) => {
           const id = link.getAttribute('href').slice(1);
@@ -3752,7 +3845,7 @@ CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapP
         })
         .filter(Boolean);
 
-      // 4. GPU-accelerated requestAnimationFrame scroll loop
+      // GPU-accelerated requestAnimationFrame scroll loop
       let ticking = false;
       function updateScrollMotion() {
         ticking = false;
@@ -3768,22 +3861,22 @@ CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapP
         if (!reducedMotion && videoFrame) {
           const r = videoFrame.getBoundingClientRect();
           const vh = window.innerHeight || 900;
-          // Progress 0 when entering bottom of viewport -> 1 when centered
           const p = Math.max(0, Math.min(1, (vh - r.top) / (vh * 0.72)));
           const rotX = (1 - p) * 5.0;
           const sc = 0.968 + p * 0.032;
           videoFrame.style.transform = 'rotateX(' + rotX.toFixed(2) + 'deg) scale(' + sc.toFixed(4) + ')';
         }
 
-        // Subtle horizontal parallax drift on ASCII wordmarks
+        // Subtle opposite horizontal + vertical parallax on ASCII wordmarks
         if (!reducedMotion && asciiMarks.length) {
           const vh = window.innerHeight || 900;
-          asciiMarks.forEach((mark) => {
+          asciiMarks.forEach((mark, idx) => {
             const r = mark.getBoundingClientRect();
-            if (r.bottom < -100 || r.top > vh + 100) return;
+            if (r.bottom < -120 || r.top > vh + 120) return;
             const centerNorm = ((r.top + r.height * 0.5) / vh) - 0.5;
             const shiftY = centerNorm * -18;
-            mark.style.transform = 'translateY(' + shiftY.toFixed(1) + 'px)';
+            const shiftX = centerNorm * (idx % 2 === 0 ? 16 : -16);
+            mark.style.transform = 'translate3d(' + shiftX.toFixed(1) + 'px, ' + shiftY.toFixed(1) + 'px, 0)';
           });
         }
 
