@@ -44,6 +44,9 @@ jobs:
             
             Lightweight, instantaneous on-device autocorrect engine with macOS System Settings styling.
 
+            #### What's New in v1.10:
+            - **Unified Brand App Icon**: Updated `AppIcon.icns`, all PNG iconsets, favicons, and website SVG marks to match the refined dark squircle + baseline green dot icon from the macOS product demo video (while keeping the adaptive menu bar icon unchanged).
+
             #### What's New in v1.9:
             - **Draggable Onboarding & Ghost Text Beta Opt-In**: The frameless onboarding walkthrough can now be dragged smoothly anywhere on screen and includes an interactive opt-in toggle for Ghost Text Predictions (off by default, with an in-development notice).
             - **Full-Document Context-Aware AI**: Expanded `SmolLM2-135M` context to 512 tokens (up to 1,500 chars from the active editor via Accessibility + rolling typed history) so Ghost Text actively predicts based on everything you wrote.
