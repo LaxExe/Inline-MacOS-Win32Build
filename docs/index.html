@@ -1377,7 +1377,7 @@
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
           </svg>
         </button>
-        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.7/Inline-v1.7-macOS.dmg" class="nav-cta-pill">
+        <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.9/Inline-v1.9-macOS.dmg" class="nav-cta-pill">
           <span>Download</span>
         </a>
       </div>
@@ -1398,9 +1398,9 @@
         </p>
 
         <div class="hero-cta-row">
-          <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.7/Inline-v1.7-macOS.dmg" class="btn-hero-primary" id="downloadMacBtn">
+          <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.9/Inline-v1.9-macOS.dmg" class="btn-hero-primary" id="downloadMacBtn">
             <svg viewBox="0 0 384 512" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
-            <span>Download for Mac (v1.7)</span>
+            <span>Download for Mac (v1.9)</span>
           </a>
           <a href="#demo" class="btn-hero-secondary">
             <span>Try live playground</span>
@@ -1450,9 +1450,8 @@
             <span>assets/demo.mp4</span>
           </div>
 
-          <div class="video-stage-inner" id="videoStageInner">
-            <!-- Drop your recorded video at docs/assets/demo.mp4 and it will automatically play here -->
-            <video id="demoVideoPlayer" src="assets/demo.mp4" controls playsinline preload="metadata"></video>
+          <div class="video-stage-inner has-video" id="videoStageInner">
+            <video id="demoVideoPlayer" src="assets/demo.mp4" autoplay muted loop controls playsinline preload="auto"></video>
 
             <div class="video-placeholder-ui">
               <div class="video-play-circle" aria-hidden="true">
@@ -2129,8 +2128,8 @@ CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapP
             </p>
           </div>
           <div>
-            <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.7/Inline-v1.7-macOS.dmg" class="btn-hero-primary" style="width: 100%; justify-content: center; height: 42px; font-size: 13.5px;">
-              <span>Download Inline-v1.7-macOS.dmg</span>
+            <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases/download/v1.9/Inline-v1.9-macOS.dmg" class="btn-hero-primary" style="width: 100%; justify-content: center; height: 42px; font-size: 13.5px;">
+              <span>Download Inline-v1.9-macOS.dmg</span>
             </a>
           </div>
         </div>
@@ -2230,7 +2229,7 @@ CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapP
           <div class="footer-col-title">Resources</div>
           <div class="footer-link-list">
             <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build" target="_blank" rel="noopener">GitHub Repository</a>
-            <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases" target="_blank" rel="noopener">macOS Releases (v1.7)</a>
+            <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/releases" target="_blank" rel="noopener">macOS Releases (v1.9)</a>
             <a href="https://github.com/LaxExe/Inline-MacOS-Win32Build/tree/windows-branch" target="_blank" rel="noopener">Windows Branch (Beta)</a>
             <a href="#shortcuts">Keyboard Shortcuts</a>
           </div>
@@ -2726,11 +2725,18 @@ CGEventRef <span class="fn">MacKeyboardHook::eventTapCallback</span>(CGEventTapP
         return out;
       }
 
+      function isProtectedNumericToken(lowerTyped) {
+        if (!lowerTyped || !/^\d/.test(lowerTyped)) return false;
+        if (/^\d+$/.test(lowerTyped)) return true;
+        return /^\d+(st|nd|rd|th|am|pm|h|hr|hrs|m|min|mins|s|sec|secs|ms|us|ns|px|pt|em|rem|vh|vw|b|kb|mb|gb|tb|hz|khz|mhz|ghz|x|d|k|mm|cm|km|in|ft|yd|mi|mg|g|kg|oz|lb|lbs|ml|l|mph|kph|fps)$/.test(lowerTyped);
+      }
+
       function evaluateWord(typed, isSentenceStart = false, prevWord = '', maxEditDistance = 2, sentenceCorrectionEnabled = true) {
         const result = { didCorrect: false, corrected: typed, editDistance: 0 };
         if (!typed || typed.length > 24) return result;
 
         const lowerTyped = typed.toLowerCase();
+        if (isProtectedNumericToken(lowerTyped)) return result;
         if (suppressed.has(lowerTyped)) return result;
 
         const cleanPrev = (prevWord || '').replace(/[^a-zA-Z0-9']/g, '').toLowerCase();
